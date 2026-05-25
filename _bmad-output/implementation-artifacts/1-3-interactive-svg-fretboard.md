@@ -1,6 +1,6 @@
 # Story 1.3: Interactive SVG Fretboard
 
-Status: review
+Status: done
 
 ## Story
 
@@ -294,6 +294,24 @@ None — all tasks completed without errors.
 - `frontend/src/components/FretDot.test.tsx` — NEW: 9 tests for FretDot component
 - `frontend/src/components/FretboardCanvas.test.tsx` — NEW: 12 tests for FretboardCanvas
 - `frontend/src/App.jsx` — MODIFIED: replaced Fretboard.jsx with FretboardCanvas, added id="fretboard" wrapper
+
+### Review Findings
+
+- [x] [Review][Patch] STRING_COUNT dual definition — FretboardCanvas computes `STRING_Y.length` locally while fretboardUtils exports `STRING_COUNT = 6`; import the exported constant instead [FretboardCanvas.tsx:21]
+- [x] [Review][Patch] Double inlay marker y-positions — circles placed at `STRING_Y[1]` and `STRING_Y[4]` (on string lines) instead of between-string midpoints; inconsistent with single-marker approach using `midY` [FretboardCanvas.tsx:119]
+- [x] [Review][Defer] GLOW_FILTER_ID duplicate across instances — multiple FretboardCanvas in same document would share filter id; SVG `url(#...)` resolves first match [FretDot.tsx:3] — deferred, single fretboard per page in v1
+- [x] [Review][Defer] Duplicate TUNINGS fallback — `TUNINGS['Standard E']` fallback applied independently in both `calculateFretboardDots` and `FretboardCanvas`; can diverge if tunings data changes [fretboardUtils.ts:60, FretboardCanvas.tsx:36] — deferred, pre-existing
+- [x] [Review][Defer] Freeform ring intercepts pointer events in annular region — no interactivity in Story 1.3; Story 1.8 (freeform marking) must address [FretDot.tsx:49] — deferred, no click handlers yet
+- [x] [Review][Defer] getDotCy exported with no bounds check — out-of-range stringIdx returns undefined silently; only called internally with validated indices now [fretboardUtils.ts:47] — deferred, pre-existing
+- [x] [Review][Defer] noteIndex returns -1 for unrecognized note names — pre-existing in musicTheory.js; corrupts note lookups silently without crash [musicTheory.js] — deferred, pre-existing in musicTheory.js (DO NOT MODIFY)
+- [x] [Review][Defer] Flat root notes missing from ENHARMONIC_MAP — double-flats and non-standard enharmonics not normalized; root highlights disappear silently [musicTheory.js] — deferred, pre-existing in musicTheory.js; Story 1.4 state should normalize rootNote input
+- [x] [Review][Defer] Tuning arrays with wrong string count not guarded — `STRING_COUNT` constant loop would mismatch array length for custom tunings [fretboardUtils.ts:46] — deferred, custom tunings not until Story 4.1
+- [x] [Review][Defer] capoPosition >= 25 silently blanks board — no UI clamp or guard; returns empty dots array with no feedback [fretboardUtils.ts:49] — deferred, no capo UI until Story 1.7
+- [x] [Review][Defer] Negative capoPosition not clamped — coincidentally correct behavior (all frets pass guard) but unguarded assumption [fretboardUtils.ts:49] — deferred, no capo UI until Story 1.7
+- [x] [Review][Defer] scaleNotes sharp-only invariant — correctness of `scaleNotes.has(note)` depends on musicTheory.js always returning sharps; undocumented dependency [fretboardUtils.ts:53] — deferred, pre-existing musicTheory.js architecture
+- [x] [Review][Defer] FRET_MARKERS imported from two paths — FretboardCanvas imports directly from musicTheory.js; fretboardUtils re-exports same data; should consolidate [FretboardCanvas.tsx:3] — deferred, pre-existing, no behavioral difference
+- [x] [Review][Defer] midY hardcoded to 6-string middle pair — `(STRING_Y[2] + STRING_Y[3]) / 2`; fine for v1 6-string only; breaks for 7-string [FretboardCanvas.tsx:48] — deferred, 6-string only in v1 per product decision
+- [x] [Review][Defer] Celtic and DADGAD tunings identical — both map to `['D','A','D','G','A','D']`; data bug in tunings.js [tunings.js] — deferred, pre-existing data issue outside Story 1.3 scope
 
 ### Change Log
 

@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-05-24
-last_updated: 2026-05-25
+last_updated: 2026-05-25 (19:05)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -46,7 +46,7 @@ development_status:
   epic-1: in-progress
   1-1-monorepo-setup-and-dev-environment: done
   1-2-appshell-and-design-token-system: done
-  1-3-interactive-svg-fretboard: review
+  1-3-interactive-svg-fretboard: done
   1-4-core-state-and-url-sharing: backlog
   1-5-controlbar-and-tuning-selection: backlog
   1-6-scale-and-mode-explorer: backlog
