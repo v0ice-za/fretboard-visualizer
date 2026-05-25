@@ -1,0 +1,398 @@
+/* ── Layout ────────────────────────────────────────────────── */
+.fretboard-wrapper {
+  width: 100%;
+  overflow: hidden;
+}
+
+.fretboard-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 12px;
+  scrollbar-color: #3a3a4a #0d0d14;
+  scrollbar-width: thin;
+}
+
+.fretboard-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.fretboard-scroll::-webkit-scrollbar-track {
+  background: #0d0d14;
+}
+.fretboard-scroll::-webkit-scrollbar-thumb {
+  background: #3a3a4a;
+  border-radius: 3px;
+}
+
+/* ── Fretboard body ────────────────────────────────────────── */
+.fretboard {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  width: 100%;
+  position: relative;
+
+  /* Rosewood wood grain: fine grain lines + coarser bands + base */
+  background:
+    repeating-linear-gradient(
+      91.2deg,
+      transparent 0,
+      rgba(160, 55, 8, 0.028) 1px,
+      transparent 2px,
+      transparent 11px
+    ),
+    repeating-linear-gradient(
+      89.1deg,
+      transparent 0,
+      rgba(0, 0, 0, 0.055) 1.5px,
+      transparent 3px,
+      transparent 26px
+    ),
+    repeating-linear-gradient(
+      90.6deg,
+      rgba(0, 0, 0, 0.015) 0,
+      transparent 18px,
+      rgba(80, 20, 0, 0.02) 36px
+    ),
+    linear-gradient(180deg, #231006 0%, #1b0d05 50%, #130904 100%);
+
+  border-radius: 6px;
+  padding: 10px 28px 0 0;
+
+  /* Top and bottom binding (maple-like edge) */
+  border-top: 2px solid rgba(190, 155, 85, 0.3);
+  border-bottom: 2px solid rgba(190, 155, 85, 0.3);
+
+  box-shadow:
+    0 0 0 1px rgba(40, 18, 4, 0.8),
+    0 2px 0 1px rgba(255, 200, 100, 0.04),
+    0 10px 40px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 200, 120, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* ── Nut ───────────────────────────────────────────────────── */
+.nut {
+  position: absolute;
+  left: 72px;
+  top: 10px;
+  width: 11px;
+  /* height covers the string rows only, not the fret-numbers section */
+  height: calc(6 * 48px);
+  background: linear-gradient(
+    90deg,
+    #d0c8a8 0%,
+    #e8dfc0 25%,
+    #f0e8cc 50%,
+    #e8dfc0 75%,
+    #c8c0a0 100%
+  );
+  border-radius: 3px;
+  box-shadow:
+    3px 0 10px rgba(0, 0, 0, 0.6),
+    -1px 0 3px rgba(255, 255, 220, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  z-index: 3;
+}
+
+/* ── String labels ─────────────────────────────────────────── */
+.string-labels {
+  display: flex;
+  flex-direction: column;
+  width: 72px;
+  flex-shrink: 0;
+  padding-left: 8px;
+}
+
+.string-label {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9a8860;
+  letter-spacing: 0.05em;
+}
+
+/* ── Neck wrapper (frets-grid + fret-numbers stacked) ──────── */
+.fretboard-neck {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Frets grid ────────────────────────────────────────────── */
+.frets-grid {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.fret-column {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 0;
+  position: relative;
+  /* Explicit height so inlay percentage positioning works */
+  height: calc(6 * 48px);
+}
+
+/* fret widths taper toward the body (perspective feel) */
+.fret-open { flex: 20 1 0; min-width: 16px; }
+.frets-grid .fret-column:nth-child(2)  { flex: 68 1 0; min-width: 30px; }
+.frets-grid .fret-column:nth-child(3)  { flex: 64 1 0; min-width: 28px; }
+.frets-grid .fret-column:nth-child(4)  { flex: 61 1 0; min-width: 27px; }
+.frets-grid .fret-column:nth-child(5)  { flex: 58 1 0; min-width: 26px; }
+.frets-grid .fret-column:nth-child(6)  { flex: 55 1 0; min-width: 25px; }
+.frets-grid .fret-column:nth-child(7)  { flex: 53 1 0; min-width: 24px; }
+.frets-grid .fret-column:nth-child(8)  { flex: 51 1 0; min-width: 23px; }
+.frets-grid .fret-column:nth-child(9)  { flex: 49 1 0; min-width: 22px; }
+.frets-grid .fret-column:nth-child(10) { flex: 47 1 0; min-width: 21px; }
+.frets-grid .fret-column:nth-child(11) { flex: 45 1 0; min-width: 20px; }
+.frets-grid .fret-column:nth-child(12) { flex: 43 1 0; min-width: 20px; }
+.frets-grid .fret-column:nth-child(13) { flex: 42 1 0; min-width: 20px; }
+.frets-grid .fret-column:nth-child(n+14) { flex: 40 1 0; min-width: 20px; }
+
+.fret-cell {
+  position: relative;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* ── Strings ───────────────────────────────────────────────── */
+/*
+ * Vertical gradient simulates the rounded cross-section of a guitar string.
+ * Plain strings (1-3): bright steel.
+ * Wound strings (4-6): warmer nickel-wound tone, thicker.
+ */
+.string-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 1px;
+}
+
+/* High e — plain, 1.5 px */
+.fret-cell:nth-child(1) .string-line {
+  height: 1.5px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 252, 238, 0.85) 0%,
+    rgba(210, 208, 195, 0.9)  60%,
+    rgba(150, 148, 138, 0.6)  100%
+  );
+}
+/* B — plain, 2 px */
+.fret-cell:nth-child(2) .string-line {
+  height: 2px;
+  background: linear-gradient(
+    180deg,
+    rgba(248, 244, 228, 0.8) 0%,
+    rgba(205, 200, 183, 0.9) 55%,
+    rgba(140, 136, 122, 0.6) 100%
+  );
+}
+/* G — plain/light wound, 2.5 px */
+.fret-cell:nth-child(3) .string-line {
+  height: 2.5px;
+  background: linear-gradient(
+    180deg,
+    rgba(235, 228, 208, 0.75) 0%,
+    rgba(195, 188, 165, 0.88) 50%,
+    rgba(130, 124, 105, 0.6)  100%
+  );
+}
+/* D — wound, 3 px */
+.fret-cell:nth-child(4) .string-line {
+  height: 3px;
+  background: linear-gradient(
+    180deg,
+    rgba(225, 215, 175, 0.65) 0%,
+    rgba(180, 170, 130, 0.85) 45%,
+    rgba(115, 108, 78,  0.65) 100%
+  );
+}
+/* A — wound, 3.5 px */
+.fret-cell:nth-child(5) .string-line {
+  height: 3.5px;
+  background: linear-gradient(
+    180deg,
+    rgba(210, 198, 155, 0.6)  0%,
+    rgba(168, 158, 116, 0.85) 42%,
+    rgba(105, 98,  68,  0.65) 100%
+  );
+}
+/* Low E — wound, 5 px */
+.fret-cell:nth-child(6) .string-line {
+  height: 5px;
+  background: linear-gradient(
+    180deg,
+    rgba(195, 182, 138, 0.55) 0%,
+    rgba(155, 145, 102, 0.85) 38%,
+    rgba(95,  88,  58,  0.65) 100%
+  );
+}
+
+/* ── Fret bars ─────────────────────────────────────────────── */
+.fret-bar {
+  position: absolute;
+  left: 0;
+  top: -1px;
+  bottom: -1px;
+  width: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(110, 110, 128, 0.85) 0%,
+    rgba(200, 200, 218, 0.95) 28%,
+    rgba(230, 230, 248, 1)    50%,
+    rgba(200, 200, 218, 0.95) 72%,
+    rgba(110, 110, 128, 0.85) 100%
+  );
+  border-radius: 0;
+  box-shadow:
+    0 0 5px rgba(200, 200, 225, 0.18),
+    1px 0 3px rgba(0, 0, 0, 0.55);
+  z-index: 2;
+}
+
+/* ── Position inlays (inside fretboard body) ───────────────── */
+/*
+ * Dots are positioned between strings, mimicking pearl/abalone inlays.
+ * With 6 strings × 48 px = 288 px total height:
+ *   single: center = 144 px (between strings 3 & 4)
+ *   double-1: 96 px (between strings 2 & 3)
+ *   double-2: 192 px (between strings 4 & 5)
+ */
+.fret-inlay {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 38% 34%,
+    #ede5d0 0%,
+    #cdc3ae 45%,
+    #aaa095 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    inset 0 1px 2px rgba(255, 255, 255, 0.28),
+    0 1.5px 4px rgba(0, 0, 0, 0.7);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.fret-inlay--single {
+  top: 138px; /* 144px center − 6px (half dot height) */
+}
+
+.fret-inlay--double-1 {
+  top: 90px;  /* 96px center − 6px */
+}
+
+.fret-inlay--double-2 {
+  top: 186px; /* 192px center − 6px */
+}
+
+/* ── Note dots ─────────────────────────────────────────────── */
+.note-dot {
+  position: relative;
+  z-index: 4;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.note-dot:hover {
+  transform: scale(1.15);
+}
+
+.note-dot--scale {
+  background: radial-gradient(circle at 35% 35%, #818cf8, #4f46e5);
+  box-shadow:
+    0 0 0 2px rgba(99, 102, 241, 0.4),
+    0 0 12px rgba(99, 102, 241, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.note-dot--root {
+  background: radial-gradient(circle at 35% 35%, #fbbf24, #d97706);
+  box-shadow:
+    0 0 0 2px rgba(251, 191, 36, 0.5),
+    0 0 16px rgba(251, 191, 36, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.note-dot-label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Fret numbers row ──────────────────────────────────────── */
+.fret-numbers {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 32px;
+  align-items: flex-start;
+  padding-top: 6px;
+}
+
+.fret-number-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  flex-basis: 0;
+}
+
+/* match column widths */
+.fret-numbers .fret-number-cell:nth-child(1)     { flex: 20 1 0; min-width: 16px; }
+.fret-numbers .fret-number-cell:nth-child(2)     { flex: 68 1 0; min-width: 30px; }
+.fret-numbers .fret-number-cell:nth-child(3)     { flex: 64 1 0; min-width: 28px; }
+.fret-numbers .fret-number-cell:nth-child(4)     { flex: 61 1 0; min-width: 27px; }
+.fret-numbers .fret-number-cell:nth-child(5)     { flex: 58 1 0; min-width: 26px; }
+.fret-numbers .fret-number-cell:nth-child(6)     { flex: 55 1 0; min-width: 25px; }
+.fret-numbers .fret-number-cell:nth-child(7)     { flex: 53 1 0; min-width: 24px; }
+.fret-numbers .fret-number-cell:nth-child(8)     { flex: 51 1 0; min-width: 23px; }
+.fret-numbers .fret-number-cell:nth-child(9)     { flex: 49 1 0; min-width: 22px; }
+.fret-numbers .fret-number-cell:nth-child(10)    { flex: 47 1 0; min-width: 21px; }
+.fret-numbers .fret-number-cell:nth-child(11)    { flex: 45 1 0; min-width: 20px; }
+.fret-numbers .fret-number-cell:nth-child(12)    { flex: 43 1 0; min-width: 20px; }
+.fret-numbers .fret-number-cell:nth-child(13)    { flex: 42 1 0; min-width: 20px; }
+.fret-numbers .fret-number-cell:nth-child(n+14)  { flex: 40 1 0; min-width: 20px; }
+
+.fret-number {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: #3a3a52;
+  line-height: 1;
+}
+
+.fret-number--marked {
+  color: #6a6a88;
+}
