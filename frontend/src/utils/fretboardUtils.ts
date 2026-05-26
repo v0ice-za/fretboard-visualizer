@@ -1,12 +1,25 @@
 import { TUNINGS } from '@/data/tunings.js';
 import { getNoteAtFret, getScaleNotes, isRoot, FRET_MARKERS, DOUBLE_MARKERS } from '@/utils/musicTheory.js';
 
+// 7 modes — index matches chip position in ModeChipsRow
+// scaleName must exactly match a key in SCALES (scales.js)
+export const MODES = [
+  { name: 'Ionian',     scaleName: 'Major (Ionian)',          description: 'Major — bright and resolved' },
+  { name: 'Dorian',     scaleName: 'Dorian',                  description: 'Minor with a bright ♮6' },
+  { name: 'Phrygian',   scaleName: 'Phrygian',                description: 'Minor with a ♭2 — Spanish flavour' },
+  { name: 'Lydian',     scaleName: 'Lydian',                  description: 'Major with a ♯4 — dreamy' },
+  { name: 'Mixolydian', scaleName: 'Mixolydian',              description: 'Major with a ♭7 — bluesy dominant' },
+  { name: 'Aeolian',    scaleName: 'Natural Minor (Aeolian)', description: 'Natural minor — dark and resolved' },
+  { name: 'Locrian',    scaleName: 'Locrian',                 description: 'Diminished — unstable ♭5' },
+] as const;
+
 export type DotState = 'root' | 'scale' | 'mode' | 'freeform';
 
 export interface FretDotData {
   fret: number;    // 0 (open string) to 24
   string: number;  // 0 (low E / thickest) to 5 (high e / thinnest)
   state: DotState;
+  note: string;    // e.g. "A", "C#"
   cx: number;      // SVG x center coordinate
   cy: number;      // SVG y center coordinate
 }
@@ -45,23 +58,45 @@ export function getDotCx(fret: number): number {
   return (getFretLineX(fret - 1) + getFretLineX(fret)) / 2;
 }
 
-// Y center for a string index
+// Y center for a string index — string 0 (low E / thick) is at the bottom
 export function getDotCy(stringIdx: number): number {
-  return STRING_Y[stringIdx];
+  return STRING_Y[STRING_COUNT - 1 - stringIdx];
 }
 
-export function generateAriaLabel(tuning: string, rootNote: string, scaleName: string): string {
-  return `${rootNote} ${scaleName} scale on ${tuning} tuning`;
+export function generateAriaLabel(
+  tuning: string,
+  rootNote: string,
+  scaleName: string,
+  modeIndex?: number | null,
+  capoPosition?: number
+): string {
+  const base = `${rootNote} ${scaleName} scale on ${tuning} tuning`;
+  let label = base;
+  if (modeIndex != null && modeIndex >= 0 && modeIndex < MODES.length) {
+    label = `${label}, ${MODES[modeIndex].name} mode overlay active`;
+  }
+  if (capoPosition && capoPosition > 0) {
+    label = `${label}, capo at fret ${capoPosition}`;
+  }
+  return label;
 }
 
 export function calculateFretboardDots(
   tuningName: string,
   rootNote: string,
   scaleName: string,
-  capoPosition = 0
+  capoPosition = 0,
+  modeIndex: number | null = null
 ): FretDotData[] {
   const strings = (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E'];
   const scaleNotes = getScaleNotes(rootNote, scaleName);
+
+  let modeOnlyNotes: Set<string> | null = null;
+  if (modeIndex !== null && modeIndex >= 0 && modeIndex < MODES.length) {
+    const allModeNotes = getScaleNotes(rootNote, MODES[modeIndex].scaleName) as Set<string>;
+    modeOnlyNotes = new Set([...allModeNotes].filter(n => !scaleNotes.has(n)));
+  }
+
   const dots: FretDotData[] = [];
 
   for (let stringIdx = 0; stringIdx < STRING_COUNT; stringIdx++) {
@@ -74,10 +109,12 @@ export function calculateFretboardDots(
         state = 'root';
       } else if (scaleNotes.has(note)) {
         state = 'scale';
+      } else if (modeOnlyNotes && modeOnlyNotes.has(note)) {
+        state = 'mode';
       }
-      // 'mode' (Story 1.6) and 'freeform' (Story 1.8) deferred
+      // 'freeform' (Story 1.8) deferred
       if (state) {
-        dots.push({ fret, string: stringIdx, state, cx: getDotCx(fret), cy: getDotCy(stringIdx) });
+        dots.push({ fret, string: stringIdx, state, note, cx: getDotCx(fret), cy: getDotCy(stringIdx) });
       }
     }
   }

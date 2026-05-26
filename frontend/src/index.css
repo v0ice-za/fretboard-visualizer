@@ -188,7 +188,7 @@
     "bottom-bar";
   grid-template-rows:
     var(--top-bar-height)
-    0px
+    auto
     1fr
     auto
     auto;

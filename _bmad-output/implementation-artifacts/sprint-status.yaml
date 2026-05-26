@@ -1,45 +1,15 @@
-# generated: 2026-05-24
-# last_updated: 2026-05-24
-# project: personal_projects
-# project_key: NOKEY
-# tracking_system: file-system
-# story_location: _bmad-output/implementation-artifacts
-#
-# STATUS DEFINITIONS:
-# ==================
-# Epic Status:
-#   - backlog: Epic not yet started
-#   - in-progress: Epic actively being worked on
-#   - done: All stories in epic completed
-#
-# Epic Status Transitions:
-#   - backlog → in-progress: Automatically when first story is created (via create-story)
-#   - in-progress → done: Manually when all stories reach 'done' status
-#
-# Story Status:
-#   - backlog: Story only exists in epic file
-#   - ready-for-dev: Story file created in stories folder
-#   - in-progress: Developer actively working on implementation
-#   - review: Ready for code review (via Dev's code-review workflow)
-#   - done: Story completed
-#
-# Retrospective Status:
-#   - optional: Can be completed but not required
-#   - done: Retrospective has been completed
-#
-# WORKFLOW NOTES:
-# ===============
-# - Epic transitions to 'in-progress' automatically when first story is created
-# - Stories can be worked in parallel if team capacity allows
-# - Developer typically creates next story after previous one is 'done' to incorporate learnings
-# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
-
 generated: 2026-05-24
-last_updated: 2026-05-25 (19:05)
+last_updated: 2026-05-26 (story 1.7 → done)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
+
+# Done stories archived to _archive/. Summaries:
+# 1.1 — Vite/React + Maven monorepo, pnpm workspaces, Vitest, ESLint/Prettier, pre-commit hooks
+# 1.2 — AppShell, Tailwind+shadcn/ui, design token system (CSS vars), NavTabs, ProGate, useLayoutStore (Zustand)
+# 1.3 — FretboardCanvas SVG component, scale/tuning/mode rendering, 30 tests
+# 1.4 — useFretboardStore (Zustand), useUrlState hook, React Router v7, URL sync (?tuning=&key=&scale=), 53 tests
 
 development_status:
   # ─── Epic 1: Core Fretboard Experience ───────────────────────────────────────
@@ -47,10 +17,10 @@ development_status:
   1-1-monorepo-setup-and-dev-environment: done
   1-2-appshell-and-design-token-system: done
   1-3-interactive-svg-fretboard: done
-  1-4-core-state-and-url-sharing: backlog
-  1-5-controlbar-and-tuning-selection: backlog
-  1-6-scale-and-mode-explorer: backlog
-  1-7-capo-support: backlog
+  1-4-core-state-and-url-sharing: done
+  1-5-controlbar-and-tuning-selection: done
+  1-6-scale-and-mode-explorer: done
+  1-7-capo-support: done
   1-8-freeform-marking-and-note-names: backlog
   1-9-frontend-ci-cd-and-vercel-deploy: backlog
   epic-1-retrospective: optional

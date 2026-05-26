@@ -33,19 +33,21 @@ describe('FretboardCanvas', () => {
   });
 
   // ── Nut labels ───────────────────────────────────────────────
-  it('renders nut labels for each string (Standard E: E A D G B E)', () => {
+  it('renders nut labels for each string (Standard E top-to-bottom: E B G D A E)', () => {
     render(<FretboardCanvas {...STANDARD_E} />);
-    const expected = ['E', 'A', 'D', 'G', 'B', 'E'];
+    // Fretboard is flipped: high e (index 5) at top, low E (index 0) at bottom
+    const expected = ['E', 'B', 'G', 'D', 'A', 'E'];
     expected.forEach((note, i) => {
       expect(screen.getByTestId(`nut-label-${i}`)).toHaveTextContent(note);
     });
   });
 
-  it('updates nut labels when tuning changes (Drop D: D A D G B E)', () => {
+  it('updates nut labels when tuning changes (Drop D top-to-bottom: E B G D A D)', () => {
     const { rerender } = render(<FretboardCanvas {...STANDARD_E} />);
     rerender(<FretboardCanvas tuning="Drop D" rootNote="A" scaleName="Pentatonic Minor" />);
-    expect(screen.getByTestId('nut-label-0')).toHaveTextContent('D');
-    expect(screen.getByTestId('nut-label-5')).toHaveTextContent('E');
+    // Drop D = ['D','A','D','G','B','E']; flipped: label-0=E (high e), label-5=D (low D)
+    expect(screen.getByTestId('nut-label-0')).toHaveTextContent('E');
+    expect(screen.getByTestId('nut-label-5')).toHaveTextContent('D');
   });
 
   // ── Fret numbers ─────────────────────────────────────────────
@@ -113,5 +115,69 @@ describe('FretboardCanvas', () => {
     // Both should render dots; counts may differ due to different tuning/scale
     expect(dotsBefore).toBeGreaterThan(0);
     expect(dotsAfter).toBeGreaterThan(0);
+  });
+
+  // ── Mode overlay ─────────────────────────────────────────────
+  it('aria-label includes mode name when modeIndex is set', () => {
+    render(<FretboardCanvas {...STANDARD_E} modeIndex={1} />);
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'aria-label',
+      'A Pentatonic Minor scale on Standard E tuning, Dorian mode overlay active'
+    );
+  });
+
+  it('renders mode dots (data-state="mode") when a mode is active', () => {
+    // Dorian on A Pentatonic Minor adds characteristic notes (B, F#)
+    const { container } = render(
+      <FretboardCanvas tuning="Standard E" rootNote="A" scaleName="Pentatonic Minor" modeIndex={1} />
+    );
+    expect(container.querySelectorAll('[data-state="mode"]').length).toBeGreaterThan(0);
+  });
+
+  it('no mode dots when modeIndex is null', () => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} modeIndex={null} />);
+    expect(container.querySelectorAll('[data-state="mode"]')).toHaveLength(0);
+  });
+
+  // ── Capo ─────────────────────────────────────────────────────
+  it('renders capo-dim rect when capoPosition > 0', () => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} capoPosition={3} />);
+    expect(container.querySelector('[data-testid="capo-dim"]')).toBeInTheDocument();
+  });
+
+  it('renders capo-indicator line when capoPosition > 0', () => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} capoPosition={3} />);
+    expect(container.querySelector('[data-testid="capo-indicator"]')).toBeInTheDocument();
+  });
+
+  it('does not render capo-dim or capo-indicator when capoPosition is 0', () => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} capoPosition={0} />);
+    expect(container.querySelector('[data-testid="capo-dim"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-testid="capo-indicator"]')).not.toBeInTheDocument();
+  });
+
+  it('no dots rendered at frets below capo when capoPosition=3', () => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} capoPosition={3} />);
+    // FretDot renders <g data-fret={fret} ...> — query those
+    const allDotGroups = container.querySelectorAll('[data-fret]');
+    allDotGroups.forEach(g => {
+      const fret = Number(g.getAttribute('data-fret'));
+      expect(fret).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  it('nut label at index 0 (high e) shifts away from "E" when capo=2 on Standard E', () => {
+    render(<FretboardCanvas {...STANDARD_E} capoPosition={2} />);
+    // Standard E high-e string = E; capo 2 → F#
+    expect(screen.getByTestId('nut-label-0')).not.toHaveTextContent('E');
+    expect(screen.getByTestId('nut-label-0')).toHaveTextContent('F#');
+  });
+
+  it('aria-label includes capo fret when capoPosition > 0', () => {
+    render(<FretboardCanvas {...STANDARD_E} capoPosition={3} />);
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'aria-label',
+      'A Pentatonic Minor scale on Standard E tuning, capo at fret 3'
+    );
   });
 });

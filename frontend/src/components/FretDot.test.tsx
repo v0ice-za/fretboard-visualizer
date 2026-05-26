@@ -12,7 +12,7 @@ function renderDot(props: FretDotProps) {
   return container;
 }
 
-const BASE = { fret: 3, string: 0, cx: 100, cy: 50 } as const;
+const BASE = { fret: 3, string: 0, note: 'A', cx: 100, cy: 50 } as const;
 
 describe('FretDot', () => {
   it('renders SVG circle with fret-dot class on all states', () => {

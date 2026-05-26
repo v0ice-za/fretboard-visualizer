@@ -1,5 +1,32 @@
 # Deferred Work
 
+## Deferred from: code review of 1-7-capo-support (2026-05-26)
+
+- URL hydration: `parseInt('12.5', 10)` = 12 — decimal capo params are silently accepted as integers; not harmful (12 is valid) but malformed input passes without rejection; use `Number.isInteger(Number(urlCapo))` if stricter validation is desired
+- Store: freeformMarks at frets below capo persist when capo is raised — marks stored at fret < capoPosition remain in state; they reappear when capo is lowered; Story 1.8 freeform rendering will surface this; consider clearing or filtering marks when capo changes
+
+## Deferred from: code review of 1-6-scale-and-mode-explorer (2026-05-26)
+
+- Mode chips active on non-diatonic base scales (e.g. Pentatonic Minor + Dorian) produce musically ambiguous overlays — no validation in spec scope; define chip visibility rules or a guard when scale categories are introduced
+- `getScaleNotes` returns empty `Set` for unknown/stale `scaleName` — all mode notes render as `mode` state with no scale context; add validation at URL hydration boundary when `useUrlState` is hardened
+- `getDotCy` no bounds check for `stringIdx` outside `[0, 5]` — relevant for Story 1.8 freeform mark rendering; already tracked from Story 1.3 review
+
+## Deferred from: code review of 1-5-controlbar-and-tuning-selection (2026-05-26)
+
+- `useUrlState.ts` implementation unreviewed — story 1.4 deliverable; file exists (untracked) but was not in this diff; review when 1.4 is committed or in story 1.6 prep
+- Library/Account stub buttons not `aria-disabled` — intentional scaffolding; stories 2.1 and 3.4 wire onClick; add `disabled` or `aria-disabled` at that point
+- JS data file type casts suppress TypeScript safety — `SCALES as Record<string, { category: string }>` and `SCALE_NAMES as string[]` bypass TypeScript because data files are `.js`; address when data files are migrated to `.ts`
+- AC4 responsive wrap at 768px not unit-tested — Tailwind `flex-wrap` is present; viewport resize testing requires Playwright (Story 1.9)
+- AC5 tab order not tested — source order matches spec; keyboard nav testing requires E2E/a11y tooling (Story 1.9)
+
+## Deferred from: code review of 1-4-core-state-and-url-sharing (2026-05-25)
+
+- `toggleFreeformMark` no bounds validation — fret/string can be any integer; guard for [0–24] / [0–5] range needed; address in Story 1.8 (freeform marking)
+- `freeformMarks` unbounded array — no maximum cap; consider a 150-mark limit when URL/localStorage persistence added in Story 1.8
+- `DEFAULT_FRETBOARD_STATE` uses `as` type casts — minor type-safety gap; use `satisfies FretboardDataState` or typed picks if interface changes significantly
+- `noteIndex` -1 for unrecognised notes in musicTheory.js — pre-existing (also tracked from Story 1.3); add validation fence in musicTheory.js
+- `useLayoutStore` library panel state naming ambiguity — `sidePanel: boolean` in LayoutConfig may not map clearly to "panel open/closed"; clarify when LibraryPanel is implemented in Story 2.1
+
 ## Deferred from: code review of 1-3-interactive-svg-fretboard (2026-05-25)
 
 - GLOW_FILTER_ID duplicate across FretboardCanvas instances — `url(#fret-dot-mode-glow)` resolves first DOM match; breaks if multiple fretboards on one page; single fretboard per page in v1, revisit if comparison view added

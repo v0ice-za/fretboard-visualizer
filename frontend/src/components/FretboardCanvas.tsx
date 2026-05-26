@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { TUNINGS } from '@/data/tunings.js';
-import { FRET_MARKERS, DOUBLE_MARKERS } from '@/utils/musicTheory.js';
+import { FRET_MARKERS, DOUBLE_MARKERS, getNoteAtFret } from '@/utils/musicTheory.js';
 import {
   calculateFretboardDots,
   generateAriaLabel,
@@ -25,6 +25,7 @@ interface FretboardCanvasProps {
   rootNote: string;
   scaleName: string;
   capoPosition?: number;
+  modeIndex?: number | null;
 }
 
 export default function FretboardCanvas({
@@ -32,17 +33,18 @@ export default function FretboardCanvas({
   rootNote,
   scaleName,
   capoPosition = 0,
+  modeIndex = null,
 }: FretboardCanvasProps) {
   const strings = (TUNINGS as Record<string, string[]>)[tuning] ?? TUNINGS['Standard E'];
 
   const ariaLabel = useMemo(
-    () => generateAriaLabel(tuning, rootNote, scaleName),
-    [tuning, rootNote, scaleName]
+    () => generateAriaLabel(tuning, rootNote, scaleName, modeIndex, capoPosition),
+    [tuning, rootNote, scaleName, modeIndex, capoPosition]
   );
 
   const dots = useMemo(
-    () => calculateFretboardDots(tuning, rootNote, scaleName, capoPosition),
-    [tuning, rootNote, scaleName, capoPosition]
+    () => calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex),
+    [tuning, rootNote, scaleName, capoPosition, modeIndex]
   );
 
   const midY = (STRING_Y[2] + STRING_Y[3]) / 2;
@@ -71,7 +73,19 @@ export default function FretboardCanvas({
           rx={2}
         />
 
-        {/* String horizontal lines (index 0 = low E at top) */}
+        {/* Capo dim overlay — covers frets 0 through capoPosition-1 */}
+        {capoPosition > 0 && (
+          <rect
+            data-testid="capo-dim"
+            x={0}
+            y={STRING_Y[0] - 14}
+            width={getFretLineX(capoPosition - 1) || NUT_X}
+            height={STRING_Y[STRING_COUNT - 1] - STRING_Y[0] + 28}
+            fill="rgba(0,0,0,0.55)"
+          />
+        )}
+
+        {/* String horizontal lines — visual top (i=0) is high e (thin), bottom (i=5) is low E (thick) */}
         {STRING_Y.map((y, i) => (
           <line
             key={i}
@@ -81,7 +95,7 @@ export default function FretboardCanvas({
             x2={FRET_AREA_RIGHT}
             y2={y}
             stroke="var(--color-string, #3a3a5c)"
-            strokeWidth={0.5 + (STRING_COUNT - 1 - i) * 0.2}
+            strokeWidth={0.5 + i * 0.2}
           />
         ))}
 
@@ -105,10 +119,24 @@ export default function FretboardCanvas({
             y1={STRING_Y[0] - 12}
             x2={getFretLineX(fret)}
             y2={STRING_Y[STRING_COUNT - 1] + 12}
-            stroke="var(--color-fret, #1a1a2e)"
-            strokeWidth={1.5}
+            stroke="var(--color-fret, #5a5a90)"
+            strokeWidth={2}
           />
         ))}
+
+        {/* Capo indicator — amber bar at the left boundary of capo fret column */}
+        {capoPosition > 0 && (
+          <line
+            data-testid="capo-indicator"
+            x1={getFretLineX(capoPosition - 1)}
+            y1={STRING_Y[0] - 12}
+            x2={getFretLineX(capoPosition - 1)}
+            y2={STRING_Y[STRING_COUNT - 1] + 12}
+            stroke="#f59e0b"
+            strokeWidth={6}
+            strokeLinecap="round"
+          />
+        )}
 
         {/* Fret position inlay markers */}
         {FRETS.map(fret => {
@@ -136,20 +164,22 @@ export default function FretboardCanvas({
           return null;
         })}
 
-        {/* Nut labels — open string note names, left of nut */}
-        {strings.map((note, i) => (
+        {/* Nut labels — visual top is high e (strings[5]), visual bottom is low E (strings[0]) */}
+        {STRING_Y.map((y, i) => (
           <text
             key={i}
             data-testid={`nut-label-${i}`}
             x={NUT_LABEL_X}
-            y={STRING_Y[i]}
+            y={y}
             textAnchor="middle"
             dominantBaseline="middle"
             fontFamily="var(--font-mono, 'JetBrains Mono Variable', monospace)"
             fontSize={11}
             fill="var(--color-text-primary, #e2e8f0)"
           >
-            {note}
+            {capoPosition > 0
+              ? getNoteAtFret(strings[STRING_COUNT - 1 - i], capoPosition)
+              : strings[STRING_COUNT - 1 - i]}
           </text>
         ))}
 
@@ -180,6 +210,7 @@ export default function FretboardCanvas({
             fret={dot.fret}
             string={dot.string}
             state={dot.state}
+            note={dot.note}
             cx={dot.cx}
             cy={dot.cy}
           />
