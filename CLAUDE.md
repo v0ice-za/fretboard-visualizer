@@ -12,9 +12,8 @@ Load these files for project context. Never load their full `.md` counterparts (
 
 ## Active Sprint
 
-Stories 1.1–1.4: done (archived). Story 1.5: in-review. Story 1.6: in-progress.
+Stories 1.1–1.9: done (Epic 1 complete, awaiting commit). Next: Epic 1 retrospective (optional) or start Epic 2 story 2.1.
 
-- Active story: `_bmad-output/implementation-artifacts/1-6-scale-and-mode-explorer.md`
 - Deferred: `_bmad-output/implementation-artifacts/deferred-work.md`
 - Sprint status: `_bmad-output/implementation-artifacts/sprint-status.yaml`
 

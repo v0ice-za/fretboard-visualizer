@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-05-26 (story 1.7 → done)
+last_updated: 2026-05-28 (story 1.9 → done, patch applied)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -21,8 +21,8 @@ development_status:
   1-5-controlbar-and-tuning-selection: done
   1-6-scale-and-mode-explorer: done
   1-7-capo-support: done
-  1-8-freeform-marking-and-note-names: backlog
-  1-9-frontend-ci-cd-and-vercel-deploy: backlog
+  1-8-freeform-marking-and-note-names: done
+  1-9-frontend-ci-cd-and-vercel-deploy: done
   epic-1-retrospective: optional
 
   # ─── Epic 2: Library & Freemium Experience ───────────────────────────────────
