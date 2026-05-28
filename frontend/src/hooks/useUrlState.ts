@@ -8,7 +8,7 @@ const ROOT_NOTE_RE = /^[A-G]#?$/;
 
 export function useUrlState() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { setTuning, setRootNote, setScaleName, setCapoPosition, tuning, rootNote, scaleName, capoPosition } =
+  const { setTuning, setRootNote, setScaleName, setCapoPosition, setNoteNamesVisible, setFreeformMarks, tuning, rootNote, scaleName, capoPosition, noteNamesVisible, freeformMarks } =
     useFretboardStore();
 
   // Hydrate store from URL on mount only
@@ -33,6 +33,23 @@ export function useUrlState() {
         setCapoPosition(parsed);
       }
     }
+
+    const urlNotes = searchParams.get('notes');
+    if (urlNotes === '1') setNoteNamesVisible(true);
+
+    const urlMarks = searchParams.get('marks');
+    if (urlMarks) {
+      const parsed = urlMarks.split(',').flatMap(pair => {
+        const parts = pair.split('-');
+        if (parts.length !== 2 || parts[0] === '' || parts[1] === '') return [];
+        const [f, s] = parts.map(Number);
+        if (Number.isInteger(f) && Number.isInteger(s) && f >= 0 && f <= 24 && s >= 0 && s <= 5) {
+          return [{ fret: f, string: s }];
+        }
+        return [];
+      });
+      if (parsed.length > 0) setFreeformMarks(parsed);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount
 
@@ -50,6 +67,10 @@ export function useUrlState() {
     if (state.capoPosition > 0) {
       params.capo = String(state.capoPosition);
     }
+    if (state.noteNamesVisible) params.notes = '1';
+    if (state.freeformMarks.length > 0) {
+      params.marks = state.freeformMarks.map(m => `${m.fret}-${m.string}`).join(',');
+    }
     setSearchParams(params, { replace: true });
-  }, [tuning, rootNote, scaleName, capoPosition, setSearchParams]);
+  }, [tuning, rootNote, scaleName, capoPosition, noteNamesVisible, freeformMarks, setSearchParams]);
 }

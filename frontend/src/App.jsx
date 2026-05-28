@@ -7,7 +7,7 @@ import { useUrlState } from '@/hooks/useUrlState';
 import './App.css';
 
 export default function App() {
-  const { tuning, rootNote, scaleName, modeIndex, capoPosition } = useFretboardStore();
+  const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark } = useFretboardStore();
   useUrlState();
 
   return (
@@ -16,7 +16,17 @@ export default function App() {
       <ModeChipsRow />
       <main className="app-main">
         <div id="fretboard" style={{ gridArea: 'fretboard' }}>
-          <FretboardCanvas tuning={tuning} rootNote={rootNote} scaleName={scaleName} modeIndex={modeIndex} capoPosition={capoPosition} />
+          <FretboardCanvas
+            tuning={tuning}
+            rootNote={rootNote}
+            scaleName={scaleName}
+            modeIndex={modeIndex}
+            capoPosition={capoPosition}
+            freeformMarks={freeformMarks}
+            freeformModeActive={freeformModeActive}
+            noteNamesVisible={noteNamesVisible}
+            onFretClick={(mark) => toggleFreeformMark(mark)}
+          />
         </div>
       </main>
       <footer className="app-footer">

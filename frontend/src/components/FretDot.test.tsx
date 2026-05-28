@@ -99,4 +99,30 @@ describe('FretDot', () => {
     const container = renderDot({ ...BASE, state: 'root' });
     expect(container.querySelector('[data-state="root"]')).toBeInTheDocument();
   });
+
+  describe('showNoteName prop', () => {
+    it('renders <text> note label when showNoteName=true', () => {
+      const container = renderDot({ ...BASE, state: 'root', showNoteName: true });
+      expect(container.querySelector('text')).toBeInTheDocument();
+    });
+
+    it('does NOT render <text> when showNoteName=false', () => {
+      const container = renderDot({ ...BASE, state: 'root', showNoteName: false });
+      expect(container.querySelector('text')).not.toBeInTheDocument();
+    });
+
+    it('does NOT render <text> when showNoteName is omitted', () => {
+      const container = renderDot({ ...BASE, state: 'root' });
+      expect(container.querySelector('text')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('freeform ring pointer-events', () => {
+    it('freeform ring circle has pointer-events="none"', () => {
+      const container = renderDot({ ...BASE, state: 'freeform' });
+      const circles = container.querySelectorAll('circle');
+      const ring = circles[1]; // second circle is the dashed ring
+      expect(ring).toHaveAttribute('pointer-events', 'none');
+    });
+  });
 });

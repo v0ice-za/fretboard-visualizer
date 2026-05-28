@@ -16,6 +16,7 @@ export interface FretDotProps {
   note: string;
   cx: number;
   cy: number;
+  showNoteName?: boolean;
 }
 
 // SVG filter definitions — include once inside the parent <svg> element
@@ -33,7 +34,7 @@ export function FretDotDefs() {
   );
 }
 
-export default function FretDot({ fret, string: stringIdx, state, note, cx, cy }: FretDotProps) {
+export default function FretDot({ fret, string: stringIdx, state, note, cx, cy, showNoteName }: FretDotProps) {
   const { radius, fill, opacity, textColor } = DOT_CONFIG[state];
 
   return (
@@ -57,21 +58,24 @@ export default function FretDot({ fret, string: stringIdx, state, note, cx, cy }
           strokeWidth={1.5}
           strokeDasharray="4 3"
           opacity={opacity}
+          pointerEvents="none"
         />
       )}
-      <text
-        x={cx}
-        y={cy}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontFamily="var(--font-mono, 'JetBrains Mono Variable', monospace)"
-        fontSize={note.length > 1 ? 7 : 8}
-        fontWeight="700"
-        fill={textColor}
-        style={{ pointerEvents: 'none', userSelect: 'none' }}
-      >
-        {note}
-      </text>
+      {showNoteName && (
+        <text
+          x={cx}
+          y={cy}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontFamily="var(--font-mono, 'JetBrains Mono Variable', monospace)"
+          fontSize={note.length > 1 ? 7 : 8}
+          fontWeight="700"
+          fill={textColor}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {note}
+        </text>
+      )}
     </g>
   );
 }

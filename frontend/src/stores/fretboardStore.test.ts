@@ -110,6 +110,50 @@ describe('toggleFreeformMark', () => {
     useFretboardStore.getState().toggleFreeformMark({ fret: 1, string: 0 });
     expect(useFretboardStore.getState().freeformMarks).toEqual([{ fret: 2, string: 3 }]);
   });
+
+  it('rejects fret -1 (below 0) — freeformMarks stays empty', () => {
+    useFretboardStore.getState().toggleFreeformMark({ fret: -1, string: 0 });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(0);
+  });
+
+  it('rejects fret 25 (above 24) — freeformMarks stays empty', () => {
+    useFretboardStore.getState().toggleFreeformMark({ fret: 25, string: 0 });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(0);
+  });
+
+  it('rejects string -1 (below 0) — freeformMarks stays empty', () => {
+    useFretboardStore.getState().toggleFreeformMark({ fret: 0, string: -1 });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(0);
+  });
+
+  it('rejects string 6 (above 5) — freeformMarks stays empty', () => {
+    useFretboardStore.getState().toggleFreeformMark({ fret: 0, string: 6 });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(0);
+  });
+
+  it('caps at 150 marks — 151st mark is rejected', () => {
+    // Seed 150 marks directly (all {fret:1,string:1}) so {fret:2,string:2} is not in the list
+    useFretboardStore.setState({
+      freeformMarks: Array.from({ length: 150 }, () => ({ fret: 1, string: 1 })),
+    });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(150);
+    // {fret:2,string:2} is valid, not in the list → cap check fires → rejected
+    useFretboardStore.getState().toggleFreeformMark({ fret: 2, string: 2 });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(150);
+  });
+
+  it('toggles off an existing mark even when at the 150-mark cap', () => {
+    // Fill all 150 valid combinations (25 frets × 6 strings = 150 exactly)
+    for (let fret = 0; fret <= 24; fret++) {
+      for (let string = 0; string <= 5; string++) {
+        useFretboardStore.getState().toggleFreeformMark({ fret, string });
+      }
+    }
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(150);
+    // Toggle off {fret:0,string:0} — exists=true so remove fires even at cap
+    useFretboardStore.getState().toggleFreeformMark({ fret: 0, string: 0 });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(149);
+  });
 });
 
 describe('setFreeformModeActive', () => {

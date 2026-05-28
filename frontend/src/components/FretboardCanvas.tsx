@@ -3,9 +3,11 @@ import { TUNINGS } from '@/data/tunings.js';
 import { FRET_MARKERS, DOUBLE_MARKERS, getNoteAtFret } from '@/utils/musicTheory.js';
 import {
   calculateFretboardDots,
+  calculateFreeformDots,
   generateAriaLabel,
   getFretLineX,
   getDotCx,
+  getDotCy,
   VIEWBOX_WIDTH,
   VIEWBOX_HEIGHT,
   FRET_COUNT,
@@ -17,6 +19,7 @@ import {
   FRET_NUMBER_Y,
 } from '@/utils/fretboardUtils';
 import FretDot, { FretDotDefs } from './FretDot';
+import type { FreeformMark } from '@/stores/fretboardStore';
 
 const FRETS = Array.from({ length: FRET_COUNT }, (_, i) => i + 1); // [1..24]
 
@@ -26,6 +29,10 @@ interface FretboardCanvasProps {
   scaleName: string;
   capoPosition?: number;
   modeIndex?: number | null;
+  freeformMarks?: FreeformMark[];
+  freeformModeActive?: boolean;
+  noteNamesVisible?: boolean;
+  onFretClick?: (mark: { fret: number; string: number }) => void;
 }
 
 export default function FretboardCanvas({
@@ -34,6 +41,10 @@ export default function FretboardCanvas({
   scaleName,
   capoPosition = 0,
   modeIndex = null,
+  freeformMarks = [],
+  freeformModeActive = false,
+  noteNamesVisible = false,
+  onFretClick,
 }: FretboardCanvasProps) {
   const strings = (TUNINGS as Record<string, string[]>)[tuning] ?? TUNINGS['Standard E'];
 
@@ -45,6 +56,11 @@ export default function FretboardCanvas({
   const dots = useMemo(
     () => calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex),
     [tuning, rootNote, scaleName, capoPosition, modeIndex]
+  );
+
+  const freeformDots = useMemo(
+    () => calculateFreeformDots(freeformMarks, tuning, capoPosition),
+    [freeformMarks, tuning, capoPosition]
   );
 
   const midY = (STRING_Y[2] + STRING_Y[3]) / 2;
@@ -213,8 +229,59 @@ export default function FretboardCanvas({
             note={dot.note}
             cx={dot.cx}
             cy={dot.cy}
+            showNoteName={noteNamesVisible}
           />
         ))}
+
+        {/* Freeform dots — rendered after scale dots so cyan appears on top */}
+        {freeformDots.map(dot => (
+          <FretDot
+            key={`free-${dot.fret}-${dot.string}`}
+            fret={dot.fret}
+            string={dot.string}
+            state={dot.state}
+            note={dot.note}
+            cx={dot.cx}
+            cy={dot.cy}
+            showNoteName={noteNamesVisible}
+          />
+        ))}
+
+        {/* Fret hit targets — enable click + keyboard freeform marking */}
+        {Array.from({ length: STRING_COUNT }, (_, stringIdx) =>
+          Array.from({ length: FRET_COUNT + 1 }, (_, fret) => {
+            const cx = getDotCx(fret);
+            const cy = getDotCy(stringIdx);
+            const w = fret === 0 ? NUT_X : (getFretLineX(fret) - getFretLineX(fret - 1));
+            const h = 30;
+            const isBelowCapo = fret > 0 && fret < capoPosition;
+            return (
+              <rect
+                key={`hit-${fret}-${stringIdx}`}
+                x={cx - w / 2}
+                y={cy - h / 2}
+                width={w}
+                height={h}
+                fill="transparent"
+                tabIndex={freeformModeActive && !isBelowCapo ? 0 : -1}
+                role={freeformModeActive && !isBelowCapo ? 'button' : undefined}
+                aria-label={freeformModeActive && !isBelowCapo ? `String ${stringIdx + 1}, fret ${fret}` : undefined}
+                style={{ cursor: freeformModeActive && !isBelowCapo ? 'pointer' : 'default' }}
+                onClick={() => {
+                  if (freeformModeActive && !isBelowCapo && onFretClick) {
+                    onFretClick({ fret, string: stringIdx });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if ((e.key === ' ' || e.key === 'Enter') && freeformModeActive && !isBelowCapo) {
+                    e.preventDefault();
+                    if (onFretClick) onFretClick({ fret, string: stringIdx });
+                  }
+                }}
+              />
+            );
+          })
+        )}
       </svg>
     </div>
   );

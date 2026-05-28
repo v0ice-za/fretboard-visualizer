@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import FretboardCanvas from './FretboardCanvas';
 
 const STANDARD_E = { tuning: 'Standard E', rootNote: 'A', scaleName: 'Pentatonic Minor' };
@@ -179,5 +179,106 @@ describe('FretboardCanvas', () => {
       'aria-label',
       'A Pentatonic Minor scale on Standard E tuning, capo at fret 3'
     );
+  });
+
+  // ── Freeform marking ─────────────────────────────────────────
+  it('renders a freeform dot when freeformMarks has a valid entry', () => {
+    const { container } = render(
+      <FretboardCanvas {...STANDARD_E} freeformMarks={[{ fret: 5, string: 2 }]} />
+    );
+    expect(container.querySelector('[data-state="freeform"]')).toBeInTheDocument();
+  });
+
+  it('does NOT render a freeform dot when the mark is below capoPosition', () => {
+    const { container } = render(
+      <FretboardCanvas {...STANDARD_E} freeformMarks={[{ fret: 2, string: 0 }]} capoPosition={3} />
+    );
+    expect(container.querySelector('[data-state="freeform"]')).not.toBeInTheDocument();
+  });
+
+  it('calls onFretClick with correct fret/string when hit-target is clicked in freeform mode', () => {
+    const onFretClick = vi.fn();
+    const { container } = render(
+      <FretboardCanvas
+        {...STANDARD_E}
+        freeformModeActive={true}
+        onFretClick={onFretClick}
+      />
+    );
+    const hitTarget = container.querySelector('[data-testid="fretboard-svg"] rect[role="button"]');
+    expect(hitTarget).toBeInTheDocument();
+    fireEvent.click(hitTarget!);
+    expect(onFretClick).toHaveBeenCalledTimes(1);
+    expect(onFretClick).toHaveBeenCalledWith(expect.objectContaining({ fret: expect.any(Number), string: expect.any(Number) }));
+  });
+
+  it('does NOT call onFretClick when freeformModeActive=false', () => {
+    const onFretClick = vi.fn();
+    const { container } = render(
+      <FretboardCanvas
+        {...STANDARD_E}
+        freeformModeActive={false}
+        onFretClick={onFretClick}
+      />
+    );
+    // No role="button" hit-targets when freeform mode is off
+    const buttons = container.querySelectorAll('[data-testid="fretboard-svg"] rect[role="button"]');
+    expect(buttons).toHaveLength(0);
+    expect(onFretClick).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call onFretClick for a hit-target at a fret below capoPosition', () => {
+    const onFretClick = vi.fn();
+    const { container } = render(
+      <FretboardCanvas
+        {...STANDARD_E}
+        freeformModeActive={true}
+        capoPosition={5}
+        onFretClick={onFretClick}
+      />
+    );
+    // fret 0 (open string) is always active; frets 1..4 (below capo=5) should not have role="button"
+    const buttons = container.querySelectorAll('rect[role="button"]');
+    buttons.forEach(btn => {
+      const ariaLabel = btn.getAttribute('aria-label') ?? '';
+      const match = ariaLabel.match(/fret (\d+)/);
+      if (match) {
+        const fret = Number(match[1]);
+        expect(fret === 0 || fret >= 5).toBe(true);
+      }
+    });
+  });
+
+  it('hit-targets have tabIndex=0 when freeformModeActive=true', () => {
+    const { container } = render(
+      <FretboardCanvas {...STANDARD_E} freeformModeActive={true} />
+    );
+    const tabbable = container.querySelectorAll('rect[tabindex="0"]');
+    expect(tabbable.length).toBeGreaterThan(0);
+  });
+
+  it('hit-targets have tabIndex=-1 when freeformModeActive=false', () => {
+    const { container } = render(
+      <FretboardCanvas {...STANDARD_E} freeformModeActive={false} />
+    );
+    const tabbable = container.querySelectorAll('rect[tabindex="0"]');
+    expect(tabbable).toHaveLength(0);
+  });
+
+  // ── Note names ───────────────────────────────────────────────
+  it('shows note text inside dots when noteNamesVisible=true', () => {
+    const { container } = render(
+      <FretboardCanvas {...STANDARD_E} noteNamesVisible={true} />
+    );
+    const texts = container.querySelectorAll('[data-state] text');
+    expect(texts.length).toBeGreaterThan(0);
+  });
+
+  it('hides note text inside dots when noteNamesVisible=false', () => {
+    const { container } = render(
+      <FretboardCanvas {...STANDARD_E} noteNamesVisible={false} />
+    );
+    const texts = container.querySelectorAll('[data-state] text');
+    expect(texts).toHaveLength(0);
   });
 });

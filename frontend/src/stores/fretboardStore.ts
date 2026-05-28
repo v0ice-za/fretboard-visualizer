@@ -20,6 +20,7 @@ export interface FretboardState {
   setModeIndex: (index: number | null) => void;
   setCapoPosition: (pos: number) => void;
   toggleFreeformMark: (mark: FreeformMark) => void;
+  setFreeformMarks: (marks: FreeformMark[]) => void;
   setNoteNamesVisible: (visible: boolean) => void;
   setFreeformModeActive: (active: boolean) => void;
 }
@@ -44,9 +45,11 @@ export const useFretboardStore = create<FretboardState>((set) => ({
   setCapoPosition: (pos: number) => set({ capoPosition: Math.max(0, Math.min(12, pos)) }),
   toggleFreeformMark: (mark) =>
     set((state) => {
+      if (mark.fret < 0 || mark.fret > 24 || mark.string < 0 || mark.string > 5) return state;
       const exists = state.freeformMarks.some(
         (m) => m.fret === mark.fret && m.string === mark.string
       );
+      if (!exists && state.freeformMarks.length >= 150) return state;
       return {
         freeformMarks: exists
           ? state.freeformMarks.filter(
@@ -55,6 +58,7 @@ export const useFretboardStore = create<FretboardState>((set) => ({
           : [...state.freeformMarks, mark],
       };
     }),
+  setFreeformMarks: (marks) => set({ freeformMarks: marks.slice(0, 150) }),
   setNoteNamesVisible: (noteNamesVisible) => set({ noteNamesVisible }),
   setFreeformModeActive: (freeformModeActive) => set({ freeformModeActive }),
 }));

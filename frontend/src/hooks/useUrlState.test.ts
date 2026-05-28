@@ -141,3 +141,103 @@ describe('useUrlState — capo URL push', () => {
     expect(result.current[0].get('capo')).toBeNull();
   });
 });
+
+describe('useUrlState — notes URL hydration', () => {
+  it('hydrates noteNamesVisible=true from ?notes=1', () => {
+    renderHook(() => useUrlState(), {
+      wrapper: wrapper(['/?tuning=Standard+E&key=A&scale=Pentatonic+Minor&notes=1']),
+    });
+    expect(useFretboardStore.getState().noteNamesVisible).toBe(true);
+  });
+
+  it('noteNamesVisible stays false when ?notes param is absent', () => {
+    renderHook(() => useUrlState(), {
+      wrapper: wrapper(['/?tuning=Standard+E&key=A&scale=Pentatonic+Minor']),
+    });
+    expect(useFretboardStore.getState().noteNamesVisible).toBe(false);
+  });
+});
+
+describe('useUrlState — marks URL hydration', () => {
+  it('hydrates freeformMarks from ?marks=3-2,7-0', () => {
+    renderHook(() => useUrlState(), {
+      wrapper: wrapper(['/?tuning=Standard+E&key=A&scale=Pentatonic+Minor&marks=3-2,7-0']),
+    });
+    const marks = useFretboardStore.getState().freeformMarks;
+    expect(marks).toHaveLength(2);
+    expect(marks).toContainEqual({ fret: 3, string: 2 });
+    expect(marks).toContainEqual({ fret: 7, string: 0 });
+  });
+
+  it('ignores ?marks=25-0 — invalid fret, freeformMarks stays empty', () => {
+    renderHook(() => useUrlState(), {
+      wrapper: wrapper(['/?tuning=Standard+E&key=A&scale=Pentatonic+Minor&marks=25-0']),
+    });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(0);
+  });
+
+  it('ignores ?marks=0-6 — invalid string, freeformMarks stays empty', () => {
+    renderHook(() => useUrlState(), {
+      wrapper: wrapper(['/?tuning=Standard+E&key=A&scale=Pentatonic+Minor&marks=0-6']),
+    });
+    expect(useFretboardStore.getState().freeformMarks).toHaveLength(0);
+  });
+});
+
+describe('useUrlState — notes URL push', () => {
+  it('pushes ?notes=1 when noteNamesVisible=true', () => {
+    const { result } = renderHook(
+      () => { useUrlState(); return useSearchParams(); },
+      { wrapper: wrapper(['/']) }
+    );
+
+    act(() => {
+      useFretboardStore.getState().setNoteNamesVisible(true);
+    });
+
+    expect(result.current[0].get('notes')).toBe('1');
+  });
+
+  it('omits ?notes from URL when noteNamesVisible=false', () => {
+    const { result } = renderHook(
+      () => { useUrlState(); return useSearchParams(); },
+      { wrapper: wrapper(['/']) }
+    );
+
+    act(() => {
+      useFretboardStore.getState().setNoteNamesVisible(false);
+    });
+
+    expect(result.current[0].get('notes')).toBeNull();
+  });
+});
+
+describe('useUrlState — marks URL push', () => {
+  it('pushes ?marks=fret-string when a freeform mark is added', () => {
+    const { result } = renderHook(
+      () => { useUrlState(); return useSearchParams(); },
+      { wrapper: wrapper(['/']) }
+    );
+
+    act(() => {
+      useFretboardStore.getState().toggleFreeformMark({ fret: 5, string: 3 });
+    });
+
+    expect(result.current[0].get('marks')).toBe('5-3');
+  });
+
+  it('omits ?marks from URL when freeformMarks is empty', () => {
+    const { result } = renderHook(
+      () => { useUrlState(); return useSearchParams(); },
+      { wrapper: wrapper(['/']) }
+    );
+
+    act(() => {
+      // Ensure no marks
+      useFretboardStore.setState({ freeformMarks: [] });
+      useFretboardStore.getState().setTuning('Standard E'); // trigger push effect
+    });
+
+    expect(result.current[0].get('marks')).toBeNull();
+  });
+});

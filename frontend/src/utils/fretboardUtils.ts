@@ -1,5 +1,6 @@
 import { TUNINGS } from '@/data/tunings.js';
 import { getNoteAtFret, getScaleNotes, isRoot, FRET_MARKERS, DOUBLE_MARKERS } from '@/utils/musicTheory.js';
+import type { FreeformMark } from '@/stores/fretboardStore';
 
 // 7 modes — index matches chip position in ModeChipsRow
 // scaleName must exactly match a key in SCALES (scales.js)
@@ -119,4 +120,22 @@ export function calculateFretboardDots(
     }
   }
   return dots;
+}
+
+export function calculateFreeformDots(
+  marks: FreeformMark[],
+  tuningName: string,
+  capoPosition = 0
+): FretDotData[] {
+  const strings = (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E'];
+  return marks
+    .filter(m => (m.fret === 0 || m.fret >= capoPosition) && m.fret >= 0 && m.fret <= FRET_COUNT && m.string >= 0 && m.string < STRING_COUNT)
+    .map(m => ({
+      fret: m.fret,
+      string: m.string,
+      state: 'freeform' as const,
+      note: getNoteAtFret(strings[m.string], m.fret),
+      cx: getDotCx(m.fret),
+      cy: getDotCy(m.string),
+    }));
 }
