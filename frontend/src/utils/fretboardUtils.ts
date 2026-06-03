@@ -1,4 +1,5 @@
 import { TUNINGS } from '@/data/tunings.js';
+import { SCALES } from '@/data/scales.js';
 import { getNoteAtFret, getScaleNotes, isRoot, FRET_MARKERS, DOUBLE_MARKERS } from '@/utils/musicTheory.js';
 import type { FreeformMark } from '@/stores/fretboardStore';
 
@@ -14,7 +15,8 @@ export const MODES = [
   { name: 'Locrian',    scaleName: 'Locrian',                 description: 'Diminished — unstable ♭5' },
 ] as const;
 
-export type DotState = 'root' | 'scale' | 'mode' | 'freeform';
+
+export type DotState = 'root' | 'scale' | 'mode' | 'mode-root' | 'freeform';
 
 export interface FretDotData {
   fret: number;    // 0 (open string) to 24
@@ -82,6 +84,23 @@ export function generateAriaLabel(
   return label;
 }
 
+// Maps each diatonic scale to its mode number (0 = Ionian … 6 = Locrian)
+const DIATONIC_MODE_POSITION: Record<string, number> = {
+  'Major (Ionian)': 0, 'Dorian': 1, 'Phrygian': 2, 'Lydian': 3,
+  'Mixolydian': 4, 'Natural Minor (Aeolian)': 5, 'Locrian': 6,
+};
+
+// Returns the note within the current key that the target mode is rooted on,
+// e.g. Lydian in D Natural Minor → Bb (the 4th degree of F major, D's relative major).
+function getRelativeModeRoot(rootNote: string, scaleName: string, targetModeIdx: number): string | null {
+  const scalePos = DIATONIC_MODE_POSITION[scaleName];
+  if (scalePos === undefined) return null;
+  const scaleData = (SCALES as Record<string, { intervals: number[] }>)[scaleName];
+  if (!scaleData || scaleData.intervals.length < 7) return null;
+  const degreeIdx = ((targetModeIdx - scalePos) + 7) % 7;
+  return getNoteAtFret(rootNote, scaleData.intervals[degreeIdx]);
+}
+
 export function calculateFretboardDots(
   tuningName: string,
   rootNote: string,
@@ -92,11 +111,18 @@ export function calculateFretboardDots(
   const strings = (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E'];
   const scaleNotes = getScaleNotes(rootNote, scaleName);
 
-  let modeOnlyNotes: Set<string> | null = null;
-  if (modeIndex !== null && modeIndex >= 0 && modeIndex < MODES.length) {
-    const allModeNotes = getScaleNotes(rootNote, MODES[modeIndex].scaleName) as Set<string>;
-    modeOnlyNotes = new Set([...allModeNotes].filter(n => !scaleNotes.has(n)));
-  }
+  // Parallel mode notes — same root, mode's own interval pattern
+  const modeNotes: Set<string> | null =
+    modeIndex !== null && modeIndex >= 0 && modeIndex < MODES.length
+      ? (getScaleNotes(rootNote, MODES[modeIndex].scaleName) as Set<string>)
+      : null;
+
+  // Relative mode root — the note this mode is built on within the current key
+  // e.g. Lydian in D Natural Minor → Bb
+  const modeRootNote =
+    modeIndex !== null && modeIndex >= 0 && modeIndex < MODES.length
+      ? getRelativeModeRoot(rootNote, scaleName, modeIndex)
+      : null;
 
   const dots: FretDotData[] = [];
 
@@ -106,14 +132,17 @@ export function calculateFretboardDots(
       if (fret < capoPosition) continue;
       const note = getNoteAtFret(openNote, fret);
       let state: DotState | null = null;
+
       if (isRoot(note, rootNote)) {
         state = 'root';
+      } else if (modeRootNote && isRoot(note, modeRootNote) && scaleNotes.has(note)) {
+        state = 'mode-root'; // root of the selected mode within this key
+      } else if (modeNotes && scaleNotes.has(note) && modeNotes.has(note)) {
+        state = 'mode';      // in both scale and mode — highlighted
       } else if (scaleNotes.has(note)) {
-        state = 'scale';
-      } else if (modeOnlyNotes && modeOnlyNotes.has(note)) {
-        state = 'mode';
+        state = 'scale';     // in scale only — shown normally
       }
-      // 'freeform' (Story 1.8) deferred
+
       if (state) {
         dots.push({ fret, string: stringIdx, state, note, cx: getDotCx(fret), cy: getDotCy(stringIdx) });
       }

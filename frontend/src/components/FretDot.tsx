@@ -3,10 +3,11 @@ import type { DotState } from '@/utils/fretboardUtils';
 export const GLOW_FILTER_ID = 'fret-dot-mode-glow';
 
 const DOT_CONFIG: Record<DotState, { radius: number; fill: string; opacity: number; textColor: string }> = {
-  root:     { radius: 13, fill: '#f59e0b', opacity: 1,    textColor: '#1a0e00' },
-  scale:    { radius: 11, fill: '#6366f1', opacity: 0.85, textColor: '#ffffff' },
-  mode:     { radius: 11, fill: '#fb7185', opacity: 0.9,  textColor: '#1a0010' },
-  freeform: { radius: 11, fill: '#22d3ee', opacity: 0.8,  textColor: '#001520' },
+  root:       { radius: 13, fill: '#f59e0b', opacity: 1,    textColor: '#1a0e00' },
+  scale:      { radius: 11, fill: '#6366f1', opacity: 0.85, textColor: '#ffffff' },
+  mode:       { radius: 11, fill: '#fb7185', opacity: 0.9,  textColor: '#1a0010' },
+  'mode-root':{ radius: 13, fill: '#a78bfa', opacity: 1,    textColor: '#1a0030' },
+  freeform:   { radius: 11, fill: '#22d3ee', opacity: 0.8,  textColor: '#001520' },
 };
 
 export interface FretDotProps {
@@ -46,7 +47,7 @@ export default function FretDot({ fret, string: stringIdx, state, note, cx, cy, 
         r={radius}
         fill={fill}
         opacity={opacity}
-        filter={state === 'mode' ? `url(#${GLOW_FILTER_ID})` : undefined}
+        filter={state === 'mode' || state === 'mode-root' ? `url(#${GLOW_FILTER_ID})` : undefined}
       />
       {state === 'freeform' && (
         <circle

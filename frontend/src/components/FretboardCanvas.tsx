@@ -207,8 +207,8 @@ export default function FretboardCanvas({
           if (DOUBLE_MARKERS.has(fret)) {
             return (
               <g key={fret} data-testid={`inlay-${fret}`}>
-                <circle cx={mx} cy={(STRING_Y[1] + STRING_Y[2]) / 2} r={5.5} fill="var(--color-fret-marker, #d4c896)" opacity={0.55} />
-                <circle cx={mx} cy={(STRING_Y[3] + STRING_Y[4]) / 2} r={5.5} fill="var(--color-fret-marker, #d4c896)" opacity={0.55} />
+                <circle cx={mx} cy={(STRING_Y[1] + STRING_Y[2]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
+                <circle cx={mx} cy={(STRING_Y[3] + STRING_Y[4]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
               </g>
             );
           }
@@ -219,9 +219,8 @@ export default function FretboardCanvas({
                 data-testid={`inlay-${fret}`}
                 cx={mx}
                 cy={midY}
-                r={5.5}
-                fill="var(--color-fret-marker, #d4c896)"
-                opacity={0.55}
+                r={5}
+                fill="var(--color-fret-marker, #1e1e35)"
               />
             );
           }
@@ -259,8 +258,9 @@ export default function FretboardCanvas({
               textAnchor="middle"
               dominantBaseline="middle"
               fontFamily="var(--font-mono, 'JetBrains Mono Variable', monospace)"
-              fontSize={9}
-              fill={isMarked ? 'var(--color-text-primary, #e2e8f0)' : 'var(--color-text-muted, #334155)'}
+              fontSize={10}
+              fontWeight={isMarked ? 'bold' : 'normal'}
+              fill={isMarked ? '#d4a017' : '#8892a4'}
             >
               {fret}
             </text>
