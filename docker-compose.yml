@@ -16,15 +16,16 @@ services:
       retries: 5
 
   backend:
-    image: eclipse-temurin:21-jre-alpine
-    command: ["echo", "Backend placeholder — scaffold in Story 3.1"]
+    build: ./backend
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
-    profiles:
-      - backend
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/guitarapp
+      DATABASE_USERNAME: guitarapp
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-guitarapp_dev}
 
 volumes:
   postgres_data:
