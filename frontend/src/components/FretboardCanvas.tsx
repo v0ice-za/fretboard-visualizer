@@ -72,6 +72,14 @@ export default function FretboardCanvas({
 
   const midY = (STRING_Y[2] + STRING_Y[3]) / 2;
 
+  // Dot size scales with fret column width — fret 1 is the reference (full size)
+  const fret1Width = getFretLineX(1) - NUT_X;
+  const getDotScale = (fret: number) => {
+    if (fret === 0) return 1;
+    const w = getFretLineX(fret) - getFretLineX(fret - 1);
+    return Math.max(0.55, w / fret1Width);
+  };
+
   return (
     <div
       style={{ overflowX: 'auto', touchAction: 'pan-x' }}
@@ -277,6 +285,7 @@ export default function FretboardCanvas({
             note={dot.note}
             cx={dot.cx}
             cy={dot.cy}
+            sizeScale={getDotScale(dot.fret)}
             showNoteName={noteNamesVisible}
           />
         ))}
@@ -291,6 +300,7 @@ export default function FretboardCanvas({
             note={dot.note}
             cx={dot.cx}
             cy={dot.cy}
+            sizeScale={getDotScale(dot.fret)}
             showNoteName={noteNamesVisible}
           />
         ))}

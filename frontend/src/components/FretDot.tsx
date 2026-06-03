@@ -17,6 +17,7 @@ export interface FretDotProps {
   note: string;
   cx: number;
   cy: number;
+  sizeScale?: number;
   showNoteName?: boolean;
 }
 
@@ -35,8 +36,10 @@ export function FretDotDefs() {
   );
 }
 
-export default function FretDot({ fret, string: stringIdx, state, note, cx, cy, showNoteName }: FretDotProps) {
-  const { radius, fill, opacity, textColor } = DOT_CONFIG[state];
+export default function FretDot({ fret, string: stringIdx, state, note, cx, cy, sizeScale = 1, showNoteName }: FretDotProps) {
+  const { radius: baseRadius, fill, opacity, textColor } = DOT_CONFIG[state];
+  const radius = baseRadius * sizeScale;
+  const fontSize = (note.length > 1 ? 7 : 8) * sizeScale;
 
   return (
     <g data-fret={fret} data-string={stringIdx} data-state={state} aria-hidden="true">
@@ -53,7 +56,7 @@ export default function FretDot({ fret, string: stringIdx, state, note, cx, cy, 
         <circle
           cx={cx}
           cy={cy}
-          r={radius + 3}
+          r={radius + 3 * sizeScale}
           fill="none"
           stroke={fill}
           strokeWidth={1.5}
@@ -69,7 +72,7 @@ export default function FretDot({ fret, string: stringIdx, state, note, cx, cy, 
           textAnchor="middle"
           dominantBaseline="middle"
           fontFamily="var(--font-mono, 'JetBrains Mono Variable', monospace)"
-          fontSize={note.length > 1 ? 7 : 8}
+          fontSize={fontSize}
           fontWeight="700"
           fill={textColor}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
