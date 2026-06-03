@@ -14,6 +14,7 @@ export interface FretboardState {
   freeformMarks: FreeformMark[];
   noteNamesVisible: boolean;
   freeformModeActive: boolean;
+  chordName: string | null;
   setTuning: (tuning: string) => void;
   setRootNote: (rootNote: string) => void;
   setScaleName: (scaleName: string) => void;
@@ -23,6 +24,7 @@ export interface FretboardState {
   setFreeformMarks: (marks: FreeformMark[]) => void;
   setNoteNamesVisible: (visible: boolean) => void;
   setFreeformModeActive: (active: boolean) => void;
+  setChordName: (name: string | null) => void;
 }
 
 export const DEFAULT_FRETBOARD_STATE = {
@@ -34,6 +36,7 @@ export const DEFAULT_FRETBOARD_STATE = {
   freeformMarks: [] as FreeformMark[],
   noteNamesVisible: false,
   freeformModeActive: false,
+  chordName: null as string | null,
 };
 
 export const useFretboardStore = create<FretboardState>((set) => ({
@@ -61,4 +64,5 @@ export const useFretboardStore = create<FretboardState>((set) => ({
   setFreeformMarks: (marks) => set({ freeformMarks: marks.slice(0, 150) }),
   setNoteNamesVisible: (noteNamesVisible) => set({ noteNamesVisible }),
   setFreeformModeActive: (freeformModeActive) => set({ freeformModeActive }),
+  setChordName: (chordName) => set({ chordName }),
 }));

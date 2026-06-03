@@ -1,8 +1,13 @@
+import { useLayoutStore } from '@/stores/layoutStore'
+import LibraryPanel from '@/features/library/LibraryPanel'
+
 interface AppShellProps {
   children: React.ReactNode
 }
 
 function AppShell({ children }: AppShellProps) {
+  const { activeLayout } = useLayoutStore()
+  const panelClass = activeLayout.sidePanel ? 'app-shell side-panel-open' : 'app-shell'
   return (
     <>
       <a
@@ -11,8 +16,9 @@ function AppShell({ children }: AppShellProps) {
       >
         Skip to fretboard
       </a>
-      <div className="app-shell">
+      <div className={panelClass}>
         {children}
+        <LibraryPanel />
       </div>
     </>
   )

@@ -122,6 +122,31 @@ export function calculateFretboardDots(
   return dots;
 }
 
+export function calculateChordDots(
+  intervals: number[],
+  rootNote: string,
+  tuningName: string,
+  capoPosition = 0
+): FretDotData[] {
+  const strings = (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E']
+  const chordNotes = new Set(intervals.map(i => getNoteAtFret(rootNote, i % 12)))
+  const dots: FretDotData[] = []
+
+  for (let stringIdx = 0; stringIdx < STRING_COUNT; stringIdx++) {
+    const openNote = strings[stringIdx]
+    for (let fret = 0; fret <= FRET_COUNT; fret++) {
+      if (fret < capoPosition) continue
+      const note = getNoteAtFret(openNote, fret)
+      if (isRoot(note, rootNote)) {
+        dots.push({ fret, string: stringIdx, state: 'root', note, cx: getDotCx(fret), cy: getDotCy(stringIdx) })
+      } else if (chordNotes.has(note)) {
+        dots.push({ fret, string: stringIdx, state: 'scale', note, cx: getDotCx(fret), cy: getDotCy(stringIdx) })
+      }
+    }
+  }
+  return dots
+}
+
 export function calculateFreeformDots(
   marks: FreeformMark[],
   tuningName: string,

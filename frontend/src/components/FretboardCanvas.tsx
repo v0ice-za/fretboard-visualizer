@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { TUNINGS } from '@/data/tunings.js';
 import { FRET_MARKERS, DOUBLE_MARKERS, getNoteAtFret } from '@/utils/musicTheory.js';
+import { CHORDS } from '@/data/chords.js';
 import {
   calculateFretboardDots,
+  calculateChordDots,
   calculateFreeformDots,
   generateAriaLabel,
   getFretLineX,
@@ -32,6 +34,7 @@ interface FretboardCanvasProps {
   freeformMarks?: FreeformMark[];
   freeformModeActive?: boolean;
   noteNamesVisible?: boolean;
+  chordName?: string | null;
   onFretClick?: (mark: { fret: number; string: number }) => void;
 }
 
@@ -44,6 +47,7 @@ export default function FretboardCanvas({
   freeformMarks = [],
   freeformModeActive = false,
   noteNamesVisible = false,
+  chordName,
   onFretClick,
 }: FretboardCanvasProps) {
   const strings = (TUNINGS as Record<string, string[]>)[tuning] ?? TUNINGS['Standard E'];
@@ -53,10 +57,13 @@ export default function FretboardCanvas({
     [tuning, rootNote, scaleName, modeIndex, capoPosition]
   );
 
-  const dots = useMemo(
-    () => calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex),
-    [tuning, rootNote, scaleName, capoPosition, modeIndex]
-  );
+  const dots = useMemo(() => {
+    if (chordName) {
+      const chord = (CHORDS as Record<string, { intervals: number[] }>)[chordName]
+      if (chord) return calculateChordDots(chord.intervals, rootNote, tuning, capoPosition)
+    }
+    return calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex)
+  }, [tuning, rootNote, scaleName, capoPosition, modeIndex, chordName]);
 
   const freeformDots = useMemo(
     () => calculateFreeformDots(freeformMarks, tuning, capoPosition),
@@ -103,16 +110,36 @@ export default function FretboardCanvas({
 
         {/* String horizontal lines — visual top (i=0) is high e (thin), bottom (i=5) is low E (thick) */}
         {STRING_Y.map((y, i) => (
-          <line
-            key={i}
-            data-testid="string-line"
-            x1={NUT_X}
-            y1={y}
-            x2={FRET_AREA_RIGHT}
-            y2={y}
-            stroke="var(--color-string, #3a3a5c)"
-            strokeWidth={0.5 + i * 0.2}
-          />
+          <g key={i}>
+            {/* Shadow/depth line underneath */}
+            <line
+              data-testid="string-line"
+              x1={NUT_X}
+              y1={y + 0.8}
+              x2={FRET_AREA_RIGHT}
+              y2={y + 0.8}
+              stroke="rgba(0,0,0,0.6)"
+              strokeWidth={1.0 + i * 0.4}
+            />
+            {/* Main string */}
+            <line
+              x1={NUT_X}
+              y1={y}
+              x2={FRET_AREA_RIGHT}
+              y2={y}
+              stroke="var(--color-string, #b8b8d0)"
+              strokeWidth={1.0 + i * 0.4}
+            />
+            {/* Specular highlight on top */}
+            <line
+              x1={NUT_X}
+              y1={y - 0.4}
+              x2={FRET_AREA_RIGHT}
+              y2={y - 0.4}
+              stroke="rgba(255,255,255,0.25)"
+              strokeWidth={0.5 + i * 0.15}
+            />
+          </g>
         ))}
 
         {/* Nut line (thick vertical bar at fret 0) */}
@@ -128,16 +155,36 @@ export default function FretboardCanvas({
 
         {/* Fret vertical lines (frets 1–24) */}
         {FRETS.map(fret => (
-          <line
-            key={fret}
-            data-testid="fret-line"
-            x1={getFretLineX(fret)}
-            y1={STRING_Y[0] - 12}
-            x2={getFretLineX(fret)}
-            y2={STRING_Y[STRING_COUNT - 1] + 12}
-            stroke="var(--color-fret, #5a5a90)"
-            strokeWidth={2}
-          />
+          <g key={fret}>
+            {/* Shadow edge (right side of fret bar) */}
+            <line
+              x1={getFretLineX(fret) + 1}
+              y1={STRING_Y[0] - 12}
+              x2={getFretLineX(fret) + 1}
+              y2={STRING_Y[STRING_COUNT - 1] + 12}
+              stroke="rgba(0,0,0,0.5)"
+              strokeWidth={1.5}
+            />
+            {/* Main fret bar */}
+            <line
+              data-testid="fret-line"
+              x1={getFretLineX(fret)}
+              y1={STRING_Y[0] - 12}
+              x2={getFretLineX(fret)}
+              y2={STRING_Y[STRING_COUNT - 1] + 12}
+              stroke="var(--color-fret, #9090c0)"
+              strokeWidth={3}
+            />
+            {/* Specular highlight (left edge) */}
+            <line
+              x1={getFretLineX(fret) - 1}
+              y1={STRING_Y[0] - 12}
+              x2={getFretLineX(fret) - 1}
+              y2={STRING_Y[STRING_COUNT - 1] + 12}
+              stroke="rgba(255,255,255,0.18)"
+              strokeWidth={1}
+            />
+          </g>
         ))}
 
         {/* Capo indicator — amber bar at the left boundary of capo fret column */}
@@ -160,8 +207,8 @@ export default function FretboardCanvas({
           if (DOUBLE_MARKERS.has(fret)) {
             return (
               <g key={fret} data-testid={`inlay-${fret}`}>
-                <circle cx={mx} cy={(STRING_Y[1] + STRING_Y[2]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
-                <circle cx={mx} cy={(STRING_Y[3] + STRING_Y[4]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
+                <circle cx={mx} cy={(STRING_Y[1] + STRING_Y[2]) / 2} r={5.5} fill="var(--color-fret-marker, #d4c896)" opacity={0.55} />
+                <circle cx={mx} cy={(STRING_Y[3] + STRING_Y[4]) / 2} r={5.5} fill="var(--color-fret-marker, #d4c896)" opacity={0.55} />
               </g>
             );
           }
@@ -172,8 +219,9 @@ export default function FretboardCanvas({
                 data-testid={`inlay-${fret}`}
                 cx={mx}
                 cy={midY}
-                r={5}
-                fill="var(--color-fret-marker, #1e1e35)"
+                r={5.5}
+                fill="var(--color-fret-marker, #d4c896)"
+                opacity={0.55}
               />
             );
           }

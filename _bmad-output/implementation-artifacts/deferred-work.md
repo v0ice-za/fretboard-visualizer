@@ -1,5 +1,17 @@
 # Deferred Work
 
+## Deferred from: code review of 2-4-chord-library-and-shape-highlight (2026-06-01)
+
+- Locked chord externally activated renders as `active` and can be deselected without triggering paywall — only reachable once subscription enforcement exists (Story 3.6); free-tier users have no code path to activate a locked chord via the current UI
+- `capoPosition > 0` skips open strings (fret 0) in `calculateChordDots` — pre-existing behavior carried from `calculateFretboardDots`; open strings over capo are a musicological edge case; consistent design
+- AC7 deselect path not tested for a formerly-locked chord that was externally set as `chordName` — currently unreachable in this story's UI; add a test in Story 3.6 alongside subscription state
+- SVG `aria-label` not updated when `chordName` is active — `generateAriaLabel` always emits a scale-based label even when chord dots are showing; out of scope for this story; address in a dedicated a11y hardening story
+
+## Deferred from: code review of 2-2-paywallcard-and-subscription-store-stub (2026-05-31)
+
+- `useSubscriptionStore.isPremium` never consulted in ScaleLibrary or LibraryItem — free-tier gating is static slice(0,5); store is a stub with no effect on rendered variants; intentional per story spec, real enforcement in Story 3.6
+- Desktop aside + mobile Sheet carry independent `paywallAnchor` state; viewport resize mid-session while paywall is open loses state silently — edge case out of scope; address if responsive breakpoint-crossing becomes a user complaint
+
 ## Deferred from: code review of 1-9-frontend-ci-cd-and-vercel-deploy (2026-05-28)
 
 - Playwright `webServer` missing `timeout` — default 60 s timeout may not be enough on cold CI runners with oxide/lightningcss first-run compilation; add `timeout: 120_000` to `playwright.config.ts` `webServer` block when E2E tests are introduced

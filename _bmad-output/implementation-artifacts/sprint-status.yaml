@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-05-28 (story 1.9 → done, patch applied)
+last_updated: 2026-06-01 (story 3.1 → in-progress)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -23,19 +23,19 @@ development_status:
   1-7-capo-support: done
   1-8-freeform-marking-and-note-names: done
   1-9-frontend-ci-cd-and-vercel-deploy: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   # ─── Epic 2: Library & Freemium Experience ───────────────────────────────────
-  epic-2: backlog
-  2-1-librarypanel-shell: backlog
-  2-2-paywallcard-and-subscription-store-stub: backlog
-  2-3-scale-library-browse: backlog
-  2-4-chord-library-and-shape-highlight: backlog
+  epic-2: in-progress
+  2-1-librarypanel-shell: done
+  2-2-paywallcard-and-subscription-store-stub: done
+  2-3-scale-library-browse: done
+  2-4-chord-library-and-shape-highlight: done
   epic-2-retrospective: optional
 
   # ─── Epic 3: Auth & Subscription ─────────────────────────────────────────────
-  epic-3: backlog
-  3-1-backend-scaffold-and-database: backlog
+  epic-3: in-progress
+  3-1-backend-scaffold-and-database: in-progress
   3-2-email-password-auth: backlog
   3-3-google-oauth: backlog
   3-4-frontend-auth-integration: backlog

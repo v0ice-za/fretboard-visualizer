@@ -3,6 +3,7 @@ import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALES, SCALE_NAMES, SCALE_CATEGORIES } from '@/data/scales.js';
 import { FREE_TUNINGS } from '@/data/freeTunings';
 import { useFretboardStore } from '@/stores/fretboardStore';
+import { useLayoutStore } from '@/stores/layoutStore';
 import {
   Select,
   SelectContent,
@@ -23,6 +24,8 @@ export default function ControlBar() {
     noteNamesVisible, setNoteNamesVisible,
     freeformModeActive, setFreeformModeActive,
   } = useFretboardStore();
+  const { activeLayout, setLayout } = useLayoutStore();
+  const { sidePanel } = activeLayout;
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-[var(--color-surface,#0f0f1a)] border-b border-[var(--color-border,#1e1e30)]">
@@ -124,12 +127,17 @@ export default function ControlBar() {
           <Pencil size={16} />
         </button>
 
-        {/* Library — wired in Story 2.1 */}
+        {/* Library */}
         <button
-          className="p-2 rounded-lg transition-colors text-slate-500 hover:text-slate-300"
+          onClick={() => setLayout({ sidePanel: !sidePanel })}
+          className={`p-2 rounded-lg transition-colors ${
+            sidePanel
+              ? 'bg-indigo-500/20 text-indigo-400'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
           title="Library"
           aria-label="Library"
-          onClick={() => {}}
+          aria-pressed={sidePanel}
         >
           <Library size={16} />
         </button>

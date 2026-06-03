@@ -1,4 +1,4 @@
-import { calculateFreeformDots } from './fretboardUtils';
+import { calculateFreeformDots, calculateChordDots } from './fretboardUtils';
 
 describe('calculateFreeformDots', () => {
   it('returns 1 dot for a valid mark at fret 5, string 1', () => {
@@ -44,5 +44,28 @@ describe('calculateFreeformDots', () => {
     expect(result).toHaveLength(2);
     expect(result[0].fret).toBe(3);
     expect(result[1].fret).toBe(7);
+  });
+});
+
+describe('calculateChordDots', () => {
+  it('returns root dots (state="root") and chord tone dots (state="scale") for A Major on Standard E', () => {
+    const dots = calculateChordDots([0, 4, 7], 'A', 'Standard E');
+    const rootDots = dots.filter(d => d.state === 'root');
+    const scaleDots = dots.filter(d => d.state === 'scale');
+    expect(rootDots.length).toBeGreaterThan(0);
+    expect(scaleDots.length).toBeGreaterThan(0);
+    rootDots.forEach(d => expect(d.note).toBe('A'));
+    expect(dots.every(d => d.state === 'root' || d.state === 'scale')).toBe(true);
+  });
+
+  it('different tunings produce different dot positions for the same chord', () => {
+    const dotsE = calculateChordDots([0, 4, 7], 'A', 'Standard E');
+    const dotsDropD = calculateChordDots([0, 4, 7], 'A', 'Drop D');
+    expect(dotsE).not.toEqual(dotsDropD);
+  });
+
+  it('capoPosition skips frets below capo', () => {
+    const dots = calculateChordDots([0, 4, 7], 'A', 'Standard E', 3);
+    expect(dots.every(d => d.fret >= 3)).toBe(true);
   });
 });

@@ -7,7 +7,7 @@ import { useUrlState } from '@/hooks/useUrlState';
 import './App.css';
 
 export default function App() {
-  const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark } = useFretboardStore();
+  const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark, chordName } = useFretboardStore();
   useUrlState();
 
   return (
@@ -25,6 +25,7 @@ export default function App() {
             freeformMarks={freeformMarks}
             freeformModeActive={freeformModeActive}
             noteNamesVisible={noteNamesVisible}
+            chordName={chordName}
             onFretClick={(mark) => toggleFreeformMark(mark)}
           />
         </div>

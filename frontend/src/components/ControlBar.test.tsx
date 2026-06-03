@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import ControlBar from './ControlBar';
 import { FREE_TUNINGS } from '@/data/freeTunings';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
+import { useLayoutStore } from '@/stores/layoutStore';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALE_NAMES } from '@/data/scales.js';
 import { TUNINGS } from '@/data/tunings.js';
@@ -14,12 +15,21 @@ import { TUNINGS } from '@/data/tunings.js';
   disconnect() {}
 };
 
+const DEFAULT_LAYOUT = {
+  topBar: true,
+  modeRow: false,
+  sidePanel: false,
+  bottomBar: false,
+  libraryMode: 'drawer' as const,
+};
+
 beforeEach(() => {
   useFretboardStore.setState({
     ...DEFAULT_FRETBOARD_STATE,
     freeformMarks: [],
     freeformModeActive: false,
   });
+  useLayoutStore.setState({ activeLayout: DEFAULT_LAYOUT });
 });
 
 const renderBar = () => render(<ControlBar />);
@@ -81,6 +91,23 @@ describe('ControlBar', () => {
     expect(useFretboardStore.getState().noteNamesVisible).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Toggle note names' }));
     expect(useFretboardStore.getState().noteNamesVisible).toBe(true);
+  });
+});
+
+describe('ControlBar — Library button', () => {
+  it('clicking Library button sets sidePanel to true', async () => {
+    const user = userEvent.setup();
+    render(<ControlBar />);
+    await user.click(screen.getByRole('button', { name: 'Library' }));
+    expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(true);
+  });
+
+  it('clicking Library button again sets sidePanel back to false', async () => {
+    const user = userEvent.setup();
+    useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } });
+    render(<ControlBar />);
+    await user.click(screen.getByRole('button', { name: 'Library' }));
+    expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(false);
   });
 });
 
