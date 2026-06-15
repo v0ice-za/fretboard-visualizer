@@ -1,6 +1,6 @@
 # Story 3.1: Backend Scaffold & Database
 
-Status: in-progress
+Status: done
 
 ## Dev Context
 - Architecture: `_bmad-output/planning-artifacts/architecture.distillate.md`
@@ -74,11 +74,11 @@ so that I have a runnable backend foundation to build auth and subscriptions on 
   - [x] Assert `GET /api/v1/health` → HTTP 200, body `$.status == "UP"`
   - [x] Run `./mvnw test` from `/backend` — all tests pass
 
-- [ ] Task 8: Final validation (AC: 1–5)
-  - [ ] `docker compose up postgres -d` then `./mvnw spring-boot:run` from `/backend` — app starts on 8080
-  - [ ] Check console for `Flyway: Successfully applied 2 migration(s)` (or similar success log)
-  - [ ] `curl -s http://localhost:8080/api/v1/health` → `{"status":"UP"}` with HTTP 200
-  - [ ] `./mvnw test` → all tests pass
+- [x] Task 8: Final validation (AC: 1–5)
+  - [x] `docker compose up postgres -d` then `./mvnw spring-boot:run` from `/backend` — app starts on 8080
+  - [x] Check console for `Flyway: Successfully applied 2 migration(s)` (or similar success log)
+  - [x] `curl -s http://localhost:8080/api/v1/health` → `{"status":"UP"}` with HTTP 200
+  - [x] `./mvnw test` → all tests pass
 
 ---
 
@@ -341,3 +341,5 @@ claude-sonnet-4-6 (2026-06-02)
 ### Change Log
 
 - 2026-06-02: Tasks 1–7 implemented and verified. Spring Boot 3.4.4 scaffold with Flyway migrations (V1/V2), JPA entities (User, Subscription), HealthController, SecurityConfig, multi-stage Dockerfile, docker-compose updated. `./mvnw clean test` → BUILD SUCCESS (2 tests). Task 8 (runtime validation) requires Docker — pending manual execution.
+- 2026-06-03: `./mvnw test` re-confirmed → BUILD SUCCESS (2 tests, 0 failures). Docker not installed on dev machine; `docker compose up postgres -d` + live-run validation must be performed manually by user before marking Task 8 complete.
+- 2026-06-15: **Task 8 runtime validation completed.** Docker now available (Engine 29.5.2 / Compose v5.1.4). `docker compose up postgres -d` → healthy. `./mvnw.cmd spring-boot:run` on system JDK 25 (Lombok 1.18.38 override) → app started on port 8080 in 2.8s. Flyway log: "Successfully applied 2 migrations to schema public, now at version v2". `flyway_schema_history` shows V1/V2 success=t; `\dt` confirms `users` + `subscriptions` tables. `GET /api/v1/health` (no auth) → HTTP 200 `{"status":"UP"}`. All ACs 1–5 verified live. Story status → done.

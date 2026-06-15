@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-06-01 (story 3.1 → in-progress)
+last_updated: 2026-06-15 (story 3.1 → done; Task 8 runtime validation passed)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -35,7 +35,7 @@ development_status:
 
   # ─── Epic 3: Auth & Subscription ─────────────────────────────────────────────
   epic-3: in-progress
-  3-1-backend-scaffold-and-database: in-progress
+  3-1-backend-scaffold-and-database: done
   3-2-email-password-auth: backlog
   3-3-google-oauth: backlog
   3-4-frontend-auth-integration: backlog
