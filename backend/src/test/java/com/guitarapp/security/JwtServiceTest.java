@@ -28,13 +28,22 @@ class JwtServiceTest {
 
     @Test
     void access_token_round_trips_subject_email_and_role() {
-        String token = jwtService.generateAccessToken(user());
+        String token = jwtService.generateAccessToken(user(), JwtService.ROLE_FREE);
 
         Claims claims = jwtService.parseAndValidate(token);
 
         assertThat(jwtService.extractUserId(claims)).isEqualTo(42L);
         assertThat(jwtService.extractEmail(claims)).isEqualTo("alice@example.com");
         assertThat(jwtService.extractRole(claims)).isEqualTo("ROLE_FREE");
+    }
+
+    @Test
+    void access_token_carries_the_supplied_premium_role() {
+        String token = jwtService.generateAccessToken(user(), JwtService.ROLE_PREMIUM);
+
+        Claims claims = jwtService.parseAndValidate(token);
+
+        assertThat(jwtService.extractRole(claims)).isEqualTo("ROLE_PREMIUM");
     }
 
     @Test
@@ -51,7 +60,7 @@ class JwtServiceTest {
     void expired_token_is_rejected() {
         JwtService expiringService = new JwtService(
                 new JwtProperties(SECRET, Duration.ofSeconds(-1), Duration.ofDays(7)));
-        String token = expiringService.generateAccessToken(user());
+        String token = expiringService.generateAccessToken(user(), JwtService.ROLE_FREE);
 
         assertThatThrownBy(() -> jwtService.parseAndValidate(token))
                 .isInstanceOf(JwtException.class);
@@ -59,7 +68,7 @@ class JwtServiceTest {
 
     @Test
     void tampered_signature_is_rejected() {
-        String token = jwtService.generateAccessToken(user());
+        String token = jwtService.generateAccessToken(user(), JwtService.ROLE_FREE);
         String tampered = token.substring(0, token.length() - 2)
                 + (token.endsWith("a") ? "bb" : "aa");
 
@@ -73,7 +82,7 @@ class JwtServiceTest {
                 Base64.getEncoder().encodeToString("abcdefghijabcdefghijabcdefghijabcdefghij".getBytes());
         JwtService otherService = new JwtService(
                 new JwtProperties(otherSecret, Duration.ofMinutes(15), Duration.ofDays(7)));
-        String foreignToken = otherService.generateAccessToken(user());
+        String foreignToken = otherService.generateAccessToken(user(), JwtService.ROLE_FREE);
 
         assertThatThrownBy(() -> jwtService.parseAndValidate(foreignToken))
                 .isInstanceOf(JwtException.class);
@@ -82,7 +91,7 @@ class JwtServiceTest {
     @Test
     void extract_token_version_throws_when_claim_missing() {
         // An access token has no tokenVersion claim; treating it as a refresh token must fail.
-        String accessToken = jwtService.generateAccessToken(user());
+        String accessToken = jwtService.generateAccessToken(user(), JwtService.ROLE_FREE);
         Claims claims = jwtService.parseAndValidate(accessToken);
 
         assertThatThrownBy(() -> jwtService.extractTokenVersion(claims))

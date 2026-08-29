@@ -42,22 +42,25 @@ public class GoogleTokenVerifierImpl implements GoogleTokenVerifier {
 
     @Override
     public GoogleTokenClaims verify(String idToken) throws AuthException {
+        GoogleIdToken token;
         try {
-            GoogleIdToken token = verifier.verify(idToken);
-            if (token == null) {
-                throw AuthException.invalidGoogleToken();
-            }
-            GoogleIdToken.Payload payload = token.getPayload();
-            return new GoogleTokenClaims(
-                    payload.getSubject(),
-                    payload.getEmail(),
-                    (String) payload.get("name"),
-                    Boolean.TRUE.equals(payload.getEmailVerified()));
+            token = verifier.verify(idToken);
         } catch (GeneralSecurityException | IOException | IllegalArgumentException e) {
             // IllegalArgumentException: GoogleIdTokenVerifier.verify() → JWS parser rejects a
             // structurally malformed token (missing dots / non-base64 segments) with an
-            // unchecked exception; map it to a 401 so AC1 ("malformed → 401") holds.
+            // unchecked exception; map it to a 401 so AC1 ("malformed → 401") holds. Scoped to
+            // just this call so an unrelated failure below isn't mislabeled as an invalid token.
             throw AuthException.invalidGoogleToken();
         }
+        if (token == null) {
+            throw AuthException.invalidGoogleToken();
+        }
+        GoogleIdToken.Payload payload = token.getPayload();
+        Object nameClaim = payload.get("name");
+        return new GoogleTokenClaims(
+                payload.getSubject(),
+                payload.getEmail(),
+                nameClaim instanceof String s ? s : null,
+                Boolean.TRUE.equals(payload.getEmailVerified()));
     }
 }

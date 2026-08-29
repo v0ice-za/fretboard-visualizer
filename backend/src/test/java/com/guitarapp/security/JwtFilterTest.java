@@ -29,7 +29,7 @@ class JwtFilterTest extends WebMockTestBase {
     void valid_bearer_token_reaches_protected_route() throws Exception {
         User user = existingUser();
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
-        String token = jwtService.generateAccessToken(user);
+        String token = jwtService.generateAccessToken(user, JwtService.ROLE_FREE);
 
         mockMvc.perform(get("/api/v1/users/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))

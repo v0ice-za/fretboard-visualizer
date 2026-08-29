@@ -54,6 +54,10 @@ export function EmailAuthForm({ onAuthenticated }: Props) {
       className="flex flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault();
+        // The submit button is disabled while pending, but pressing Enter in a text input
+        // triggers native form submission directly (bypassing the disabled button) — guard
+        // here too so a rapid double-Enter can't fire two concurrent mutations.
+        if (mutation.isPending) return;
         mutation.mutate({ email, password, mode });
       }}
     >

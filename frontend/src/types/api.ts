@@ -8,3 +8,7 @@ export interface AuthResponseDto {
   accessToken: string;
   user: UserResponseDto;
 }
+
+export interface CheckoutSessionResponseDto {
+  url: string;
+}

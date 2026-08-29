@@ -13,6 +13,9 @@ export interface LayoutConfig {
 interface LayoutStore {
   activeLayout: LayoutConfig
   setLayout: (patch: Partial<LayoutConfig>) => void
+  loginModalOpen: boolean
+  openLoginModal: () => void
+  closeLoginModal: () => void
 }
 
 const DEFAULT_LAYOUT: LayoutConfig = {
@@ -27,4 +30,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   activeLayout: DEFAULT_LAYOUT,
   setLayout: (patch) =>
     set((state) => ({ activeLayout: { ...state.activeLayout, ...patch } })),
+  loginModalOpen: false,
+  openLoginModal: () => set({ loginModalOpen: true }),
+  closeLoginModal: () => set({ loginModalOpen: false }),
 }))

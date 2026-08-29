@@ -38,3 +38,11 @@ app:
     # prod sets COOKIE_SAME_SITE=None / COOKIE_SECURE=true for cross-origin (Story 3.7).
     same-site: ${COOKIE_SAME_SITE:Lax}
     secure: ${COOKIE_SECURE:false}
+  stripe:
+    # No dev fallback — real Stripe test/live keys must be set explicitly (Story 3.5).
+    secret-key: ${STRIPE_SECRET_KEY}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET}
+    price-id: ${STRIPE_PRICE_ID}
+  frontend:
+    # Origin used to build Stripe Checkout success/cancel redirect URLs.
+    base-url: ${FRONTEND_BASE_URL:http://localhost:5173}

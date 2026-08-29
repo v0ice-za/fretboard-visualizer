@@ -1,5 +1,6 @@
 package com.guitarapp;
 
+import com.guitarapp.repository.ProcessedStripeEventRepository;
 import com.guitarapp.repository.SubscriptionRepository;
 import com.guitarapp.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
         "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration," +
         "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
     // GOOGLE_CLIENT_ID has no dev fallback; supply a dummy so the context loads.
-    "app.google.client-id=test-google-client-id"
+    "app.google.client-id=test-google-client-id",
+    // STRIPE_* have no dev fallback either; supply dummies so the context loads.
+    "app.stripe.secret-key=sk_test_dummy",
+    "app.stripe.webhook-secret=whsec_dummy",
+    "app.stripe.price-id=price_dummy"
 })
 class GuitarAppApplicationTests {
 
@@ -23,6 +28,9 @@ class GuitarAppApplicationTests {
 
     @MockitoBean
     private SubscriptionRepository subscriptionRepository;
+
+    @MockitoBean
+    private ProcessedStripeEventRepository processedStripeEventRepository;
 
     @Test
     void contextLoads() {

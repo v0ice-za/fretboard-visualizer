@@ -2,12 +2,14 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ChordLibrary from './ChordLibrary'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
+import { useSubscriptionStore } from '@/stores/subscriptionStore'
 import { CHORD_NAMES } from '@/data/chords.js'
 
 const byTitle = (name: string) => (n: string) => n === name || n === name + 'Preview'
 
 beforeEach(() => {
   useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE })
+  useSubscriptionStore.setState({ isPremium: false })
 })
 
 describe('ChordLibrary', () => {
@@ -77,5 +79,29 @@ describe('ChordLibrary', () => {
     const lockedBtn = screen.getByRole('option', { name: byTitle(lockedChord) })
     await user.click(lockedBtn)
     expect(onPaywallTrigger).toHaveBeenCalledWith(lockedBtn)
+  })
+
+  describe('when premium', () => {
+    beforeEach(() => {
+      useSubscriptionStore.setState({ isPremium: true })
+    })
+
+    it('renders no locked or preview items — all selectable', () => {
+      render(<ChordLibrary onPaywallTrigger={() => {}} />)
+      expect(screen.queryAllByText('Preview')).toHaveLength(0)
+      screen.getAllByRole('option').forEach((btn) => {
+        expect(btn).not.toHaveAttribute('aria-disabled', 'true')
+      })
+    })
+
+    it('clicking a formerly-locked chord selects it instead of triggering the paywall', async () => {
+      const user = userEvent.setup()
+      const onPaywallTrigger = vi.fn()
+      const formerlyLocked = (CHORD_NAMES as string[])[5]
+      render(<ChordLibrary onPaywallTrigger={onPaywallTrigger} />)
+      await user.click(screen.getByRole('option', { name: byTitle(formerlyLocked) }))
+      expect(useFretboardStore.getState().chordName).toBe(formerlyLocked)
+      expect(onPaywallTrigger).not.toHaveBeenCalled()
+    })
   })
 })

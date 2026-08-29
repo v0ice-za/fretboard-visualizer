@@ -23,15 +23,23 @@ export function LoginModal({ open, onOpenChange }: Props) {
   const setAuth = useAuthStore((s) => s.setAuth);
   const [googleFailed, setGoogleFailed] = useState(false);
 
+  // The Sheet stays mounted across close/reopen, so clear a stale error as part of the close
+  // event itself (not a useEffect — this is a direct response to the user's action, not a
+  // sync-with-external-system concern).
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setGoogleFailed(false);
+    onOpenChange(next);
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="w-full gap-4 p-4 sm:max-w-sm">
         <SheetHeader className="p-0">
           <SheetTitle>Sign in</SheetTitle>
           <SheetDescription>Log in or create an account to save your work.</SheetDescription>
         </SheetHeader>
 
-        <EmailAuthForm onAuthenticated={() => onOpenChange(false)} />
+        <EmailAuthForm onAuthenticated={() => handleOpenChange(false)} />
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="h-px flex-1 bg-border" />
@@ -48,7 +56,7 @@ export function LoginModal({ open, onOpenChange }: Props) {
         <GoogleAuthButton
           onSuccess={(res) => {
             setAuth(res);
-            onOpenChange(false);
+            handleOpenChange(false);
           }}
           onError={() => setGoogleFailed(true)}
         />

@@ -1,11 +1,17 @@
 # Deferred Work
 
+## Deferred from: code review of 3-4-frontend-auth-integration (2026-08-29)
+
+- Google email-link path (`AuthService.loginWithGoogle`, existing-email match) uses an unflushed `save()` with no violation handling, unlike the sibling new-account create path which uses `saveAndFlush` + `DataIntegrityViolationException` → 409. Verified low real risk (no `@Version` on `User`; the realistic concurrent-sign-in race writes an identical `google_id` value to the same row, so it doesn't actually collide) — but tighten for defense-in-depth consistency with the create path when Google OAuth is next touched
+- Google-derived `email`/`name` claims aren't length-validated against the 255-char DB column before insert (unlike the email/password path, which has `@Size(max=255)` on its DTOs) — an oversized value would surface as a misleading `409 GOOGLE_ACCOUNT_CONFLICT` instead of a validation error. Requires a validly-signed Google token with an absurd claim value; not achievable with real Google accounts, low priority
+- `Subscription.user`'s `LazyInitializationException` trap (see 3-1's 2026-06-15 entry below) is now structurally mitigated by this story's `SubscriptionResponseDto` DTO boundary, but only by omission — `SubscriptionResponseDto.from()` happens not to touch `getUser()`. No compile-time or runtime guard prevents a future field addition from reaching through the relation outside a transaction. Worth a structural guard (e.g. `@Transactional` boundary assertion or explicitly not exposing the entity's `user` accessor) when Story 3.5/3.6 next touches this DTO
+- Rate limiter (`RateLimitFilter`) trusted-proxy `X-Forwarded-For` validation is still deferred to Story 3.7 (needs the real Railway proxy topology — how many hops, whether Railway overwrites vs. appends). This review's other rate-limiter items (bounded/evicting bucket map, separate `/auth/refresh` bucket) were resolved as patches, not deferred — see the 3-4 story file's Review Findings section. The XFF-trust piece is the one still-open element of the architecture-sanctioned v1 tradeoff first logged in 3-2's 2026-06-17 entry below
+
 ## Deferred from: code review of 3-2-email-password-auth (2026-06-25, Pass 2)
 
 - `JwtFilter.extractRole` returns null for tokens without a `role` claim; `SimpleGrantedAuthority(null)` throws `IllegalArgumentException` caught by the filter's broad catch block — correct 401 outcome but by coincidence; add an explicit null guard to `extractRole` (similar to `extractTokenVersion`) to make the intent unambiguous
 - Bearer token scheme check is case-sensitive (`startsWith("Bearer ")`) — RFC 6750 §2.1 says the scheme name is case-insensitive; low real-world risk since all standard OAuth2 clients send `Bearer` exactly, but worth fixing if the codebase ever needs strict RFC compliance
 - `AuthController.refresh()` does not set an expired `Set-Cookie` on failure (e.g., stale version, expired token) — the dead refresh cookie persists in the browser until natural expiry (7 days); align with `logout()`'s cookie-clearing pattern when SameSite is fixed in Story 3.4
-- No `AccessDeniedHandler` registered in `SecurityConfig.filterChain()` — once `hasRole("PREMIUM")` restrictions are added in Story 3.5/3.6, authenticated-but-unauthorized requests will receive Spring's default HTML 403 page instead of the `{"error":{...}}` JSON envelope; wire a handler alongside the premium gating work
 
 ## Deferred from: code review of 3-2-email-password-auth (2026-06-17)
 
@@ -36,7 +42,6 @@
 
 ## Deferred from: code review of 2-2-paywallcard-and-subscription-store-stub (2026-05-31)
 
-- `useSubscriptionStore.isPremium` never consulted in ScaleLibrary or LibraryItem — free-tier gating is static slice(0,5); store is a stub with no effect on rendered variants; intentional per story spec, real enforcement in Story 3.6
 - Desktop aside + mobile Sheet carry independent `paywallAnchor` state; viewport resize mid-session while paywall is open loses state silently — edge case out of scope; address if responsive breakpoint-crossing becomes a user complaint
 
 ## Deferred from: code review of 1-9-frontend-ci-cd-and-vercel-deploy (2026-05-28)

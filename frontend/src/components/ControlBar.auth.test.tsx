@@ -4,10 +4,11 @@ import userEvent from '@testing-library/user-event';
 import ControlBar from './ControlBar';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
 import { useLayoutStore } from '@/stores/layoutStore';
-import { useAuthStore, DEFAULT_AUTH } from '@/stores/authStore';
+import { useAuthStore, DEFAULT_AUTH, selectIsAuthenticated } from '@/stores/authStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { queryClient } from '@/lib/queryClient';
 import { apiClient } from '@/lib/apiClient';
+import { subscriptionQueryKey } from '@/hooks/useSubscription';
 
 vi.mock('@/lib/apiClient', () => ({
   apiClient: { post: vi.fn().mockResolvedValue(undefined), get: vi.fn(), del: vi.fn() },
@@ -44,13 +45,13 @@ describe('ControlBar — account/auth', () => {
   });
 
   it('shows the "Account" affordance when authenticated', () => {
-    useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a@b.c', name: null }, isAuthenticated: true });
+    useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a@b.c', name: null } });
     render(<ControlBar />);
     expect(screen.getByLabelText('Account')).toBeInTheDocument();
   });
 
   it('logout clears both stores, removes the subscription query, and calls the endpoint', async () => {
-    useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a@b.c', name: null }, isAuthenticated: true });
+    useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a@b.c', name: null } });
     useSubscriptionStore.setState({ isPremium: true });
     const removeSpy = vi.spyOn(queryClient, 'removeQueries');
     const user = userEvent.setup();
@@ -59,9 +60,9 @@ describe('ControlBar — account/auth', () => {
     await user.click(screen.getByLabelText('Account'));
     await user.click(await screen.findByRole('button', { name: 'Log out' }));
 
-    await waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(false));
+    await waitFor(() => expect(selectIsAuthenticated(useAuthStore.getState())).toBe(false));
     expect(useSubscriptionStore.getState().isPremium).toBe(false);
     expect(apiClient.post).toHaveBeenCalledWith('/auth/logout');
-    expect(removeSpy).toHaveBeenCalledWith({ queryKey: ['subscription'] });
+    expect(removeSpy).toHaveBeenCalledWith({ queryKey: subscriptionQueryKey });
   });
 });

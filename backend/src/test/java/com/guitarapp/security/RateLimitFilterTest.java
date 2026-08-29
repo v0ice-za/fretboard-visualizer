@@ -34,4 +34,26 @@ class RateLimitFilterTest extends WebMockTestBase {
                .andExpect(jsonPath("$.error.code").value("RATE_LIMITED"))
                .andExpect(jsonPath("$.error.status").value(429));
     }
+
+    @Test
+    void refresh_has_its_own_bucket_separate_from_login_register_google() throws Exception {
+        String ip = "203.0.113.201";
+        for (int i = 0; i < 10; i++) {
+            mockMvc.perform(post("/api/v1/auth/login")
+                            .header("X-Forwarded-For", ip)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\"nobody@example.com\",\"password\":\"whatever123\"}"))
+                   .andExpect(status().isUnauthorized());
+        }
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .header("X-Forwarded-For", ip)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"nobody@example.com\",\"password\":\"whatever123\"}"))
+               .andExpect(status().isTooManyRequests());
+
+        // /auth/refresh draws from a separate bucket, so the same IP is not yet limited there —
+        // a silent bootstrap-refresh page load never competes with the login brute-force budget.
+        mockMvc.perform(post("/api/v1/auth/refresh").header("X-Forwarded-For", ip))
+               .andExpect(status().isUnauthorized()); // no cookie -> 401, not 429
+    }
 }

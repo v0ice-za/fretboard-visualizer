@@ -1,8 +1,11 @@
 package com.guitarapp.controller;
 
+import com.guitarapp.model.Subscription;
 import com.guitarapp.model.User;
 import com.guitarapp.security.JwtService;
 import com.guitarapp.support.WebMockTestBase;
+import com.jayway.jsonpath.JsonPath;
+import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -10,9 +13,13 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.emptyString;
@@ -80,6 +87,53 @@ class AuthControllerTest extends WebMockTestBase {
                .andExpect(jsonPath("$.user.name").value("Alice"))
                .andExpect(header().string("Set-Cookie", containsString("refresh_token=")))
                .andExpect(header().string("Set-Cookie", containsString("HttpOnly")));
+    }
+
+    @Test
+    void issued_access_token_carries_premium_role_for_active_subscriber() throws Exception {
+        when(userRepository.existsByEmail("premium@example.com")).thenReturn(false);
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> {
+            User saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+        // The freshly-registered user (id 1) has an effective-ACTIVE subscription row.
+        Subscription active = Subscription.builder().status("ACTIVE")
+                .currentPeriodEnd(OffsetDateTime.now(ZoneOffset.UTC).plusDays(30)).build();
+        when(subscriptionRepository.findByUserId(1L)).thenReturn(Optional.of(active));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .header("X-Forwarded-For", IP)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"premium@example.com\",\"password\":\"password123\"}"))
+               .andExpect(status().isOk())
+               .andReturn();
+
+        String accessToken = JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        Claims claims = jwtService.parseAndValidate(accessToken);
+        assertThat(jwtService.extractRole(claims)).isEqualTo("ROLE_PREMIUM");
+    }
+
+    @Test
+    void issued_access_token_carries_free_role_when_no_subscription() throws Exception {
+        when(userRepository.existsByEmail("free@example.com")).thenReturn(false);
+        when(userRepository.saveAndFlush(any(User.class))).thenAnswer(invocation -> {
+            User saved = invocation.getArgument(0);
+            saved.setId(2L);
+            return saved;
+        });
+        // subscriptionRepository (mock) returns Optional.empty() by default → NONE → ROLE_FREE.
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .header("X-Forwarded-For", IP)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"free@example.com\",\"password\":\"password123\"}"))
+               .andExpect(status().isOk())
+               .andReturn();
+
+        String accessToken = JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        Claims claims = jwtService.parseAndValidate(accessToken);
+        assertThat(jwtService.extractRole(claims)).isEqualTo("ROLE_FREE");
     }
 
     @Test
@@ -234,7 +288,7 @@ class AuthControllerTest extends WebMockTestBase {
         // Access tokens carry no tokenVersion claim; using one as a refresh cookie must
         // map to INVALID_REFRESH_TOKEN, not bubble out as an NPE/500. (Patch 1 regression.)
         User user = existingUser(7L, 0);
-        String accessToken = jwtService.generateAccessToken(user);
+        String accessToken = jwtService.generateAccessToken(user, JwtService.ROLE_FREE);
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .header("X-Forwarded-For", IP)
@@ -279,7 +333,7 @@ class AuthControllerTest extends WebMockTestBase {
         // Access-token-shaped JWT carries no tokenVersion claim — logout must swallow the
         // exception and stay idempotent (204), not surface a 500. (Patch 1 regression.)
         User user = existingUser(11L, 0);
-        String accessToken = jwtService.generateAccessToken(user);
+        String accessToken = jwtService.generateAccessToken(user, JwtService.ROLE_FREE);
 
         mockMvc.perform(post("/api/v1/auth/logout")
                         .header("X-Forwarded-For", IP)

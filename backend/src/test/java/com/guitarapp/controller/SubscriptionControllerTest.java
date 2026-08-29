@@ -32,12 +32,13 @@ class SubscriptionControllerTest extends WebMockTestBase {
     private String tokenForUser(long id) {
         User user = User.builder().email("alice@example.com").name("Alice").tokenVersion(0).build();
         user.setId(id);
-        return jwtService.generateAccessToken(user);
+        return jwtService.generateAccessToken(user, JwtService.ROLE_FREE);
     }
 
     @Test
     void me_activeSubscription_returnsActiveStatusAndPeriodEnd() throws Exception {
-        OffsetDateTime periodEnd = OffsetDateTime.of(2026, 9, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+        // Future period-end (expiry is now evaluated) → effective ACTIVE.
+        OffsetDateTime periodEnd = OffsetDateTime.of(2030, 9, 1, 0, 0, 0, 0, ZoneOffset.UTC);
         Subscription sub = Subscription.builder().status("ACTIVE").currentPeriodEnd(periodEnd).build();
         when(subscriptionRepository.findByUserId(42L)).thenReturn(Optional.of(sub));
 
@@ -45,7 +46,21 @@ class SubscriptionControllerTest extends WebMockTestBase {
                         .header("Authorization", "Bearer " + tokenForUser(42L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.currentPeriodEnd").value("2026-09-01T00:00:00Z"));
+                .andExpect(jsonPath("$.currentPeriodEnd").value("2030-09-01T00:00:00Z"));
+    }
+
+    @Test
+    void me_lapsedActiveSubscription_returnsExpiredButKeepsPeriodEnd() throws Exception {
+        // Stored ACTIVE but the period ended in the past → time-based lapse reports EXPIRED.
+        OffsetDateTime periodEnd = OffsetDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+        Subscription sub = Subscription.builder().status("ACTIVE").currentPeriodEnd(periodEnd).build();
+        when(subscriptionRepository.findByUserId(43L)).thenReturn(Optional.of(sub));
+
+        mockMvc.perform(get("/api/v1/subscriptions/me")
+                        .header("Authorization", "Bearer " + tokenForUser(43L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EXPIRED"))
+                .andExpect(jsonPath("$.currentPeriodEnd").value("2020-01-01T00:00:00Z"));
     }
 
     @Test

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { apiClient, __resetApiClientState } from '@/lib/apiClient';
-import { useAuthStore, DEFAULT_AUTH } from '@/stores/authStore';
+import { useAuthStore, DEFAULT_AUTH, selectIsAuthenticated } from '@/stores/authStore';
 
 const USER = { id: 1, email: 'a@b.c', name: null };
 
@@ -103,7 +103,40 @@ describe('apiClient — 401 refresh + single retry', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(apiClient.get('/x')).rejects.toThrow('UNAUTHORIZED');
-    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    expect(selectIsAuthenticated(useAuthStore.getState())).toBe(false);
     expect(useAuthStore.getState().accessToken).toBeNull();
+  });
+
+  it('does NOT attempt a refresh on a 401 from /auth/login, /auth/register, or /auth/google', async () => {
+    // A stale-but-valid refresh cookie could otherwise silently authenticate the app as a
+    // different, unrelated session while the attempted login still (correctly) fails.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(401, { error: { code: 'INVALID_CREDENTIALS' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    for (const path of ['/auth/login', '/auth/register', '/auth/google']) {
+      fetchMock.mockClear();
+      await expect(apiClient.post(path, {})).rejects.toThrow('INVALID_CREDENTIALS');
+      expect(fetchMock).toHaveBeenCalledTimes(1); // no refresh, no replay
+    }
+  });
+
+  it('a failed login attempt does not adopt a stale session from an unrelated valid refresh cookie', async () => {
+    // Regression: previously, a 401 from /auth/login triggered ensureRefreshed(), and if a
+    // stale-but-valid refresh cookie belonged to a different session, setAuth() would fire
+    // for that other user even though the login attempt itself still failed.
+    const fetchMock = vi.fn((url: string) =>
+      url.endsWith('/auth/refresh')
+        ? Promise.resolve(jsonResponse(200, { accessToken: 'other-users-token', user: USER }))
+        : Promise.resolve(jsonResponse(401, { error: { code: 'INVALID_CREDENTIALS' } })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiClient.post('/auth/login', { email: 'x', password: 'wrong' })).rejects.toThrow(
+      'INVALID_CREDENTIALS',
+    );
+    expect(useAuthStore.getState().accessToken).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

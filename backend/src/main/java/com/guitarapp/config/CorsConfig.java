@@ -20,7 +20,9 @@ public class CorsConfig {
     private final List<String> allowedOrigins;
 
     public CorsConfig(@Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
-        this.allowedOrigins = allowedOrigins;
+        // Trim each entry — a space after a comma in the env var (e.g. "a.com, b.com") would
+        // otherwise leave a leading space that never matches a real Origin header.
+        this.allowedOrigins = allowedOrigins.stream().map(String::trim).toList();
     }
 
     @Bean

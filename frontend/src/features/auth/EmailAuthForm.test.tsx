@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EmailAuthForm } from './EmailAuthForm';
-import { useAuthStore, DEFAULT_AUTH } from '@/stores/authStore';
+import { useAuthStore, DEFAULT_AUTH, selectIsAuthenticated } from '@/stores/authStore';
 import { apiClient } from '@/lib/apiClient';
 
 vi.mock('@/lib/apiClient', () => ({
@@ -55,7 +55,7 @@ describe('EmailAuthForm', () => {
     await user.click(screen.getByRole('button', { name: 'Log in' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Email or password is incorrect.');
-    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    expect(selectIsAuthenticated(useAuthStore.getState())).toBe(false);
   });
 
   it('register mode posts to /auth/register', async () => {

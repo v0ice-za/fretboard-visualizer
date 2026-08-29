@@ -5,8 +5,9 @@ import ModeChipsRow from './components/ModeChipsRow';
 import AppShell from './components/shared/AppShell';
 import { useFretboardStore } from '@/stores/fretboardStore';
 import { useUrlState } from '@/hooks/useUrlState';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscription, subscriptionQueryKey } from '@/hooks/useSubscription';
 import { bootstrapAuth } from '@/lib/apiClient';
+import { queryClient } from '@/lib/queryClient';
 import './App.css';
 
 export default function App() {
@@ -17,6 +18,17 @@ export default function App() {
   // to reauthenticate from the httpOnly cookie without a visible signed-out flash.
   useEffect(() => {
     bootstrapAuth();
+  }, []);
+  // Returning from Stripe Checkout: the webhook updates the subscription row
+  // server-side, so refetch rather than trust any client-side assumption.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkout') === 'success') {
+      queryClient.invalidateQueries({ queryKey: subscriptionQueryKey });
+      params.delete('checkout');
+      const query = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
+    }
   }, []);
 
   return (

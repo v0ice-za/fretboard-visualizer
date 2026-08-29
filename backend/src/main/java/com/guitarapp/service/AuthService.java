@@ -40,13 +40,15 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final SubscriptionService subscriptionService;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
-                       GoogleTokenVerifier googleTokenVerifier) {
+                       GoogleTokenVerifier googleTokenVerifier, SubscriptionService subscriptionService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.googleTokenVerifier = googleTokenVerifier;
+        this.subscriptionService = subscriptionService;
     }
 
     @Transactional
@@ -191,7 +193,14 @@ public class AuthService {
     }
 
     private AuthResult issueTokens(User user) {
-        String accessToken = jwtService.generateAccessToken(user);
+        // Tier is encoded in the access-token role claim from the user's *effective* subscription
+        // status (single source of truth: SubscriptionService). Every flow — register/login/
+        // google/refresh — routes through here, so a token always carries the correct tier at
+        // issue time; a mid-session upgrade takes effect on the next refresh (≤ access-token TTL).
+        String role = subscriptionService.isPremiumActive(user.getId())
+                ? JwtService.ROLE_PREMIUM
+                : JwtService.ROLE_FREE;
+        String accessToken = jwtService.generateAccessToken(user, role);
         String refreshToken = jwtService.generateRefreshToken(user);
         return new AuthResult(new AuthResponseDto(accessToken, UserResponseDto.from(user)), refreshToken);
     }

@@ -6,6 +6,7 @@ import com.guitarapp.dto.AuthResponseDto;
 import com.guitarapp.dto.GoogleAuthRequestDto;
 import com.guitarapp.dto.LoginRequestDto;
 import com.guitarapp.dto.RegisterRequestDto;
+import com.guitarapp.exception.AuthException;
 import com.guitarapp.service.AuthService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -59,9 +60,11 @@ public class AuthController {
             HttpServletResponse response) {
         try {
             return tokenResponse(authService.refresh(refreshToken));
-        } catch (RuntimeException ex) {
+        } catch (AuthException ex) {
             // Kill the dead/invalid refresh cookie (aligns with logout) instead of leaving
             // it to linger its full TTL; the GlobalExceptionHandler still writes the envelope.
+            // Scoped to AuthException (not RuntimeException) so a transient/unrelated failure
+            // (e.g. a DB blip) doesn't force an unnecessary re-login.
             response.addHeader(HttpHeaders.SET_COOKIE, expiredRefreshCookie().toString());
             throw ex;
         }

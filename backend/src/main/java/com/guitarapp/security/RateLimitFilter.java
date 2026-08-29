@@ -16,20 +16,36 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Per-IP token-bucket rate limiter (10 requests/min) for {@code /api/v1/auth/*}.
- * In-memory only (a {@link ConcurrentHashMap} of buckets) — no Redis, per architecture.
- * Other endpoints are stateless and unlimited (see {@link #shouldNotFilter}).
+ * Per-IP token-bucket rate limiter for {@code /api/v1/auth/*}. Login/register/Google share a
+ * tight bucket (brute-force protection); {@code /auth/refresh} gets its own, more generous
+ * bucket so routine session-restore traffic (e.g. the silent bootstrap refresh on page load)
+ * doesn't compete with that budget. In-memory only (a {@link ConcurrentHashMap} of buckets,
+ * opportunistically swept of idle entries) — no Redis, per architecture.
+ *
+ * <p>Trusts the first {@code X-Forwarded-For} hop with no trusted-proxy validation — a known,
+ * architecture-sanctioned v1 gap (spoofable without knowing the real deploy proxy topology);
+ * hardening that is deferred to Story 3.7, once Railway's actual topology is known.
  */
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final String AUTH_PATH_PREFIX = "/api/v1/auth";
-    private static final int CAPACITY = 10;
+    private static final String REFRESH_PATH = "/api/v1/auth/refresh";
+
+    private static final int AUTH_CAPACITY = 10;
+    private static final int REFRESH_CAPACITY = 30;
     private static final Duration WINDOW = Duration.ofMinutes(1);
 
+    /** Buckets idle longer than this are evicted so the map doesn't grow unbounded. */
+    private static final Duration IDLE_EVICTION = Duration.ofMinutes(10);
+    /** Sweep opportunistically rather than on every request or via a background thread. */
+    private static final long SWEEP_EVERY_N_REQUESTS = 500;
+
     private final ErrorResponseWriter errorResponseWriter;
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final Map<String, BucketEntry> buckets = new ConcurrentHashMap<>();
+    private final AtomicLong requestCounter = new AtomicLong();
 
     public RateLimitFilter(ErrorResponseWriter errorResponseWriter) {
         this.errorResponseWriter = errorResponseWriter;
@@ -44,8 +60,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
-        Bucket bucket = buckets.computeIfAbsent(clientIp(request), ip -> newBucket());
-        if (bucket.tryConsume(1)) {
+        sweepIfDue();
+        String uri = request.getRequestURI();
+        BucketEntry entry = buckets.compute(bucketKey(request, uri), (key, existing) -> {
+            if (existing != null) {
+                existing.touch();
+                return existing;
+            }
+            return new BucketEntry(newBucket(uri));
+        });
+        if (entry.bucket.tryConsume(1)) {
             filterChain.doFilter(request, response);
         } else {
             errorResponseWriter.write(response, "RATE_LIMITED",
@@ -53,10 +77,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
     }
 
-    private Bucket newBucket() {
+    /** `/auth/refresh` is keyed separately so it draws from its own, more generous bucket. */
+    private String bucketKey(HttpServletRequest request, String uri) {
+        String group = REFRESH_PATH.equals(uri) ? "refresh" : "auth";
+        return clientIp(request) + ':' + group;
+    }
+
+    private Bucket newBucket(String uri) {
+        int capacity = REFRESH_PATH.equals(uri) ? REFRESH_CAPACITY : AUTH_CAPACITY;
         Bandwidth limit = Bandwidth.builder()
-                .capacity(CAPACITY)
-                .refillGreedy(CAPACITY, WINDOW)
+                .capacity(capacity)
+                .refillGreedy(capacity, WINDOW)
                 .build();
         return Bucket.builder().addLimit(limit).build();
     }
@@ -68,5 +99,31 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return forwarded.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    /**
+     * Opportunistically (not on every request, no background thread) evicts buckets idle
+     * longer than {@link #IDLE_EVICTION} — bounds map growth without a new dependency.
+     */
+    private void sweepIfDue() {
+        if (requestCounter.incrementAndGet() % SWEEP_EVERY_N_REQUESTS != 0) {
+            return;
+        }
+        long cutoff = System.currentTimeMillis() - IDLE_EVICTION.toMillis();
+        buckets.entrySet().removeIf(e -> e.getValue().lastAccessMillis < cutoff);
+    }
+
+    private static final class BucketEntry {
+        private final Bucket bucket;
+        private volatile long lastAccessMillis;
+
+        BucketEntry(Bucket bucket) {
+            this.bucket = bucket;
+            this.lastAccessMillis = System.currentTimeMillis();
+        }
+
+        void touch() {
+            lastAccessMillis = System.currentTimeMillis();
+        }
     }
 }

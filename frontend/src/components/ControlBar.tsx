@@ -5,11 +5,12 @@ import { SCALES, SCALE_NAMES, SCALE_CATEGORIES } from '@/data/scales.js';
 import { FREE_TUNINGS } from '@/data/freeTunings';
 import { useFretboardStore } from '@/stores/fretboardStore';
 import { useLayoutStore } from '@/stores/layoutStore';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, selectIsAuthenticated } from '@/stores/authStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { apiClient } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
 import { LoginModal } from '@/features/auth/LoginModal';
+import { subscriptionQueryKey } from '@/hooks/useSubscription';
 import {
   Select,
   SelectContent,
@@ -40,10 +41,12 @@ export default function ControlBar() {
   } = useFretboardStore();
   const { activeLayout, setLayout } = useLayoutStore();
   const { sidePanel } = activeLayout;
+  const loginOpen = useLayoutStore((s) => s.loginModalOpen);
+  const openLoginModal = useLayoutStore((s) => s.openLoginModal);
+  const closeLoginModal = useLayoutStore((s) => s.closeLoginModal);
 
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const user = useAuthStore((s) => s.user);
-  const [loginOpen, setLoginOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -54,7 +57,7 @@ export default function ControlBar() {
     }
     useAuthStore.getState().clearAuth();
     useSubscriptionStore.getState().setIsPremium(false);
-    queryClient.removeQueries({ queryKey: ['subscription'] });
+    queryClient.removeQueries({ queryKey: subscriptionQueryKey });
     setAccountOpen(false);
   };
 
@@ -182,14 +185,14 @@ export default function ControlBar() {
           }`}
           title={isAuthenticated ? 'Account' : 'Sign in'}
           aria-label={isAuthenticated ? 'Account' : 'Sign in'}
-          onClick={() => (isAuthenticated ? setAccountOpen(true) : setLoginOpen(true))}
+          onClick={() => (isAuthenticated ? setAccountOpen(true) : openLoginModal())}
         >
           <User size={16} />
         </button>
       </div>
 
       {/* Auth overlay (unauthenticated) */}
-      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
+      <LoginModal open={loginOpen} onOpenChange={(open) => (open ? openLoginModal() : closeLoginModal())} />
 
       {/* Account menu (authenticated) */}
       <Sheet open={accountOpen} onOpenChange={setAccountOpen}>

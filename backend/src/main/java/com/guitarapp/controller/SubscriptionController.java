@@ -1,6 +1,7 @@
 package com.guitarapp.controller;
 
 import com.guitarapp.dto.SubscriptionResponseDto;
+import com.guitarapp.security.AuthenticatedUser;
 import com.guitarapp.service.SubscriptionService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +24,6 @@ public class SubscriptionController {
 
     @GetMapping("/me")
     public SubscriptionResponseDto me(Authentication authentication) {
-        Long userId = (Long) authentication.getPrincipal();
-        return subscriptionService.getForUser(userId);
+        return subscriptionService.getForUser(AuthenticatedUser.id(authentication));
     }
 }

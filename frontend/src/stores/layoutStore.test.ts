@@ -21,4 +21,19 @@ describe('layoutStore', () => {
     expect(useLayoutStore.getState().activeLayout.modeRow).toBe(true)
     expect(useLayoutStore.getState().activeLayout.topBar).toBe(true)
   })
+
+  it('loginModalOpen defaults to false', () => {
+    expect(useLayoutStore.getState().loginModalOpen).toBe(false)
+  })
+
+  it('openLoginModal sets loginModalOpen true', () => {
+    useLayoutStore.getState().openLoginModal()
+    expect(useLayoutStore.getState().loginModalOpen).toBe(true)
+  })
+
+  it('closeLoginModal sets loginModalOpen false', () => {
+    useLayoutStore.setState({ loginModalOpen: true })
+    useLayoutStore.getState().closeLoginModal()
+    expect(useLayoutStore.getState().loginModalOpen).toBe(false)
+  })
 })

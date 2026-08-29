@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -40,6 +41,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of("VALIDATION_ERROR", "Malformed or unreadable request body.",
                         HttpStatus.BAD_REQUEST.value()));
+    }
+
+    /**
+     * A {@code @PreAuthorize} denial (e.g. {@code hasRole('PREMIUM')}) throws at the method level,
+     * inside the DispatcherServlet — so it bypasses the security filter chain's access-denied
+     * handler and lands here instead. Render the same {@code FORBIDDEN}/403 envelope.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of("FORBIDDEN", "You do not have access to this resource.",
+                        HttpStatus.FORBIDDEN.value()));
     }
 
     @ExceptionHandler(Exception.class)

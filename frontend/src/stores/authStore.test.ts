@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useAuthStore, DEFAULT_AUTH } from '@/stores/authStore';
+import { useAuthStore, DEFAULT_AUTH, selectIsAuthenticated } from '@/stores/authStore';
 
 beforeEach(() => {
   useAuthStore.setState({ ...DEFAULT_AUTH });
@@ -10,7 +10,7 @@ describe('authStore', () => {
     const s = useAuthStore.getState();
     expect(s.accessToken).toBeNull();
     expect(s.user).toBeNull();
-    expect(s.isAuthenticated).toBe(false);
+    expect(selectIsAuthenticated(s)).toBe(false);
   });
 
   it('setAuth stores token + user and derives isAuthenticated true', () => {
@@ -18,7 +18,7 @@ describe('authStore', () => {
     const s = useAuthStore.getState();
     expect(s.accessToken).toBe('t');
     expect(s.user?.email).toBe('a@b.c');
-    expect(s.isAuthenticated).toBe(true);
+    expect(selectIsAuthenticated(s)).toBe(true);
   });
 
   it('clearAuth resets everything to unauthenticated', () => {
@@ -27,6 +27,11 @@ describe('authStore', () => {
     const s = useAuthStore.getState();
     expect(s.accessToken).toBeNull();
     expect(s.user).toBeNull();
-    expect(s.isAuthenticated).toBe(false);
+    expect(selectIsAuthenticated(s)).toBe(false);
+  });
+
+  it('selectIsAuthenticated is derived from accessToken alone, not a separate field', () => {
+    expect(selectIsAuthenticated({ accessToken: 'anything' })).toBe(true);
+    expect(selectIsAuthenticated({ accessToken: null })).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ package com.guitarapp.controller;
 import com.guitarapp.dto.UserResponseDto;
 import com.guitarapp.exception.AuthException;
 import com.guitarapp.repository.UserRepository;
+import com.guitarapp.security.AuthenticatedUser;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,8 +25,7 @@ public class UserController {
      */
     @GetMapping("/me")
     public UserResponseDto me(Authentication authentication) {
-        Long userId = (Long) authentication.getPrincipal();
-        return userRepository.findById(userId)
+        return userRepository.findById(AuthenticatedUser.id(authentication))
                 .map(UserResponseDto::from)
                 .orElseThrow(AuthException::unauthorized);
     }

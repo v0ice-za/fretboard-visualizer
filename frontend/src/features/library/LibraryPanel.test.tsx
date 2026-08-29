@@ -1,9 +1,20 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import LibraryPanel from './LibraryPanel'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useSubscriptionStore } from '@/stores/subscriptionStore'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
+
+// PaywallCard (rendered by LibraryPanel) uses a TanStack Query mutation for checkout.
+function renderPanel() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  return render(
+    <QueryClientProvider client={qc}>
+      <LibraryPanel />
+    </QueryClientProvider>,
+  )
+}
 
 // base-ui uses ResizeObserver internally — polyfill for jsdom
 ;(globalThis as Record<string, unknown>).ResizeObserver = class {
@@ -29,19 +40,19 @@ beforeEach(() => {
 describe('LibraryPanel — desktop aside', () => {
   it('renders <aside> when sidePanel is true', () => {
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
-    const { container } = render(<LibraryPanel />)
+    const { container } = renderPanel()
     expect(container.querySelector('aside[aria-label="Library panel"]')).toBeInTheDocument()
   })
 
   it('does not render <aside> when sidePanel is false', () => {
-    const { container } = render(<LibraryPanel />)
+    const { container } = renderPanel()
     expect(container.querySelector('aside[aria-label="Library panel"]')).not.toBeInTheDocument()
   })
 
   it('close button calls setLayout({ sidePanel: false })', async () => {
     const user = userEvent.setup()
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
-    const { container } = render(<LibraryPanel />)
+    const { container } = renderPanel()
     const closeBtn = container.querySelector('button[aria-label="Close library panel"]') as HTMLElement
     await user.click(closeBtn)
     expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(false)
@@ -49,7 +60,7 @@ describe('LibraryPanel — desktop aside', () => {
 
   it('"Scale Library" tab is active by default', () => {
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
-    const { container } = render(<LibraryPanel />)
+    const { container } = renderPanel()
     const aside = container.querySelector('aside')!
     const scaleTab = aside.querySelector('button[role="tab"][aria-selected="true"]')
     expect(scaleTab).toHaveTextContent('Scale Library')
@@ -58,7 +69,7 @@ describe('LibraryPanel — desktop aside', () => {
   it('clicking "Chord Library" tab switches active tab', async () => {
     const user = userEvent.setup()
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
-    const { container } = render(<LibraryPanel />)
+    const { container } = renderPanel()
     const aside = container.querySelector('aside')!
     const chordTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
       (el) => el.textContent === 'Chord Library'
@@ -70,7 +81,7 @@ describe('LibraryPanel — desktop aside', () => {
   it('clicking locked LibraryItem shows PaywallCard', async () => {
     const user = userEvent.setup()
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
-    const { container } = render(<LibraryPanel />)
+    const { container } = renderPanel()
     const aside = container.querySelector('aside')!
     const lockedBtn = aside.querySelector('button[aria-disabled="true"]') as HTMLElement
     await user.click(lockedBtn)
@@ -80,7 +91,7 @@ describe('LibraryPanel — desktop aside', () => {
   it('switching tabs closes PaywallCard', async () => {
     const user = userEvent.setup()
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
-    const { container } = render(<LibraryPanel />)
+    const { container } = renderPanel()
     const aside = container.querySelector('aside')!
     const lockedBtn = aside.querySelector('button[aria-disabled="true"]') as HTMLElement
     await user.click(lockedBtn)
@@ -109,12 +120,12 @@ describe('LibraryPanel — mobile Sheet', () => {
 
   it('Sheet open prop is true when sidePanel is true', () => {
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
-    render(<LibraryPanel />)
+    renderPanel()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('Sheet is not rendered when sidePanel is false', () => {
-    render(<LibraryPanel />)
+    renderPanel()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

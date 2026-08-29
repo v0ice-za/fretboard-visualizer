@@ -1,6 +1,6 @@
 # Story 3.4: Frontend Auth Integration
 
-Status: review
+Status: done
 
 ## Dev Context
 
@@ -99,6 +99,43 @@ so that **I have a real identity and my premium tier is driven by the server, no
 - [x] **Task 13: Runtime validation (manual gate — AC: 1–7) — ACCEPTED**
   - [x] Ran a live local stack (Dockerized Postgres 16 → backend :8080, Flyway V1–V4 applied, no new migration → `pnpm dev` :5173). **HTTP contracts validated via curl against the real backend**: register 200 + `SameSite=Lax; HttpOnly` (no Secure) cookie; `/subscriptions/me` → `NONE` authed and `UNAUTHORIZED` 401 unauthed; refresh rotates; login 200; bad login `INVALID_CREDENTIALS`; duplicate register `EMAIL_ALREADY_EXISTS`; logout 204 + expired cookie; **refresh-after-logout 401 + expired cookie** (Task 11 deferred item); Vite dev proxy forwards `/api` :5173→:8080 with the cookie riding along (same-origin dev). **UI click-through validated by Voice** (Sign-in Sheet, form submit, account menu identity, logout, bootstrap refresh on reload) — functionality confirmed working. **Gate accepted.**
   - [x] Google OAuth real sign-in remains the one deferred piece (booted with a dummy `GOOGLE_CLIENT_ID`; real login needs Voice's client ID + Google account — carries the still-open **3.3 Task 9** OAuth runtime check).
+
+### Review Findings
+
+_Multi-layer adversarial review (Blind Hunter + Edge Case Hunter + Acceptance Auditor) of the bundled 3.2/3.3/3.4 diff on `feat/epic-3-auth`, run 2026-08-29 on Sonnet 5. Findings below are cross-verified against the actual code (not taken from raw subagent output) — a dramatic CORS-preflight claim from the Blind Hunter layer was checked and disproven (live curl + the existing `SubscriptionControllerTest#preflight_returnsCorsAllowHeaders` both confirm `OPTIONS` preflight returns 200 with correct `Access-Control-Allow-*` headers; Spring Security's `CorsFilter` short-circuits before the authorization chain, which is standard behavior)._
+
+**Decision needed:** _resolved by Voice — see below, both now patch items (plus one deferred piece)._
+
+- [x] [Review][Decision] Rate limiter trusts the first `X-Forwarded-For` hop unconditionally, and its bucket map never evicts — **resolved: bound the map now (eviction), defer the trusted-proxy XFF-trust fix to Story 3.7** (needs real Railway topology)
+- [x] [Review][Decision] Silent bootstrap refresh (Q3) shares the same 10-req/min auth rate-limit bucket as login/register — **resolved: give `/auth/refresh` its own, separate, more generous rate-limit bucket**
+
+**Patch (unambiguous fixes):**
+
+- [x] [Review][Patch] `RateLimitFilter.buckets` never evicts — bound it with an expiring/bounded cache [backend/src/main/java/com/guitarapp/security/RateLimitFilter.java:32] — fixed: opportunistic idle-eviction sweep, no new dependency
+- [x] [Review][Patch] `/auth/refresh` shares the login/register rate-limit bucket — give it a separate, more generous bucket [backend/src/main/java/com/guitarapp/security/RateLimitFilter.java] — fixed: refresh now keyed into its own 30/min bucket vs. 10/min for login/register/google
+
+- [x] [Review][Patch] Failed login/register/Google attempt can silently authenticate as a stale session's user [frontend/src/lib/apiClient.ts:90] — fixed: `/auth/login`, `/auth/register`, `/auth/google` excluded from the 401 refresh-and-retry path
+- [x] [Review][Patch] `AuthController.refresh()` clears the refresh cookie on any `RuntimeException`, not just an invalid refresh token [backend/src/main/java/com/guitarapp/controller/AuthController.java:60-66] — fixed: catch narrowed to `AuthException`
+- [x] [Review][Patch] `apiClient`'s raw `fetch()` calls aren't wrapped in try/catch, so network failures bypass the structured `ApiError` flow and a comment is misleading [frontend/src/lib/apiClient.ts:61-64,82-87,94] — fixed: `rawFetch()` normalizes to a `NETWORK_ERROR` code; comment corrected
+- [x] [Review][Patch] `CorsConfig` doesn't trim whitespace in comma-separated allowed-origins [backend/src/main/java/com/guitarapp/config/CorsConfig.java] — fixed: `.map(String::trim)`
+- [x] [Review][Patch] No cross-validation between `CookieProperties.sameSite` and `.secure` — `SameSite=None` without `Secure` silently breaks the prod refresh cookie [backend/src/main/java/com/guitarapp/config/CookieProperties.java] — fixed: compact constructor fails fast
+- [x] [Review][Patch] `useSubscription` doesn't handle a fetch error while authenticated — `isPremium` can go stale instead of a defined fallback [frontend/src/hooks/useSubscription.ts:31-37] — fixed: `query.isError` now falls back to `false`
+- [x] [Review][Patch] `EmailAuthForm` has no `isPending` guard in `onSubmit` — rapid double-Enter can fire two concurrent mutations [frontend/src/features/auth/EmailAuthForm.tsx] — fixed
+- [x] [Review][Patch] `LoginModal` keeps a stale "Google sign-in failed" message across close/reopen [frontend/src/features/auth/LoginModal.tsx] — fixed: reset moved into the close handler (not a `useEffect`, per the project's `react-hooks/set-state-in-effect` lint rule)
+- [x] [Review][Patch] `GoogleTokenVerifierImpl` can throw an unhandled `ClassCastException` if a token's `name` claim isn't a string (catch scope is also broader than needed) [backend/src/main/java/com/guitarapp/security/GoogleTokenVerifierImpl.java:54] — fixed: safe `instanceof` cast + catch narrowed to just the `verify()` call
+- [x] [Review][Patch] `ControlBar` logout hardcodes the subscription query-key literal instead of importing the exported `subscriptionQueryKey` [frontend/src/components/ControlBar.tsx:57] — fixed
+- [x] [Review][Patch] `authStore.isAuthenticated` is stored, not derived from `accessToken` as AC2 literally specifies [frontend/src/stores/authStore.ts] — fixed: removed as stored state, replaced with a `selectIsAuthenticated` selector; all consumers + tests updated
+- [x] [Review][Patch] BCrypt 72-byte truncation is validated by character count (`@Size`), not UTF-8 byte length [backend/src/main/java/com/guitarapp/dto/RegisterRequestDto.java:12, LoginRequestDto.java:8] — fixed: new `@ValidBcryptLength` constraint checks UTF-8 byte length
+
+**Deferred (pre-existing, not blocking):**
+
+- [x] [Review][Defer] Google email-link path uses an unflushed `save()` with no violation handling, unlike the sibling create path [backend/src/main/java/com/guitarapp/service/AuthService.java:114-121] — deferred, pre-existing; verified low real risk (no `@Version` on `User`, and the realistic race writes an identical value to the same row, so it doesn't actually collide as claimed)
+- [x] [Review][Defer] Google-derived email/name isn't validated against the 255-char DB column before insert, so an oversized value would surface as a misleading `409 GOOGLE_ACCOUNT_CONFLICT` [backend/src/main/java/com/guitarapp/service/AuthService.java:127-136] — deferred, pre-existing; requires a validly-signed Google token with an absurd claim value, not achievable with real Google accounts
+- [x] [Review][Defer] JWT signing secret has a checked-in dev-only default with no fail-fast guard against prod misuse [backend/src/main/resources/application.yml] — deferred, pre-existing; **already tracked** in `deferred-work.md` (code review of 3-2, 2026-06-17) as a Story 3.7 item, reconfirmed here, no new entry added
+- [x] [Review][Defer] `SubscriptionController.me()` and `UserController.me()` duplicate an unchecked `(Long)` principal cast [backend/src/main/java/com/guitarapp/controller/SubscriptionController.java, UserController.java] — deferred, pre-existing pattern; intentional mirror per story dev notes, candidate for a shared helper in a future story
+- [x] [Review][Defer] `Subscription.user`'s lazy-loading trap has no structural guard against a future field reaching through it (currently safe only because `SubscriptionResponseDto.from()` doesn't touch `getUser()`) [backend/src/main/java/com/guitarapp/dto/SubscriptionResponseDto.java] — deferred; **evolves an already-tracked item** (code review of 3-1, 2026-06-15, "enforce a DTO boundary before returning subscriptions — Story 3.2"): this story's `SubscriptionResponseDto` now delivers that DTO boundary, so the original concern is largely addressed — the residual risk is structural (omission, not enforcement), tracked forward to 3.5/3.6
+
+**Dismissed (3):** CORS preflight blocked by `.anyRequest().authenticated()` (Blind Hunter) — verified false, see note above; undocumented `.formLogin(AbstractHttpConfigurer::disable)` in `SecurityConfig` (Blind Hunter) — pre-existing from before this session, harmless by the reviewer's own assessment; backend validation messages discarded by the frontend's `messageFor()` (Blind Hunter) — by design, matches the project's `error.code`-driven UX-copy convention.
 
 ## Dev Notes
 
@@ -245,14 +282,41 @@ Validation (automated): frontend `type-check` ✓, `lint` ✓, **192 Vitest test
 
 **Backend — modified**
 - `backend/src/main/java/com/guitarapp/security/SecurityConfig.java` (`.cors(...)`)
-- `backend/src/main/java/com/guitarapp/controller/AuthController.java` (profile-driven cookie; expired cookie on refresh failure)
+- `backend/src/main/java/com/guitarapp/controller/AuthController.java` (profile-driven cookie; expired cookie on refresh failure; review: catch narrowed to `AuthException`)
 - `backend/src/main/resources/application.yml` (`app.cors.*`, `app.cookie.*`)
 - `backend/src/test/java/com/guitarapp/support/WebMockTestBase.java` (`@MockitoBean SubscriptionRepository`)
 - `backend/src/test/java/com/guitarapp/GuitarAppApplicationTests.java` (`@MockitoBean SubscriptionRepository`)
 
 _(Note: `model/Subscription.java` already existed from prior work — not created here.)_
 
+**Code review pass (2026-08-29) — new**
+- `backend/src/main/java/com/guitarapp/dto/validation/ValidBcryptLength.java`
+- `backend/src/main/java/com/guitarapp/dto/validation/BcryptLengthValidator.java`
+- `backend/src/test/java/com/guitarapp/config/CookiePropertiesTest.java`
+- `backend/src/test/java/com/guitarapp/config/CorsConfigTest.java`
+
+**Code review pass (2026-08-29) — modified**
+- `frontend/src/lib/apiClient.ts` (excluded `/auth/{login,register,google}` from 401 refresh-retry; wrapped `fetch` calls, added `NETWORK_ERROR` code)
+- `frontend/src/lib/apiClient.test.ts` (2 new regression tests for the refresh-retry exclusion)
+- `frontend/src/stores/authStore.ts` (`isAuthenticated` removed as stored state; added `selectIsAuthenticated` selector)
+- `frontend/src/stores/authStore.test.ts`
+- `frontend/src/hooks/useSubscription.ts` (handle `query.isError`)
+- `frontend/src/hooks/useSubscription.test.tsx`
+- `frontend/src/components/ControlBar.tsx` (use `selectIsAuthenticated`; use exported `subscriptionQueryKey`)
+- `frontend/src/components/ControlBar.auth.test.tsx`
+- `frontend/src/features/auth/EmailAuthForm.tsx` (`isPending` guard in `onSubmit`)
+- `frontend/src/features/auth/EmailAuthForm.test.tsx`
+- `frontend/src/features/auth/LoginModal.tsx` (reset `googleFailed` in the close handler)
+- `backend/src/main/java/com/guitarapp/config/CorsConfig.java` (trim allowed-origins)
+- `backend/src/main/java/com/guitarapp/config/CookieProperties.java` (fail-fast `SameSite=None` without `Secure`)
+- `backend/src/main/java/com/guitarapp/security/GoogleTokenVerifierImpl.java` (safe `name`-claim cast; narrowed catch scope)
+- `backend/src/test/java/com/guitarapp/security/GoogleTokenVerifierImplTest.java` (1 new test)
+- `backend/src/main/java/com/guitarapp/security/RateLimitFilter.java` (separate `/auth/refresh` bucket; idle-eviction sweep)
+- `backend/src/test/java/com/guitarapp/security/RateLimitFilterTest.java` (1 new test)
+- `backend/src/main/java/com/guitarapp/dto/RegisterRequestDto.java`, `LoginRequestDto.java` (`@ValidBcryptLength`)
+
 ### Change Log
 
 - 2026-08-29 — Story 3.4 implemented (Tasks 1–12). Frontend auth (apiClient, authStore, TanStack Query, Sheet-based LoginModal/EmailAuthForm, account menu + logout, silent bootstrap refresh) + backend slice (`GET /subscriptions/me`, credentialed CORS, profile-driven refresh cookie, Vite dev proxy). 192 frontend + 47 backend tests green.
 - 2026-08-29 — Task 13 runtime gate **accepted**: live local stack (Docker Postgres + backend + Vite) validated all auth HTTP contracts via curl; UI click-through confirmed by Voice. Google real sign-in deferred (dummy client ID; carries 3.3 Task 9). Story ready for code review.
+- 2026-08-29 — Code review (Sonnet 5, bundled 3.2/3.3/3.4 diff on `feat/epic-3-auth`): 3-layer adversarial review (Blind Hunter, Edge Case Hunter, Acceptance Auditor), all findings cross-verified against actual code and the live running stack. 1 dramatic false-positive disproven (CORS preflight). 14 patches applied (most severe: `apiClient` could silently authenticate a failed login attempt as a different, stale session's user). 2 decision-needed items resolved by Voice (bounded rate-limit map + separate `/auth/refresh` bucket). 5 pre-existing items deferred (2 newly logged, 2 reconfirm/evolve already-tracked entries, 1 duplication note). 3 findings dismissed as noise. Post-patch: 195 frontend tests + 54 backend tests green, type-check/lint clean, live stack re-verified via curl.

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ScaleLibrary from './ScaleLibrary'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
+import { useSubscriptionStore } from '@/stores/subscriptionStore'
 import { SCALE_NAMES } from '@/data/scales.js'
 
 // accessible name is either exactly the scale name (active/locked) or "<name>Preview" (preview badge appended)
@@ -9,6 +10,7 @@ const byTitle = (name: string) => (n: string) => n === name || n === name + 'Pre
 
 beforeEach(() => {
   useFretboardStore.setState({ scaleName: DEFAULT_FRETBOARD_STATE.scaleName })
+  useSubscriptionStore.setState({ isPremium: false })
 })
 
 describe('ScaleLibrary', () => {
@@ -72,5 +74,29 @@ describe('ScaleLibrary', () => {
     const lockedBtn = screen.getByRole('option', { name: byTitle(lockedScale) })
     await user.click(lockedBtn)
     expect(onPaywallTrigger).toHaveBeenCalledWith(lockedBtn)
+  })
+
+  describe('when premium', () => {
+    beforeEach(() => {
+      useSubscriptionStore.setState({ isPremium: true })
+    })
+
+    it('renders no locked or preview items — all selectable', () => {
+      render(<ScaleLibrary onPaywallTrigger={() => {}} />)
+      expect(screen.queryAllByText('Preview')).toHaveLength(0)
+      screen.getAllByRole('option').forEach((btn) => {
+        expect(btn).not.toHaveAttribute('aria-disabled', 'true')
+      })
+    })
+
+    it('clicking a formerly-locked scale selects it instead of triggering the paywall', async () => {
+      const user = userEvent.setup()
+      const onPaywallTrigger = vi.fn()
+      const formerlyLocked = (SCALE_NAMES as string[])[5]
+      render(<ScaleLibrary onPaywallTrigger={onPaywallTrigger} />)
+      await user.click(screen.getByRole('option', { name: byTitle(formerlyLocked) }))
+      expect(useFretboardStore.getState().scaleName).toBe(formerlyLocked)
+      expect(onPaywallTrigger).not.toHaveBeenCalled()
+    })
   })
 })

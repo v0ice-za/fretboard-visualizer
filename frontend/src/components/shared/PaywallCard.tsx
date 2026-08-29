@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
 import {
   useFloating,
   useDismiss,
@@ -12,6 +13,10 @@ import {
   autoUpdate,
 } from '@floating-ui/react'
 import { Button } from '@/components/ui/button'
+import { apiClient } from '@/lib/apiClient'
+import { useAuthStore, selectIsAuthenticated } from '@/stores/authStore'
+import { useLayoutStore } from '@/stores/layoutStore'
+import type { CheckoutSessionResponseDto } from '@/types/api'
 
 interface PaywallCardProps {
   open: boolean
@@ -27,6 +32,25 @@ const BENEFITS = [
 ]
 
 function CardBody({ onClose }: { onClose: () => void }) {
+  const isAuthenticated = useAuthStore(selectIsAuthenticated)
+  const openLoginModal = useLayoutStore((s) => s.openLoginModal)
+
+  const checkout = useMutation({
+    mutationFn: () => apiClient.post<CheckoutSessionResponseDto>('/checkout/session'),
+    onSuccess: (data) => {
+      window.location.href = data.url
+    },
+  })
+
+  const handleUpgrade = () => {
+    if (!isAuthenticated) {
+      openLoginModal()
+      onClose()
+      return
+    }
+    checkout.mutate()
+  }
+
   return (
     <>
       <div className="flex items-start justify-between mb-2">
@@ -48,12 +72,18 @@ function CardBody({ onClose }: { onClose: () => void }) {
         ))}
       </ul>
       <p className="text-xs text-slate-500 mb-3">$12/yr</p>
+      {checkout.isError && (
+        <p role="alert" className="text-xs text-destructive mb-2">
+          Something went wrong — please try again.
+        </p>
+      )}
       <Button
         size="sm"
         className="w-full"
-        onClick={() => console.log('Upgrade clicked — wired in Story 3.5')}
+        disabled={checkout.isPending}
+        onClick={handleUpgrade}
       >
-        Upgrade
+        {checkout.isPending ? 'Redirecting…' : 'Upgrade'}
       </Button>
     </>
   )

@@ -27,7 +27,7 @@ beforeEach(() => {
 describe('useSubscription', () => {
   it('maps status ACTIVE to isPremium true when authenticated', async () => {
     get.mockResolvedValue({ status: 'ACTIVE', currentPeriodEnd: null });
-    useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a', name: null }, isAuthenticated: true });
+    useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a', name: null } });
 
     renderHook(() => useSubscription(), { wrapper });
 
@@ -37,7 +37,7 @@ describe('useSubscription', () => {
 
   it('maps a non-ACTIVE status to isPremium false', async () => {
     get.mockResolvedValue({ status: 'NONE', currentPeriodEnd: null });
-    useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a', name: null }, isAuthenticated: true });
+    useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a', name: null } });
     useSubscriptionStore.setState({ isPremium: true });
 
     renderHook(() => useSubscription(), { wrapper });

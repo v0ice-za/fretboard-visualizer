@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -14,18 +15,23 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+// Enables @PreAuthorize on controller methods — without it the annotations are silently ignored.
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtService jwtService;
     private final ErrorResponseWriter errorResponseWriter;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
+    private final RestAccessDeniedHandler accessDeniedHandler;
 
     public SecurityConfig(JwtService jwtService,
                           ErrorResponseWriter errorResponseWriter,
-                          RestAuthenticationEntryPoint authenticationEntryPoint) {
+                          RestAuthenticationEntryPoint authenticationEntryPoint,
+                          RestAccessDeniedHandler accessDeniedHandler) {
         this.jwtService = jwtService;
         this.errorResponseWriter = errorResponseWriter;
         this.authenticationEntryPoint = authenticationEntryPoint;
+        this.accessDeniedHandler = accessDeniedHandler;
     }
 
     @Bean
@@ -52,9 +58,14 @@ public class SecurityConfig {
                     "/api/v1/auth/refresh",
                     "/api/v1/auth/logout").permitAll()
                 .requestMatchers("/api/v1/health").permitAll()
+                // No JWT from Stripe — the Stripe-Signature header (verified against the raw
+                // body in StripeWebhookHandler) is the trust boundary for this endpoint.
+                .requestMatchers(HttpMethod.POST, "/api/v1/webhooks/stripe").permitAll()
                 .anyRequest().authenticated()
             )
-            .exceptionHandling(e -> e.authenticationEntryPoint(authenticationEntryPoint))
+            .exceptionHandling(e -> e
+                .authenticationEntryPoint(authenticationEntryPoint)   // 401 JSON envelope (unauthenticated)
+                .accessDeniedHandler(accessDeniedHandler))            // 403 JSON envelope (authenticated, wrong role)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(rateLimitFilter, JwtFilter.class);
         return http.build();

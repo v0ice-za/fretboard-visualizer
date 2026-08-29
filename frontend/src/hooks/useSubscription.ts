@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, selectIsAuthenticated } from '@/stores/authStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 
 export interface SubscriptionResponse {
@@ -18,7 +18,7 @@ export const subscriptionQueryKey = ['subscription', 'me'] as const;
  * high in the tree so login triggers the fetch and logout resets premium to false.
  */
 export function useSubscription() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const setIsPremium = useSubscriptionStore((s) => s.setIsPremium);
 
   const query = useQuery({
@@ -29,12 +29,12 @@ export function useSubscription() {
   });
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || query.isError) {
       setIsPremium(false);
     } else if (query.data) {
       setIsPremium(query.data.status === 'ACTIVE');
     }
-  }, [isAuthenticated, query.data, setIsPremium]);
+  }, [isAuthenticated, query.data, query.isError, setIsPremium]);
 
   return query;
 }

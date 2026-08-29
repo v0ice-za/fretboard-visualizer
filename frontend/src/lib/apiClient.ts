@@ -11,9 +11,10 @@ import type { AuthResponseDto } from '@/types/api';
 const BASE = import.meta.env.VITE_API_URL ?? '';
 
 export interface ApiError extends Error {
-  /** Backend error envelope code (SCREAMING_SNAKE_CASE); also mirrored in `message`. */
+  /** Backend error envelope code (SCREAMING_SNAKE_CASE), or a client-side code like
+   *  `NETWORK_ERROR`; also mirrored in `message`. */
   code: string;
-  /** HTTP status, attached for debugging only — never branch on it. */
+  /** HTTP status, attached for debugging only — never branch on it. Absent for network errors. */
   status?: number;
 }
 
@@ -26,6 +27,16 @@ interface RequestOptions {
 let refreshInFlight: Promise<void> | null = null;
 /** Guards the one-shot silent bootstrap so StrictMode double-mount can't double-refresh. */
 let bootstrapped = false;
+
+/**
+ * Paths whose own 401 is a terminal credential failure, not an expired-access-token
+ * situation. Excluded from the refresh-and-retry flow: retrying one of these through a
+ * stale-but-valid refresh cookie (e.g. an old session left on a shared browser, or a race
+ * with the silent bootstrap refresh on page load) would silently authenticate the app as
+ * whichever session that cookie belongs to — unrelated to the credentials just attempted —
+ * while the caller still sees their original attempt fail.
+ */
+const AUTH_ATTEMPT_PATHS = new Set(['/auth/refresh', '/auth/login', '/auth/register', '/auth/google']);
 
 function buildHeaders(hasBody: boolean): Headers {
   const headers = new Headers();
@@ -49,16 +60,34 @@ async function toApiError(res: Response): Promise<ApiError> {
   return err;
 }
 
+function networkError(cause: unknown): ApiError {
+  const err = new Error('NETWORK_ERROR') as ApiError;
+  err.code = 'NETWORK_ERROR';
+  err.cause = cause;
+  return err;
+}
+
+/** Wraps `fetch` so a network-level failure (offline, DNS, blocked request) surfaces as a
+ *  structured `ApiError` with `.code`, same as a backend error envelope. */
+async function rawFetch(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (cause) {
+    throw networkError(cause);
+  }
+}
+
 /**
  * Single-flight refresh. The first 401 fires `POST /auth/refresh`; concurrent 401s
  * await the same promise (no stampede — the refresh endpoint rotates the cookie on
- * every call). Success updates the auth store; failure clears the session and rejects.
+ * every call). Success updates the auth store; an HTTP failure clears the session and
+ * rejects; a network failure rejects without touching the store (nothing to clear yet).
  * Never routed back through the 401 handler.
  */
 function ensureRefreshed(): Promise<void> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
-      const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
+      const res = await rawFetch(`${BASE}/api/v1/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -79,19 +108,20 @@ async function request<T>(path: string, options: RequestOptions = {}, retried = 
   const { method = 'GET', body } = options;
   const hasBody = body !== undefined;
 
-  const res = await fetch(`${BASE}/api/v1${path}`, {
+  const res = await rawFetch(`${BASE}/api/v1${path}`, {
     method,
     credentials: 'include',
     headers: buildHeaders(hasBody),
     body: hasBody ? JSON.stringify(body) : undefined,
   });
 
-  // Transparent refresh + single replay. `/auth/refresh` is special-cased to avoid a loop.
-  if (res.status === 401 && path !== '/auth/refresh' && !retried) {
+  // Transparent refresh + single replay, excluding AUTH_ATTEMPT_PATHS (see their doc comment).
+  if (res.status === 401 && !AUTH_ATTEMPT_PATHS.has(path) && !retried) {
     try {
       await ensureRefreshed();
     } catch {
-      // Refresh failed — session already cleared; surface the original 401.
+      // Refresh failed (HTTP failure clears auth; a network failure leaves it untouched) —
+      // either way, surface the original request's 401 rather than the refresh's own error.
       throw await toApiError(res);
     }
     return request<T>(path, options, true);
@@ -116,7 +146,8 @@ export const apiClient = {
 /**
  * One-shot silent session restore on app load. The access token is memory-only, so a
  * hard reload lands unauthenticated; a valid refresh cookie restores the session with
- * no visible sign-out flash. Failure (no/expired cookie) leaves the app signed out.
+ * no visible sign-out flash. Failure (no/expired cookie, or a network hiccup) leaves the
+ * app signed out for this attempt.
  */
 export async function bootstrapAuth(): Promise<void> {
   if (bootstrapped) return;
@@ -124,7 +155,7 @@ export async function bootstrapAuth(): Promise<void> {
   try {
     await ensureRefreshed();
   } catch {
-    // No valid refresh cookie — remain signed out.
+    // No valid refresh cookie, or a network hiccup — remain signed out.
   }
 }
 

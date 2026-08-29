@@ -100,6 +100,24 @@ class GoogleTokenVerifierImplTest {
     }
 
     @Test
+    void non_string_name_claim_maps_to_null_instead_of_throwing() {
+        // Defense-in-depth: a validly-signed token with a malformed 'name' claim type (e.g. a
+        // number) must not blow up with an unhandled ClassCastException.
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setSubject("sub-3");
+        payload.setEmail("c@example.com");
+        payload.set("name", 12345); // not a String
+        payload.setEmailVerified(true);
+        GoogleIdToken token = new GoogleIdToken(new JsonWebSignature.Header(), payload, new byte[0], new byte[0]);
+        GoogleTokenVerifierImpl impl = new GoogleTokenVerifierImpl(stubReturning(token));
+
+        GoogleTokenClaims claims = impl.verify("token");
+
+        assertThat(claims.name()).isNull();
+        assertThat(claims.googleId()).isEqualTo("sub-3");
+    }
+
+    @Test
     void malformed_token_illegal_argument_throws_invalid_google_token() {
         // A structurally malformed token makes GoogleIdTokenVerifier's JWS parser throw an
         // unchecked IllegalArgumentException; it must surface as 401 INVALID_GOOGLE_TOKEN, not 500.

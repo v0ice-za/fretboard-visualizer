@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-08-29 (story 3.4 frontend-auth-integration → review; Tasks 1-13 done incl. runtime gate accepted; 192 FE + 47 BE tests green; only real Google sign-in / 3.3 Task 9 OAuth check deferred)
+last_updated: 2026-08-29 (story 3.6 subscription-enforcement → Tasks 1-9 implemented and green (83 BE + 206 FE tests); Task 10 manual Stripe gate pending real credentials (depends on 3.5 Task 13), story remains in-progress; 3.5 also in-progress; 3.4 + 3.5 + 3.6 changes all uncommitted in the working tree)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -38,9 +38,9 @@ development_status:
   3-1-backend-scaffold-and-database: done
   3-2-email-password-auth: done
   3-3-google-oauth: done
-  3-4-frontend-auth-integration: review
-  3-5-stripe-checkout-and-webhook: backlog
-  3-6-subscription-enforcement: backlog
+  3-4-frontend-auth-integration: done
+  3-5-stripe-checkout-and-webhook: in-progress
+  3-6-subscription-enforcement: in-progress
   3-7-backend-ci-cd-and-railway-deploy: backlog
   epic-3-retrospective: optional
 

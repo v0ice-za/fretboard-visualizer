@@ -30,6 +30,11 @@ public class JwtService {
     public static final String CLAIM_ROLE = "role";
     public static final String CLAIM_TOKEN_VERSION = "tokenVersion";
 
+    /** Authority strings carried verbatim in the {@code role} claim — already include the
+     *  {@code ROLE_} prefix Spring's {@code hasRole('PREMIUM')} expects, so do not re-prefix. */
+    public static final String ROLE_PREMIUM = "ROLE_PREMIUM";
+    public static final String ROLE_FREE = "ROLE_FREE";
+
     private final SecretKey key;
     private final JwtProperties properties;
 
@@ -38,12 +43,16 @@ public class JwtService {
         this.key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(properties.secret()));
     }
 
-    public String generateAccessToken(User user) {
+    /**
+     * @param role the subscription-tier authority ({@link #ROLE_PREMIUM} / {@link #ROLE_FREE}),
+     *             resolved by the caller from the user's effective subscription status.
+     */
+    public String generateAccessToken(User user, String role) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(user.getId().toString())
                 .claim(CLAIM_EMAIL, user.getEmail())
-                .claim(CLAIM_ROLE, "ROLE_FREE")
+                .claim(CLAIM_ROLE, role)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(properties.accessTokenTtl())))
                 .signWith(key)

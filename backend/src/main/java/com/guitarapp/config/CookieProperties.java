@@ -14,4 +14,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties("app.cookie")
 public record CookieProperties(String sameSite, boolean secure) {
+
+    public CookieProperties {
+        // Browsers silently reject SameSite=None cookies missing Secure — a misconfigured
+        // COOKIE_SAME_SITE without COOKIE_SECURE would break prod auth with no error surfaced
+        // anywhere. Fail fast at startup instead.
+        if ("None".equalsIgnoreCase(sameSite) && !secure) {
+            throw new IllegalStateException(
+                    "app.cookie.same-site=None requires app.cookie.secure=true (browsers reject SameSite=None without Secure).");
+        }
+    }
 }

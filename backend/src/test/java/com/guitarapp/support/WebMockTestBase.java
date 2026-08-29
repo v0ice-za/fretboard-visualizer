@@ -1,7 +1,9 @@
 package com.guitarapp.support;
 
+import com.guitarapp.repository.ProcessedStripeEventRepository;
 import com.guitarapp.repository.SubscriptionRepository;
 import com.guitarapp.repository.UserRepository;
+import com.guitarapp.security.StripeGateway;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,7 +27,12 @@ import org.springframework.test.web.servlet.MockMvc;
         "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
     // GOOGLE_CLIENT_ID has no dev fallback in application.yml; supply a dummy so the
     // GoogleProperties binding + real GoogleTokenVerifierImpl bean can be constructed.
-    "app.google.client-id=test-google-client-id"
+    "app.google.client-id=test-google-client-id",
+    // STRIPE_* have no dev fallback either; supply dummies so StripeProperties binds
+    // and StripeGatewayImpl's constructor (which sets Stripe.apiKey) can run.
+    "app.stripe.secret-key=sk_test_dummy",
+    "app.stripe.webhook-secret=whsec_dummy",
+    "app.stripe.price-id=price_dummy"
 })
 @AutoConfigureMockMvc
 public abstract class WebMockTestBase {
@@ -38,4 +45,10 @@ public abstract class WebMockTestBase {
 
     @MockitoBean
     protected SubscriptionRepository subscriptionRepository;
+
+    @MockitoBean
+    protected ProcessedStripeEventRepository processedStripeEventRepository;
+
+    @MockitoBean
+    protected StripeGateway stripeGateway;
 }
