@@ -80,6 +80,20 @@ so that I have a runnable backend foundation to build auth and subscriptions on 
   - [x] `curl -s http://localhost:8080/api/v1/health` → `{"status":"UP"}` with HTTP 200
   - [x] `./mvnw test` → all tests pass
 
+### Review Findings
+
+_Code review of commit `616232e` (2026-06-15) — 3 layers (Blind Hunter, Edge Case Hunter, Acceptance Auditor). All five ACs verified met; findings below are latent/forward-looking._
+
+- [x] [Review][Patch] Enforce one-per-user on `subscriptions` (decision resolved → option 1): added `V3__unique_subscription_user.sql` (`UNIQUE(user_id)`, drops redundant `idx_subscriptions_user_id`) and changed `Subscription.user` to `@OneToOne`. Verified live: V3 applied, `uq_subscriptions_user_id` present. [V3 migration, Subscription.java]
+- [x] [Review][Patch] `createdAt` now `@CreationTimestamp @Column(updatable=false)` on both entities — Hibernate populates it on insert instead of sending NULL [User.java, Subscription.java]
+- [x] [Review][Patch] `subscriptions.status` now `@Builder.Default ... = "FREE"` — mirrors the DB default, no NULL-insert hazard [Subscription.java]
+- [x] [Review][Defer] Security returns bare 403 outside mandated `error.code` envelope; permit-list needs a 401 entry point + Stripe webhook exemption [security/SecurityConfig.java] — deferred to Story 3.2 (JWT filter + GlobalExceptionHandler)
+- [x] [Review][Defer] `open-in-view: false` sets a `LazyInitializationException` trap for `Subscription.user` if an entity is serialized outside a transaction [Subscription.java] — deferred to Story 3.2 (enforce DTO boundary)
+- [x] [Review][Defer] `contextLoads` excludes DataSource/JPA/Flyway autoconfig → entity↔schema mapping never validated in CI; `ddl-auto: validate` drift only caught at runtime [GuitarAppApplicationTests.java] — deferred to Story 3.7 (Testcontainers)
+- [x] [Review][Defer] `docker-compose` `backend` service has no healthcheck/restart policy → crash-on-migrate is silent [docker-compose.yml] — deferred to Story 3.7 (deploy hardening)
+- [x] [Review][Defer] `application.yml` env-var fallbacks silently start against `localhost`/dev creds if prod env vars are unset/misnamed → no fail-fast [application.yml] — deferred to Story 3.7 (prod profile)
+- [x] [Review][Defer] Redundant `idx_users_email` / `idx_users_google_id` duplicate the UNIQUE-backing indexes — spec-prescribed; needs a new migration to drop [V1__create_users.sql] — deferred (low value; revisit at schema cleanup)
+
 ---
 
 ## Dev Notes
@@ -331,6 +345,7 @@ claude-sonnet-4-6 (2026-06-02)
 - `backend/src/main/resources/application.yml`
 - `backend/src/main/resources/db/migration/V1__create_users.sql`
 - `backend/src/main/resources/db/migration/V2__create_subscriptions.sql`
+- `backend/src/main/resources/db/migration/V3__unique_subscription_user.sql` (added in code review — one-per-user UNIQUE constraint)
 - `backend/src/test/java/com/guitarapp/controller/HealthControllerTest.java`
 - `backend/src/test/java/com/guitarapp/GuitarAppApplicationTests.java` (modified: added autoconfigure exclusions for portability without DB)
 
@@ -342,4 +357,5 @@ claude-sonnet-4-6 (2026-06-02)
 
 - 2026-06-02: Tasks 1–7 implemented and verified. Spring Boot 3.4.4 scaffold with Flyway migrations (V1/V2), JPA entities (User, Subscription), HealthController, SecurityConfig, multi-stage Dockerfile, docker-compose updated. `./mvnw clean test` → BUILD SUCCESS (2 tests). Task 8 (runtime validation) requires Docker — pending manual execution.
 - 2026-06-03: `./mvnw test` re-confirmed → BUILD SUCCESS (2 tests, 0 failures). Docker not installed on dev machine; `docker compose up postgres -d` + live-run validation must be performed manually by user before marking Task 8 complete.
+- 2026-06-15: **Code review (commit `616232e`).** 3 layers; all 5 ACs met. 1 decision (subscriptions one-per-user → enforce), 2 patches, 6 deferred, 7 dismissed. Applied patches: `V3__unique_subscription_user.sql` (UNIQUE on `user_id`, drops redundant index) + `Subscription.user` → `@OneToOne`; `@CreationTimestamp` on `createdAt` (User + Subscription); `@Builder.Default status = "FREE"`. `./mvnw test` → BUILD SUCCESS (2 tests); live boot applied V3 cleanly and `ddl-auto: validate` passed. Deferred items (security error-envelope, DTO boundary → 3.2; DB integration test, compose healthcheck, prod profile → 3.7) logged in `deferred-work.md`.
 - 2026-06-15: **Task 8 runtime validation completed.** Docker now available (Engine 29.5.2 / Compose v5.1.4). `docker compose up postgres -d` → healthy. `./mvnw.cmd spring-boot:run` on system JDK 25 (Lombok 1.18.38 override) → app started on port 8080 in 2.8s. Flyway log: "Successfully applied 2 migrations to schema public, now at version v2". `flyway_schema_history` shows V1/V2 success=t; `\dt` confirms `users` + `subscriptions` tables. `GET /api/v1/health` (no auth) → HTTP 200 `{"status":"UP"}`. All ACs 1–5 verified live. Story status → done.

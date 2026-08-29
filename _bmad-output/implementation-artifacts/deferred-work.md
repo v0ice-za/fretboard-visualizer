@@ -1,5 +1,32 @@
 # Deferred Work
 
+## Deferred from: code review of 3-2-email-password-auth (2026-06-25, Pass 2)
+
+- `JwtFilter.extractRole` returns null for tokens without a `role` claim; `SimpleGrantedAuthority(null)` throws `IllegalArgumentException` caught by the filter's broad catch block — correct 401 outcome but by coincidence; add an explicit null guard to `extractRole` (similar to `extractTokenVersion`) to make the intent unambiguous
+- Bearer token scheme check is case-sensitive (`startsWith("Bearer ")`) — RFC 6750 §2.1 says the scheme name is case-insensitive; low real-world risk since all standard OAuth2 clients send `Bearer` exactly, but worth fixing if the codebase ever needs strict RFC compliance
+- `AuthController.refresh()` does not set an expired `Set-Cookie` on failure (e.g., stale version, expired token) — the dead refresh cookie persists in the browser until natural expiry (7 days); align with `logout()`'s cookie-clearing pattern when SameSite is fixed in Story 3.4
+- No `AccessDeniedHandler` registered in `SecurityConfig.filterChain()` — once `hasRole("PREMIUM")` restrictions are added in Story 3.5/3.6, authenticated-but-unauthorized requests will receive Spring's default HTML 403 page instead of the `{"error":{...}}` JSON envelope; wire a handler alongside the premium gating work
+
+## Deferred from: code review of 3-2-email-password-auth (2026-06-17)
+
+- `RateLimitFilter` trusts the client-supplied `X-Forwarded-For` first hop (brute-force bypass by rotating fake IPs) and keeps an unbounded `ConcurrentHashMap<String,Bucket>` (memory growth). Architecture sanctioned the simple in-memory map for v1; harden later with trusted-proxy IP resolution + a bounded/expiring cache (e.g. Caffeine `expireAfterAccess`)
+- Refresh cookie uses `SameSite=Strict`, faithful to this story's cookie spec, but the frontend calls the API cross-origin (Vercel→Railway). A Strict cookie is not sent cross-site, so `POST /api/v1/auth/refresh` would arrive with no cookie. Change to `SameSite=None; Secure` — Story 3.4
+- JWT `app.jwt.secret` has a committed base64 dev default; if `JWT_SECRET` is unset in prod the app boots and signs with a public key. Add a prod-profile fail-fast guard (reject the dev default / require the env var) — Story 3.7
+- Concurrent `refresh()` calls with the same valid token both pass the `tokenVersion` check and rotate (last-writer-wins on save) — the just-used token is not reliably single-use under concurrency. Add `@Version` optimistic locking or an atomic conditional update. Acceptable for the v1 single-session model (Q1); revisit if multi-device sessions (a `refresh_tokens` table) are introduced
+- `AuthService.login` skips bcrypt work for an unknown email (throws before `passwordEncoder.matches`), leaking user existence via response timing despite the no-enumeration intent. Add a dummy bcrypt comparison on the not-found path — security hardening, low priority
+- CSRF is disabled while a cookie-based refresh endpoint exists; `SameSite=Strict` is currently the sole defense. Revisit when SameSite changes for cross-site support — Story 3.4
+- Refresh cookie hard-codes `.secure(true)`, so the browser drops it over plain HTTP (local dev), silently breaking refresh/logout locally. Make the `secure` flag profile-aware — Story 3.4
+- `V3__unique_subscription_user.sql` adds a UNIQUE constraint with no dedup step; fails if `subscriptions` already holds duplicate `user_id` rows (3.1-review carryover, not Story 3.2) — low value, revisit at a schema-cleanup pass
+
+## Deferred from: code review of 3-1-backend-scaffold-and-database (2026-06-15)
+
+- Security config returns bare 403 outside the mandated `error.code` JSON envelope; permit-list only allows `/api/v1/health`. Add a 401 entry point routing through `GlobalExceptionHandler` and exempt `POST /api/v1/webhooks/stripe` (Stripe-Signature verified, not JWT) — Story 3.2
+- `open-in-view: false` (correct) sets a `LazyInitializationException` trap for `Subscription.user` if an entity is serialized outside a transaction; enforce a DTO boundary before returning subscriptions from controllers — Story 3.2
+- `GuitarAppApplicationTests` excludes DataSource/JPA/Flyway autoconfig so it can boot without a DB → entity-to-schema mapping is never validated in CI; `ddl-auto: validate` drift only surfaces at runtime. Add a Testcontainers integration test — Story 3.7
+- `docker-compose` `backend` service has no `healthcheck` (wired to `/api/v1/health`) and no `restart` policy → a failed Flyway migration exits the container silently — Story 3.7
+- `application.yml` datasource fallbacks (`${DATABASE_URL:...localhost...}`, dev password) mean missing/misnamed prod env vars start the app against localhost instead of failing fast; add a prod profile without fallbacks — Story 3.7
+- Redundant `idx_users_email` and `idx_users_google_id` duplicate the indexes PostgreSQL auto-creates for the `UNIQUE` constraints on those columns; spec-prescribed, so dropping requires a new migration — low value, revisit at a schema-cleanup pass
+
 ## Deferred from: code review of 2-4-chord-library-and-shape-highlight (2026-06-01)
 
 - Locked chord externally activated renders as `active` and can be deselected without triggering paywall — only reachable once subscription enforcement exists (Story 3.6); free-tier users have no code path to activate a locked chord via the current UI

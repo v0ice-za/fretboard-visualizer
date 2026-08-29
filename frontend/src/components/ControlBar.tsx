@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { Type, Pencil, Library, User } from 'lucide-react';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALES, SCALE_NAMES, SCALE_CATEGORIES } from '@/data/scales.js';
 import { FREE_TUNINGS } from '@/data/freeTunings';
 import { useFretboardStore } from '@/stores/fretboardStore';
 import { useLayoutStore } from '@/stores/layoutStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { apiClient } from '@/lib/apiClient';
+import { queryClient } from '@/lib/queryClient';
+import { LoginModal } from '@/features/auth/LoginModal';
 import {
   Select,
   SelectContent,
@@ -13,6 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 
 export default function ControlBar() {
@@ -26,6 +40,23 @@ export default function ControlBar() {
   } = useFretboardStore();
   const { activeLayout, setLayout } = useLayoutStore();
   const { sidePanel } = activeLayout;
+
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Best-effort — the server may already consider the session gone. Clear locally regardless.
+    }
+    useAuthStore.getState().clearAuth();
+    useSubscriptionStore.getState().setIsPremium(false);
+    queryClient.removeQueries({ queryKey: ['subscription'] });
+    setAccountOpen(false);
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-[var(--color-surface,#0f0f1a)] border-b border-[var(--color-border,#1e1e30)]">
@@ -142,16 +173,36 @@ export default function ControlBar() {
           <Library size={16} />
         </button>
 
-        {/* Account — wired in Story 3.4 */}
+        {/* Account */}
         <button
-          className="p-2 rounded-lg transition-colors text-slate-500 hover:text-slate-300"
-          title="Account"
-          aria-label="Account"
-          onClick={() => {}}
+          className={`p-2 rounded-lg transition-colors ${
+            isAuthenticated
+              ? 'bg-indigo-500/20 text-indigo-400'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+          title={isAuthenticated ? 'Account' : 'Sign in'}
+          aria-label={isAuthenticated ? 'Account' : 'Sign in'}
+          onClick={() => (isAuthenticated ? setAccountOpen(true) : setLoginOpen(true))}
         >
           <User size={16} />
         </button>
       </div>
+
+      {/* Auth overlay (unauthenticated) */}
+      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
+
+      {/* Account menu (authenticated) */}
+      <Sheet open={accountOpen} onOpenChange={setAccountOpen}>
+        <SheetContent side="right" className="w-full gap-4 p-4 sm:max-w-sm">
+          <SheetHeader className="p-0">
+            <SheetTitle>Account</SheetTitle>
+            <SheetDescription>{user?.name ?? user?.email ?? ''}</SheetDescription>
+          </SheetHeader>
+          <Button variant="outline" onClick={handleLogout}>
+            Log out
+          </Button>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-06-15 (story 3.1 → done; Task 8 runtime validation passed)
+last_updated: 2026-08-29 (story 3.4 frontend-auth-integration → review; Tasks 1-13 done incl. runtime gate accepted; 192 FE + 47 BE tests green; only real Google sign-in / 3.3 Task 9 OAuth check deferred)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -36,9 +36,9 @@ development_status:
   # ─── Epic 3: Auth & Subscription ─────────────────────────────────────────────
   epic-3: in-progress
   3-1-backend-scaffold-and-database: done
-  3-2-email-password-auth: backlog
-  3-3-google-oauth: backlog
-  3-4-frontend-auth-integration: backlog
+  3-2-email-password-auth: done
+  3-3-google-oauth: done
+  3-4-frontend-auth-integration: review
   3-5-stripe-checkout-and-webhook: backlog
   3-6-subscription-enforcement: backlog
   3-7-backend-ci-cd-and-railway-deploy: backlog
