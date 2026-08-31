@@ -1,5 +1,7 @@
 server:
-  port: 8080
+  # Railway assigns a dynamic port via $PORT; Spring must bind to it or the health
+  # check never passes and the deploy is marked crashed. Locally $PORT is unset → 8080.
+  port: ${PORT:8080}
 
 spring:
   application:
@@ -46,3 +48,8 @@ app:
   frontend:
     # Origin used to build Stripe Checkout success/cancel redirect URLs.
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+  ratelimit:
+    # Trusted reverse-proxy hops that append to X-Forwarded-For (Railway edge = 1). The
+    # rate-limit key uses the IP this many entries from the right — the client cannot spoof it.
+    # Verify against Railway's real topology at deploy and tune via RATELIMIT_TRUSTED_PROXY_COUNT.
+    trusted-proxy-count: ${RATELIMIT_TRUSTED_PROXY_COUNT:1}

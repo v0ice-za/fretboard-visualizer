@@ -1,0 +1,16 @@
+# Prod profile (SPRING_PROFILES_ACTIVE=prod on Railway). Overrides only the values that
+# must FAIL FAST when their env var is missing — no localhost/dev-secret fallbacks, so a
+# misconfigured deploy refuses to start instead of silently booting against localhost or a
+# public dev signing key. All other config is inherited from application.yml.
+#
+# GOOGLE_CLIENT_ID and STRIPE_* already have no base default (they fail fast everywhere),
+# so they need no prod override here.
+spring:
+  datasource:
+    url: ${DATABASE_URL}          # no jdbc://localhost fallback — required in prod
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}          # no committed dev default — required in prod

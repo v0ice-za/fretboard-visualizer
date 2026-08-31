@@ -1,5 +1,6 @@
 package com.guitarapp.security;
 
+import com.guitarapp.config.RateLimitProperties;
 import com.guitarapp.exception.ErrorResponseWriter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,15 +24,18 @@ public class SecurityConfig {
     private final ErrorResponseWriter errorResponseWriter;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
+    private final RateLimitProperties rateLimitProperties;
 
     public SecurityConfig(JwtService jwtService,
                           ErrorResponseWriter errorResponseWriter,
                           RestAuthenticationEntryPoint authenticationEntryPoint,
-                          RestAccessDeniedHandler accessDeniedHandler) {
+                          RestAccessDeniedHandler accessDeniedHandler,
+                          RateLimitProperties rateLimitProperties) {
         this.jwtService = jwtService;
         this.errorResponseWriter = errorResponseWriter;
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
+        this.rateLimitProperties = rateLimitProperties;
     }
 
     @Bean
@@ -39,7 +43,7 @@ public class SecurityConfig {
         // Filters are constructed here (not as beans) so they live only in this chain
         // and are not auto-registered with the servlet container for every request.
         JwtFilter jwtFilter = new JwtFilter(jwtService);
-        RateLimitFilter rateLimitFilter = new RateLimitFilter(errorResponseWriter);
+        RateLimitFilter rateLimitFilter = new RateLimitFilter(errorResponseWriter, rateLimitProperties.trustedProxyCount());
 
         http
             .csrf(AbstractHttpConfigurer::disable)

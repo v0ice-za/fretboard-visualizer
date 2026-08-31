@@ -5,7 +5,6 @@
 - Google email-link path (`AuthService.loginWithGoogle`, existing-email match) uses an unflushed `save()` with no violation handling, unlike the sibling new-account create path which uses `saveAndFlush` + `DataIntegrityViolationException` → 409. Verified low real risk (no `@Version` on `User`; the realistic concurrent-sign-in race writes an identical `google_id` value to the same row, so it doesn't actually collide) — but tighten for defense-in-depth consistency with the create path when Google OAuth is next touched
 - Google-derived `email`/`name` claims aren't length-validated against the 255-char DB column before insert (unlike the email/password path, which has `@Size(max=255)` on its DTOs) — an oversized value would surface as a misleading `409 GOOGLE_ACCOUNT_CONFLICT` instead of a validation error. Requires a validly-signed Google token with an absurd claim value; not achievable with real Google accounts, low priority
 - `Subscription.user`'s `LazyInitializationException` trap (see 3-1's 2026-06-15 entry below) is now structurally mitigated by this story's `SubscriptionResponseDto` DTO boundary, but only by omission — `SubscriptionResponseDto.from()` happens not to touch `getUser()`. No compile-time or runtime guard prevents a future field addition from reaching through the relation outside a transaction. Worth a structural guard (e.g. `@Transactional` boundary assertion or explicitly not exposing the entity's `user` accessor) when Story 3.5/3.6 next touches this DTO
-- Rate limiter (`RateLimitFilter`) trusted-proxy `X-Forwarded-For` validation is still deferred to Story 3.7 (needs the real Railway proxy topology — how many hops, whether Railway overwrites vs. appends). This review's other rate-limiter items (bounded/evicting bucket map, separate `/auth/refresh` bucket) were resolved as patches, not deferred — see the 3-4 story file's Review Findings section. The XFF-trust piece is the one still-open element of the architecture-sanctioned v1 tradeoff first logged in 3-2's 2026-06-17 entry below
 
 ## Deferred from: code review of 3-2-email-password-auth (2026-06-25, Pass 2)
 
@@ -15,9 +14,7 @@
 
 ## Deferred from: code review of 3-2-email-password-auth (2026-06-17)
 
-- `RateLimitFilter` trusts the client-supplied `X-Forwarded-For` first hop (brute-force bypass by rotating fake IPs) and keeps an unbounded `ConcurrentHashMap<String,Bucket>` (memory growth). Architecture sanctioned the simple in-memory map for v1; harden later with trusted-proxy IP resolution + a bounded/expiring cache (e.g. Caffeine `expireAfterAccess`)
 - Refresh cookie uses `SameSite=Strict`, faithful to this story's cookie spec, but the frontend calls the API cross-origin (Vercel→Railway). A Strict cookie is not sent cross-site, so `POST /api/v1/auth/refresh` would arrive with no cookie. Change to `SameSite=None; Secure` — Story 3.4
-- JWT `app.jwt.secret` has a committed base64 dev default; if `JWT_SECRET` is unset in prod the app boots and signs with a public key. Add a prod-profile fail-fast guard (reject the dev default / require the env var) — Story 3.7
 - Concurrent `refresh()` calls with the same valid token both pass the `tokenVersion` check and rotate (last-writer-wins on save) — the just-used token is not reliably single-use under concurrency. Add `@Version` optimistic locking or an atomic conditional update. Acceptable for the v1 single-session model (Q1); revisit if multi-device sessions (a `refresh_tokens` table) are introduced
 - `AuthService.login` skips bcrypt work for an unknown email (throws before `passwordEncoder.matches`), leaking user existence via response timing despite the no-enumeration intent. Add a dummy bcrypt comparison on the not-found path — security hardening, low priority
 - CSRF is disabled while a cookie-based refresh endpoint exists; `SameSite=Strict` is currently the sole defense. Revisit when SameSite changes for cross-site support — Story 3.4
@@ -28,9 +25,6 @@
 
 - Security config returns bare 403 outside the mandated `error.code` JSON envelope; permit-list only allows `/api/v1/health`. Add a 401 entry point routing through `GlobalExceptionHandler` and exempt `POST /api/v1/webhooks/stripe` (Stripe-Signature verified, not JWT) — Story 3.2
 - `open-in-view: false` (correct) sets a `LazyInitializationException` trap for `Subscription.user` if an entity is serialized outside a transaction; enforce a DTO boundary before returning subscriptions from controllers — Story 3.2
-- `GuitarAppApplicationTests` excludes DataSource/JPA/Flyway autoconfig so it can boot without a DB → entity-to-schema mapping is never validated in CI; `ddl-auto: validate` drift only surfaces at runtime. Add a Testcontainers integration test — Story 3.7
-- `docker-compose` `backend` service has no `healthcheck` (wired to `/api/v1/health`) and no `restart` policy → a failed Flyway migration exits the container silently — Story 3.7
-- `application.yml` datasource fallbacks (`${DATABASE_URL:...localhost...}`, dev password) mean missing/misnamed prod env vars start the app against localhost instead of failing fast; add a prod profile without fallbacks — Story 3.7
 - Redundant `idx_users_email` and `idx_users_google_id` duplicate the indexes PostgreSQL auto-creates for the `UNIQUE` constraints on those columns; spec-prescribed, so dropping requires a new migration — low value, revisit at a schema-cleanup pass
 
 ## Deferred from: code review of 2-4-chord-library-and-shape-highlight (2026-06-01)

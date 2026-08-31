@@ -25,9 +25,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * doesn't compete with that budget. In-memory only (a {@link ConcurrentHashMap} of buckets,
  * opportunistically swept of idle entries) — no Redis, per architecture.
  *
- * <p>Trusts the first {@code X-Forwarded-For} hop with no trusted-proxy validation — a known,
- * architecture-sanctioned v1 gap (spoofable without knowing the real deploy proxy topology);
- * hardening that is deferred to Story 3.7, once Railway's actual topology is known.
+ * <p>Resolves the client IP as the entry {@code trustedProxyCount} positions from the right of
+ * {@code X-Forwarded-For} — the hops appended by the deploy's own trusted proxies (e.g. the
+ * Railway edge), which a client cannot spoof — falling back to the socket address. The exact
+ * trusted-hop count is {@code app.ratelimit.trusted-proxy-count} (verify against Railway).
  */
 public class RateLimitFilter extends OncePerRequestFilter {
 
@@ -44,11 +45,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final long SWEEP_EVERY_N_REQUESTS = 500;
 
     private final ErrorResponseWriter errorResponseWriter;
+    private final int trustedProxyCount;
     private final Map<String, BucketEntry> buckets = new ConcurrentHashMap<>();
     private final AtomicLong requestCounter = new AtomicLong();
 
-    public RateLimitFilter(ErrorResponseWriter errorResponseWriter) {
+    public RateLimitFilter(ErrorResponseWriter errorResponseWriter, int trustedProxyCount) {
         this.errorResponseWriter = errorResponseWriter;
+        this.trustedProxyCount = trustedProxyCount;
     }
 
     @Override
@@ -92,13 +95,28 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return Bucket.builder().addLimit(limit).build();
     }
 
-    /** Resolve the client IP behind the Railway proxy: first X-Forwarded-For hop, else the socket address. */
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(forwarded)) {
-            return forwarded.split(",")[0].trim();
+        return resolveClientIp(request.getHeader("X-Forwarded-For"), request.getRemoteAddr(), trustedProxyCount);
+    }
+
+    /**
+     * Client IP taken {@code trustedProxyCount} entries from the right of {@code X-Forwarded-For}
+     * — the hop the outermost trusted proxy actually observed, which the client cannot forge by
+     * pre-seeding the (leftmost) header. Falls back to {@code remoteAddr} when XFF is absent, has
+     * fewer entries than expected proxies, or trust is disabled ({@code trustedProxyCount <= 0}).
+     */
+    static String resolveClientIp(String xffHeader, String remoteAddr, int trustedProxyCount) {
+        if (trustedProxyCount > 0 && StringUtils.hasText(xffHeader)) {
+            String[] hops = xffHeader.split(",");
+            int idx = hops.length - trustedProxyCount;
+            if (idx >= 0 && idx < hops.length) {
+                String ip = hops[idx].trim();
+                if (StringUtils.hasText(ip)) {
+                    return ip;
+                }
+            }
         }
-        return request.getRemoteAddr();
+        return remoteAddr;
     }
 
     /**

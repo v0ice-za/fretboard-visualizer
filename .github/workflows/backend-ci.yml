@@ -1,0 +1,41 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  ci:
+    name: Compile · Test · Package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      # `verify` runs compile → unit tests → package, plus the Testcontainers
+      # SchemaMigrationIT. That IT needs Docker; GitHub's ubuntu-latest runner
+      # provides it, so migrations + entity/schema mapping are validated on every PR.
+      # CI resolves from Maven Central (no corporate mirror settings.xml on the runner).
+      - name: Build, test, package
+        run: |
+          chmod +x mvnw
+          ./mvnw -B verify

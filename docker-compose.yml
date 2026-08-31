@@ -26,6 +26,16 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/guitarapp
       DATABASE_USERNAME: guitarapp
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-guitarapp_dev}
+    # Restart on crash (e.g. a failed Flyway migration exits the JVM) instead of leaving a
+    # silently-dead container; the healthcheck surfaces readiness via the actuator-free
+    # /api/v1/health endpoint. wget is provided by the JRE Alpine (BusyBox) base image.
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
 volumes:
   postgres_data:
