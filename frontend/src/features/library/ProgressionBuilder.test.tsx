@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ProgressionBuilder from './ProgressionBuilder'
-import { useProgressionStore } from '@/stores/progressionStore'
+import { useProgressionStore, MAX_PROGRESSION_CHORDS } from '@/stores/progressionStore'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
 
 beforeEach(() => {
@@ -20,8 +20,8 @@ describe('ProgressionBuilder', () => {
   it('shows an empty state and disabled step controls with no chords', () => {
     render(<ProgressionBuilder />)
     expect(screen.getByText('Add chords to build a progression')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Previous chord' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Next chord' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Previous chord in progression' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Next chord in progression' })).toBeDisabled()
   })
 
   it('adds a chord as a labelled row', async () => {
@@ -67,10 +67,10 @@ describe('ProgressionBuilder', () => {
     render(<ProgressionBuilder />)
     await addChord('C', 'Major')
     await addChord('A', 'Minor')
-    await user.click(screen.getByRole('button', { name: 'Next chord' }))
+    await user.click(screen.getByRole('button', { name: 'Next chord in progression' }))
     expect(useFretboardStore.getState().rootNote).toBe('C')
     expect(useFretboardStore.getState().chordName).toBe('Major')
-    await user.click(screen.getByRole('button', { name: 'Next chord' }))
+    await user.click(screen.getByRole('button', { name: 'Next chord in progression' }))
     expect(useFretboardStore.getState().rootNote).toBe('A')
     expect(useFretboardStore.getState().chordName).toBe('Minor')
   })
@@ -88,11 +88,25 @@ describe('ProgressionBuilder', () => {
     expect(useProgressionStore.getState().activeIndex).toBe(0)
   })
 
+  it('disables Add and shows a message when the chord cap is reached', () => {
+    const chords = Array.from({ length: MAX_PROGRESSION_CHORDS }, (_, i) => ({
+      id: `c${i}`,
+      rootNote: 'C',
+      chordName: 'Major',
+    }))
+    useProgressionStore.setState({ chords, activeIndex: null })
+    render(<ProgressionBuilder />)
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
+    expect(
+      screen.getByText(`Maximum ${MAX_PROGRESSION_CHORDS} chords reached`),
+    ).toBeInTheDocument()
+  })
+
   it('Clear empties the progression and restores the scale view (chordName → null)', async () => {
     const user = userEvent.setup()
     render(<ProgressionBuilder />)
     await addChord('C', 'Major')
-    await user.click(screen.getByRole('button', { name: 'Next chord' }))
+    await user.click(screen.getByRole('button', { name: 'Next chord in progression' }))
     expect(useFretboardStore.getState().chordName).toBe('Major')
     await user.click(screen.getByRole('button', { name: 'Clear' }))
     expect(useProgressionStore.getState().chords).toHaveLength(0)

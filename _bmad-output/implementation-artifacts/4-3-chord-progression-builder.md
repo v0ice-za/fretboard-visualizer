@@ -1,6 +1,6 @@
 # Story 4.3: Chord Progression Builder
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story (VS) for a quality check before dev-story (DS). -->
 
@@ -55,6 +55,22 @@ From `epics.distillate.md#Story 4.3` (verbatim source ACs), refined against the 
 - [x] **Task 5: Regression + full-suite validation (AC: 8)**
   - [x] No regression to Scale/Chord tabs, mode-chip or freeform keyboard flows (arrow listener is inert unless the builder is mounted **and** the progression is non-empty).
   - [x] Full frontend suite **241 tests / 23 files green**; `pnpm type-check` clean; `pnpm lint` clean.
+
+### Review Findings
+
+**Patches applied (2026-08-31):**
+- [x] [Review][Patch] Cap feedback — Add button now disabled at `MAX_PROGRESSION_CHORDS` with an inline "Maximum 32 chords reached" `role="status"` message. `ProgressionBuilder.tsx` + new test.
+- [x] [Review][Patch] Keyboard handler type guard — replaced `e.target as HTMLElement | null` + unchecked property access with `target instanceof HTMLElement` before reading `.tagName`/`.isContentEditable`. `useProgressionPlayback.ts`
+- [x] [Review][Patch] First effect bounds check — `activeIndex !== null && activeIndex < chords.length` before array access. `useProgressionPlayback.ts`
+- [x] [Review][Patch] Keyboard listener registered once — handler reads `next`/`prev` via `getState()`; effect deps now `[]`, no churn on re-render. `useProgressionPlayback.ts`
+- [x] [Review][Patch] `aria-current` — now `active ? 'true' : undefined` (omitted when inactive). `ProgressionBuilder.tsx`
+- [x] [Review][Patch] aria-labels clarified — "Previous/Next chord in progression". `ProgressionBuilder.tsx`
+
+**Verified correct — no change (false positive):**
+- [x] [Review][Dismiss] "Type mismatch in savedRef" — `savedRef.chordName: string | null` is **intentionally** wider than `ProgressionChord.chordName`: it snapshots `fretboardStore.chordName`, which is genuinely `string | null` (null = scale view). Narrowing it to `string` would drop the null case and break AC8 restore. Left as-is with a clarifying comment.
+
+**Deferred:**
+- [x] [Review][Defer] prev() treats null like next() — Unintuitive (typically "previous" from no selection → last item), but aligns with spec intent (clamp, not wrap). Design decision, not a bug. `progressionStore.ts:64–75` — deferred, design decision aligned with spec
 
 ## Dev Notes
 

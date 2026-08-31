@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronUp, ChevronDown, X } from 'lucide-react';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { CHORD_NAMES } from '@/data/chords.js';
-import { useProgressionStore } from '@/stores/progressionStore';
+import { useProgressionStore, MAX_PROGRESSION_CHORDS } from '@/stores/progressionStore';
 import { useProgressionPlayback } from '@/hooks/useProgressionPlayback';
 
 const ROOT_NOTES = CHROMATIC_NOTES as string[];
@@ -23,6 +23,7 @@ export default function ProgressionBuilder() {
   useProgressionPlayback();
 
   const isEmpty = chords.length === 0;
+  const atCap = chords.length >= MAX_PROGRESSION_CHORDS;
 
   return (
     <div className="flex flex-col gap-3">
@@ -55,11 +56,18 @@ export default function ProgressionBuilder() {
         <button
           type="button"
           onClick={() => addChord(root, quality)}
-          className="h-8 rounded-md bg-indigo-500/90 px-3 text-sm font-medium text-white hover:bg-indigo-500"
+          disabled={atCap}
+          className="h-8 rounded-md bg-indigo-500/90 px-3 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-500/90"
         >
           Add
         </button>
       </div>
+
+      {atCap && (
+        <p role="status" className="px-1 text-xs text-slate-500">
+          Maximum {MAX_PROGRESSION_CHORDS} chords reached
+        </p>
+      )}
 
       {/* Step + clear controls */}
       <div className="flex items-center gap-2">
@@ -67,7 +75,7 @@ export default function ProgressionBuilder() {
           type="button"
           onClick={prev}
           disabled={isEmpty}
-          aria-label="Previous chord"
+          aria-label="Previous chord in progression"
           className="h-8 flex-1 rounded-md border border-[var(--border)] text-sm text-slate-300 hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent"
         >
           Prev
@@ -76,7 +84,7 @@ export default function ProgressionBuilder() {
           type="button"
           onClick={next}
           disabled={isEmpty}
-          aria-label="Next chord"
+          aria-label="Next chord in progression"
           className="h-8 flex-1 rounded-md border border-[var(--border)] text-sm text-slate-300 hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent"
         >
           Next
@@ -112,7 +120,7 @@ export default function ProgressionBuilder() {
                 <button
                   type="button"
                   onClick={() => setActiveIndex(i)}
-                  aria-current={active}
+                  aria-current={active ? 'true' : undefined}
                   aria-label={`Select ${label}`}
                   className="flex-1 px-3 py-2 text-left text-sm"
                 >

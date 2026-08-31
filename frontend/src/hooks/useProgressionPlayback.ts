@@ -18,14 +18,15 @@ import { useFretboardStore } from '@/stores/fretboardStore';
 export function useProgressionPlayback() {
   const chords = useProgressionStore((s) => s.chords);
   const activeIndex = useProgressionStore((s) => s.activeIndex);
-  const next = useProgressionStore((s) => s.next);
-  const prev = useProgressionStore((s) => s.prev);
 
+  // Snapshot type mirrors fretboardStore, whose `chordName` is legitimately `string | null`
+  // (null = scale view). This is intentionally wider than ProgressionChord.chordName.
   const savedRef = useRef<{ rootNote: string; chordName: string | null } | null>(null);
 
   // Sync the active chord onto the fretboard; restore on stop.
   useEffect(() => {
-    const entry = activeIndex !== null ? chords[activeIndex] : undefined;
+    const entry =
+      activeIndex !== null && activeIndex < chords.length ? chords[activeIndex] : undefined;
     const fretboard = useFretboardStore.getState();
     if (entry) {
       if (savedRef.current === null) {
@@ -42,26 +43,29 @@ export function useProgressionPlayback() {
   }, [activeIndex, chords]);
 
   // ←/→ step through the progression, unless focus is in a form control.
+  // Reads store actions via getState() so the listener is registered exactly once.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const target = e.target as HTMLElement | null;
-      if (target) {
+      const target = e.target;
+      if (target instanceof HTMLElement) {
         const tag = target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) {
           return;
         }
       }
-      if (useProgressionStore.getState().chords.length === 0) return;
+      const store = useProgressionStore.getState();
+      if (store.chords.length === 0) return;
       e.preventDefault();
-      if (e.key === 'ArrowRight') next();
-      else prev();
+      if (e.key === 'ArrowRight') store.next();
+      else store.prev();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [next, prev]);
+  }, []);
 
-  // On unmount, restore the pre-playback fretboard state if we ever took it over.
+  // On unmount, restore the pre-playback fretboard state if we ever took it over
+  // (savedRef stays null when the user opened the builder but never stepped).
   useEffect(() => {
     return () => {
       if (savedRef.current) {
