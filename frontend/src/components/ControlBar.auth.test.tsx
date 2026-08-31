@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClientProvider } from '@tanstack/react-query';
 import ControlBar from './ControlBar';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
 import { useLayoutStore } from '@/stores/layoutStore';
@@ -37,16 +38,24 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+// ControlBar now reads custom tunings via TanStack Query — provide the app's client.
+const renderBar = () =>
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ControlBar />
+    </QueryClientProvider>,
+  );
+
 describe('ControlBar — account/auth', () => {
   it('shows the "Sign in" affordance when unauthenticated', () => {
-    render(<ControlBar />);
+    renderBar();
     expect(screen.getByLabelText('Sign in')).toBeInTheDocument();
     expect(screen.queryByLabelText('Account')).not.toBeInTheDocument();
   });
 
   it('shows the "Account" affordance when authenticated', () => {
     useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a@b.c', name: null } });
-    render(<ControlBar />);
+    renderBar();
     expect(screen.getByLabelText('Account')).toBeInTheDocument();
   });
 
@@ -55,7 +64,7 @@ describe('ControlBar — account/auth', () => {
     useSubscriptionStore.setState({ isPremium: true });
     const removeSpy = vi.spyOn(queryClient, 'removeQueries');
     const user = userEvent.setup();
-    render(<ControlBar />);
+    renderBar();
 
     await user.click(screen.getByLabelText('Account'));
     await user.click(await screen.findByRole('button', { name: 'Log out' }));

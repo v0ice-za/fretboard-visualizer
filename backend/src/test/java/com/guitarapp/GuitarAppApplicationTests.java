@@ -1,5 +1,6 @@
 package com.guitarapp;
 
+import com.guitarapp.repository.CustomTuningRepository;
 import com.guitarapp.repository.ProcessedStripeEventRepository;
 import com.guitarapp.repository.SubscriptionRepository;
 import com.guitarapp.repository.UserRepository;
@@ -31,6 +32,9 @@ class GuitarAppApplicationTests {
 
     @MockitoBean
     private ProcessedStripeEventRepository processedStripeEventRepository;
+
+    @MockitoBean
+    private CustomTuningRepository customTuningRepository;
 
     @Test
     void contextLoads() {

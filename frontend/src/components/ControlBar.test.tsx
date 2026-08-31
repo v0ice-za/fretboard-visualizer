@@ -1,12 +1,23 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { vi } from 'vitest';
 import ControlBar from './ControlBar';
 import { FREE_TUNINGS } from '@/data/freeTunings';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
 import { useLayoutStore } from '@/stores/layoutStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALE_NAMES } from '@/data/scales.js';
 import { TUNINGS } from '@/data/tunings.js';
+import type { CustomTuning } from '@/types/api';
+
+// Controllable custom-tuning data (name must start with "mock" for the vi.mock factory).
+const mockState: { tunings: CustomTuning[] | undefined } = { tunings: undefined };
+vi.mock('@/hooks/useCustomTunings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/useCustomTunings')>();
+  return { ...actual, useCustomTunings: () => ({ data: mockState.tunings }) };
+});
 
 // base-ui uses ResizeObserver internally — polyfill for jsdom
 (globalThis as Record<string, unknown>).ResizeObserver = class {
@@ -30,9 +41,18 @@ beforeEach(() => {
     freeformModeActive: false,
   });
   useLayoutStore.setState({ activeLayout: DEFAULT_LAYOUT });
+  useSubscriptionStore.setState({ isPremium: false });
+  mockState.tunings = undefined;
 });
 
-const renderBar = () => render(<ControlBar />);
+const renderBar = () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <ControlBar />
+    </QueryClientProvider>,
+  );
+};
 
 describe('ControlBar', () => {
   it('renders without crashing', () => {
@@ -94,10 +114,55 @@ describe('ControlBar', () => {
   });
 });
 
+describe('ControlBar — custom tunings (premium)', () => {
+  const CUSTOM: CustomTuning = {
+    id: 1, name: 'My Drop C', strings: ['C2', 'G2', 'C3', 'F3', 'A3', 'D4'], createdAt: null,
+  };
+
+  it('non-premium: no "Create Custom Tuning" item in the tuning select', async () => {
+    const user = userEvent.setup();
+    renderBar();
+    await user.click(screen.getByLabelText('Tuning'));
+    await screen.findByRole('option', { name: 'Standard E' });
+    expect(screen.queryByRole('option', { name: /Create Custom Tuning/ })).not.toBeInTheDocument();
+  });
+
+  it('premium: shows saved custom tunings and the Create item', async () => {
+    const user = userEvent.setup();
+    useSubscriptionStore.setState({ isPremium: true });
+    mockState.tunings = [CUSTOM];
+    renderBar();
+    await user.click(screen.getByLabelText('Tuning'));
+    expect(await screen.findByRole('option', { name: 'My Drop C' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Create Custom Tuning/ })).toBeInTheDocument();
+  });
+
+  it('premium: selecting a custom tuning sets it as the active tuning', async () => {
+    const user = userEvent.setup();
+    useSubscriptionStore.setState({ isPremium: true });
+    mockState.tunings = [CUSTOM];
+    renderBar();
+    await user.click(screen.getByLabelText('Tuning'));
+    await user.click(await screen.findByRole('option', { name: 'My Drop C' }));
+    expect(useFretboardStore.getState().tuning).toBe('My Drop C');
+  });
+
+  it('premium: selecting "Create Custom Tuning" opens the creator sheet', async () => {
+    const user = userEvent.setup();
+    useSubscriptionStore.setState({ isPremium: true });
+    renderBar();
+    await user.click(screen.getByLabelText('Tuning'));
+    await user.click(await screen.findByRole('option', { name: /Create Custom Tuning/ }));
+    expect(await screen.findByText('Create Custom Tuning')).toBeInTheDocument();
+    // The active tuning must NOT change to the sentinel value.
+    expect(useFretboardStore.getState().tuning).toBe('Standard E');
+  });
+});
+
 describe('ControlBar — Library button', () => {
   it('clicking Library button sets sidePanel to true', async () => {
     const user = userEvent.setup();
-    render(<ControlBar />);
+    renderBar();
     await user.click(screen.getByRole('button', { name: 'Library' }));
     expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(true);
   });
@@ -105,7 +170,7 @@ describe('ControlBar — Library button', () => {
   it('clicking Library button again sets sidePanel back to false', async () => {
     const user = userEvent.setup();
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } });
-    render(<ControlBar />);
+    renderBar();
     await user.click(screen.getByRole('button', { name: 'Library' }));
     expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(false);
   });

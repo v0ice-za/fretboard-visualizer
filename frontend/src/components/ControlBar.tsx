@@ -10,7 +10,9 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { apiClient } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
 import { LoginModal } from '@/features/auth/LoginModal';
+import CustomTuningCreator from '@/features/settings/CustomTuningCreator';
 import { subscriptionQueryKey } from '@/hooks/useSubscription';
+import { useCustomTunings } from '@/hooks/useCustomTunings';
 import {
   Select,
   SelectContent,
@@ -30,6 +32,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 
+// Sentinel Select value that opens the creator instead of selecting a tuning.
+const CREATE_TUNING_VALUE = '__create_custom_tuning__';
+
 export default function ControlBar() {
   const {
     tuning, setTuning,
@@ -46,8 +51,17 @@ export default function ControlBar() {
   const closeLoginModal = useLayoutStore((s) => s.closeLoginModal);
 
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
   const user = useAuthStore((s) => s.user);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [creatorOpen, setCreatorOpen] = useState(false);
+  const { data: customTunings } = useCustomTunings();
+
+  const onTuningChange = (v: string | null) => {
+    if (!v) return;
+    if (v === CREATE_TUNING_VALUE) { setCreatorOpen(true); return; }
+    setTuning(v);
+  };
 
   const handleLogout = async () => {
     try {
@@ -72,7 +86,7 @@ export default function ControlBar() {
       </span>
 
       {/* Tuning */}
-      <Select value={tuning} onValueChange={(v) => v && setTuning(v)}>
+      <Select value={tuning} onValueChange={onTuningChange}>
         <SelectTrigger className="w-40" aria-label="Tuning">
           {(FREE_TUNINGS as readonly string[]).includes(tuning)
             ? <SelectValue />
@@ -83,6 +97,17 @@ export default function ControlBar() {
           {FREE_TUNINGS.map(name => (
             <SelectItem key={name} value={name}>{name}</SelectItem>
           ))}
+          {isPremium && customTunings && customTunings.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>My Tunings</SelectLabel>
+              {customTunings.map(t => (
+                <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+          {isPremium && (
+            <SelectItem value={CREATE_TUNING_VALUE}>＋ Create Custom Tuning</SelectItem>
+          )}
         </SelectContent>
       </Select>
 
@@ -190,6 +215,9 @@ export default function ControlBar() {
           <User size={16} />
         </button>
       </div>
+
+      {/* Custom tuning creator (premium) */}
+      <CustomTuningCreator open={creatorOpen} onOpenChange={setCreatorOpen} />
 
       {/* Auth overlay (unauthenticated) */}
       <LoginModal open={loginOpen} onOpenChange={(open) => (open ? openLoginModal() : closeLoginModal())} />

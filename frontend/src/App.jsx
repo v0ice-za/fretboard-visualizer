@@ -6,6 +6,7 @@ import AppShell from './components/shared/AppShell';
 import { useFretboardStore } from '@/stores/fretboardStore';
 import { useUrlState } from '@/hooks/useUrlState';
 import { useSubscription, subscriptionQueryKey } from '@/hooks/useSubscription';
+import { useCustomTunings, resolveCustomTuningStrings } from '@/hooks/useCustomTunings';
 import { bootstrapAuth } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
 import './App.css';
@@ -14,6 +15,10 @@ export default function App() {
   const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark, chordName } = useFretboardStore();
   useUrlState();
   useSubscription();
+  const { data: customTunings } = useCustomTunings();
+  // undefined for predefined tunings (FretboardCanvas falls back to its own by-name lookup),
+  // pitch-class strings for a selected custom tuning.
+  const resolvedStrings = resolveCustomTuningStrings(tuning, customTunings);
   // Silent session restore: the access token is memory-only, so on load attempt a refresh
   // to reauthenticate from the httpOnly cookie without a visible signed-out flash.
   useEffect(() => {
@@ -47,6 +52,7 @@ export default function App() {
             freeformModeActive={freeformModeActive}
             noteNamesVisible={noteNamesVisible}
             chordName={chordName}
+            strings={resolvedStrings}
             onFretClick={(mark) => toggleFreeformMark(mark)}
           />
         </div>

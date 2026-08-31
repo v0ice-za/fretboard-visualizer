@@ -16,6 +16,15 @@ export const MODES = [
 ] as const;
 
 
+/**
+ * Strips a trailing octave digit from a tuning token so it can feed the pitch-class-based
+ * note math (`getNoteAtFret`). Custom tunings store note+octave tokens (e.g. "E2"); predefined
+ * tunings are already pitch-class. `"E2" → "E"`, `"F#3" → "F#"`, `"Eb2" → "Eb"`, `"E" → "E"`.
+ */
+export function toPitchClass(token: string): string {
+  return token.replace(/[0-9]/g, '');
+}
+
 export type DotState = 'root' | 'scale' | 'mode' | 'mode-root' | 'freeform';
 
 export interface FretDotData {
@@ -106,9 +115,12 @@ export function calculateFretboardDots(
   rootNote: string,
   scaleName: string,
   capoPosition = 0,
-  modeIndex: number | null = null
+  modeIndex: number | null = null,
+  stringsOverride?: string[]
 ): FretDotData[] {
-  const strings = (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E'];
+  // When an explicit pitch-class string set is supplied (custom tunings, not in TUNINGS),
+  // it overrides the by-name lookup. Omitted → identical to the original behavior.
+  const strings = stringsOverride ?? (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E'];
   const scaleNotes = getScaleNotes(rootNote, scaleName);
 
   // Parallel mode notes — same root, mode's own interval pattern
@@ -155,9 +167,10 @@ export function calculateChordDots(
   intervals: number[],
   rootNote: string,
   tuningName: string,
-  capoPosition = 0
+  capoPosition = 0,
+  stringsOverride?: string[]
 ): FretDotData[] {
-  const strings = (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E']
+  const strings = stringsOverride ?? (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E']
   const chordNotes = new Set(intervals.map(i => getNoteAtFret(rootNote, i % 12)))
   const dots: FretDotData[] = []
 

@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-08-31 (story 4.3 chord-progression-builder → done: code-reviewed (3 parallel layers), 6 patches applied incl. CRITICAL keyboard type guard + cap feedback, 242 tests green. Prior: 3.7 Tasks 1-6 committed 633cb26, Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
+last_updated: 2026-08-31 (story 4.1 custom-tuning-creator implemented → review; full-stack: V6 migration + tuning backend slice (100 BE tests green) + Creator Sheet + main-board rendering (260 FE tests green). Prior: 4.3 done (1ca5b6e); 3.7 Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -46,7 +46,7 @@ development_status:
 
   # ─── Epic 4: Premium Features ─────────────────────────────────────────────────
   epic-4: in-progress
-  4-1-custom-tuning-creator: backlog
+  4-1-custom-tuning-creator: review
   4-2-custom-tuning-management: backlog
   4-3-chord-progression-builder: done
   4-4-session-persistence: backlog

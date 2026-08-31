@@ -35,6 +35,9 @@ interface FretboardCanvasProps {
   freeformModeActive?: boolean;
   noteNamesVisible?: boolean;
   chordName?: string | null;
+  /** Explicit pitch-class open strings (low→high), overriding the by-name TUNINGS lookup.
+   *  Supplied for custom tunings (which aren't in TUNINGS) and the creator's live preview. */
+  strings?: string[];
   onFretClick?: (mark: { fret: number; string: number }) => void;
 }
 
@@ -48,9 +51,10 @@ export default function FretboardCanvas({
   freeformModeActive = false,
   noteNamesVisible = false,
   chordName,
+  strings,
   onFretClick,
 }: FretboardCanvasProps) {
-  const strings = (TUNINGS as Record<string, string[]>)[tuning] ?? TUNINGS['Standard E'];
+  const openStrings = strings ?? (TUNINGS as Record<string, string[]>)[tuning] ?? TUNINGS['Standard E'];
 
   const ariaLabel = useMemo(
     () => generateAriaLabel(tuning, rootNote, scaleName, modeIndex, capoPosition),
@@ -60,10 +64,10 @@ export default function FretboardCanvas({
   const dots = useMemo(() => {
     if (chordName) {
       const chord = (CHORDS as Record<string, { intervals: number[] }>)[chordName]
-      if (chord) return calculateChordDots(chord.intervals, rootNote, tuning, capoPosition)
+      if (chord) return calculateChordDots(chord.intervals, rootNote, tuning, capoPosition, strings)
     }
-    return calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex)
-  }, [tuning, rootNote, scaleName, capoPosition, modeIndex, chordName]);
+    return calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex, strings)
+  }, [tuning, rootNote, scaleName, capoPosition, modeIndex, chordName, strings]);
 
   const freeformDots = useMemo(
     () => calculateFreeformDots(freeformMarks, tuning, capoPosition),
@@ -249,8 +253,8 @@ export default function FretboardCanvas({
             fill="var(--color-text-primary, #e2e8f0)"
           >
             {capoPosition > 0
-              ? getNoteAtFret(strings[STRING_COUNT - 1 - i], capoPosition)
-              : strings[STRING_COUNT - 1 - i]}
+              ? getNoteAtFret(openStrings[STRING_COUNT - 1 - i], capoPosition)
+              : openStrings[STRING_COUNT - 1 - i]}
           </text>
         ))}
 

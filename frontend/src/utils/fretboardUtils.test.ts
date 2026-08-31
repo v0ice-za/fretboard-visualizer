@@ -1,4 +1,9 @@
-import { calculateFreeformDots, calculateChordDots } from './fretboardUtils';
+import {
+  calculateFreeformDots,
+  calculateChordDots,
+  calculateFretboardDots,
+  toPitchClass,
+} from './fretboardUtils';
 
 describe('calculateFreeformDots', () => {
   it('returns 1 dot for a valid mark at fret 5, string 1', () => {
@@ -67,5 +72,41 @@ describe('calculateChordDots', () => {
   it('capoPosition skips frets below capo', () => {
     const dots = calculateChordDots([0, 4, 7], 'A', 'Standard E', 3);
     expect(dots.every(d => d.fret >= 3)).toBe(true);
+  });
+});
+
+describe('toPitchClass', () => {
+  it('strips a trailing octave digit', () => {
+    expect(toPitchClass('E2')).toBe('E');
+    expect(toPitchClass('F#3')).toBe('F#');
+    expect(toPitchClass('Eb2')).toBe('Eb');
+  });
+  it('leaves a bare pitch class unchanged', () => {
+    expect(toPitchClass('E')).toBe('E');
+    expect(toPitchClass('C#')).toBe('C#');
+  });
+});
+
+describe('strings override', () => {
+  const ALL_C = ['C', 'C', 'C', 'C', 'C', 'C'];
+
+  it('calculateFretboardDots uses the override instead of the named tuning', () => {
+    // Every open string is C, root is C → a root dot at fret 0 on all 6 strings.
+    const dots = calculateFretboardDots('Standard E', 'C', 'Major (Ionian)', 0, null, ALL_C);
+    const openRoots = dots.filter(d => d.fret === 0 && d.state === 'root');
+    expect(openRoots).toHaveLength(6);
+  });
+
+  it('calculateFretboardDots is unchanged when no override is passed', () => {
+    // Sanity: omitting the override falls back to the named tuning lookup (no crash, returns dots).
+    const withUndefined = calculateFretboardDots('Standard E', 'A', 'Pentatonic Minor', 0, null, undefined);
+    const original = calculateFretboardDots('Standard E', 'A', 'Pentatonic Minor', 0, null);
+    expect(withUndefined).toEqual(original);
+  });
+
+  it('calculateChordDots uses the override', () => {
+    const dots = calculateChordDots([0, 4, 7], 'C', 'Standard E', 0, ALL_C);
+    const openRoots = dots.filter(d => d.fret === 0 && d.state === 'root');
+    expect(openRoots).toHaveLength(6);
   });
 });
