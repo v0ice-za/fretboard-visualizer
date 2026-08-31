@@ -5,6 +5,7 @@ import LibraryPanel from './LibraryPanel'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useSubscriptionStore } from '@/stores/subscriptionStore'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
+import { useProgressionStore } from '@/stores/progressionStore'
 
 // PaywallCard (rendered by LibraryPanel) uses a TanStack Query mutation for checkout.
 function renderPanel() {
@@ -35,6 +36,7 @@ beforeEach(() => {
   useLayoutStore.setState({ activeLayout: DEFAULT_LAYOUT })
   useSubscriptionStore.setState({ isPremium: false })
   useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE })
+  useProgressionStore.setState({ chords: [], activeIndex: null })
 })
 
 describe('LibraryPanel — desktop aside', () => {
@@ -101,6 +103,34 @@ describe('LibraryPanel — desktop aside', () => {
     ) as HTMLElement
     await user.click(chordTab)
     expect(document.querySelector('[data-testid="paywall-card"]')).not.toBeInTheDocument()
+  })
+
+  it('non-premium: clicking the Progression tab triggers the paywall and shows no builder', async () => {
+    const user = userEvent.setup()
+    useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
+    const { container } = renderPanel()
+    const aside = container.querySelector('aside')!
+    const progTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+      (el) => el.textContent === 'Progression'
+    ) as HTMLElement
+    await user.click(progTab)
+    expect(document.querySelector('[data-testid="paywall-card"]')).toBeInTheDocument()
+    expect(progTab).not.toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByText('Add chords to build a progression')).not.toBeInTheDocument()
+  })
+
+  it('premium: the Progression tab renders the ProgressionBuilder', async () => {
+    const user = userEvent.setup()
+    useSubscriptionStore.setState({ isPremium: true })
+    useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
+    const { container } = renderPanel()
+    const aside = container.querySelector('aside')!
+    const progTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+      (el) => el.textContent === 'Progression'
+    ) as HTMLElement
+    await user.click(progTab)
+    expect(progTab).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText('Add chords to build a progression')).toBeInTheDocument()
   })
 })
 

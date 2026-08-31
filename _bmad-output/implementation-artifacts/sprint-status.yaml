@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-08-29 (story 3.7 backend-ci-cd-and-railway-deploy → Tasks 1-6 + runbook done and green (90 BE unit tests + Testcontainers IT wired for CI; V1-V5 psql-verified); Task 7 manual Railway/Vercel/Stripe dashboard deploy pending, story in-progress; completing it unblocks the 3.5/3.6 Stripe gates too)
+last_updated: 2026-08-31 (story 4.3 chord-progression-builder implemented → review; pure frontend, 241 tests green, type-check+lint clean. Prior: 3.7 Tasks 1-6 committed 633cb26, Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -45,10 +45,10 @@ development_status:
   epic-3-retrospective: optional
 
   # ─── Epic 4: Premium Features ─────────────────────────────────────────────────
-  epic-4: backlog
+  epic-4: in-progress
   4-1-custom-tuning-creator: backlog
   4-2-custom-tuning-management: backlog
-  4-3-chord-progression-builder: backlog
+  4-3-chord-progression-builder: review
   4-4-session-persistence: backlog
   4-5-premium-themes-and-contrast-audit: backlog
   epic-4-retrospective: optional
