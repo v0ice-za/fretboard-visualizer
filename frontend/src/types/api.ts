@@ -20,3 +20,8 @@ export interface CustomTuning {
   strings: string[];
   createdAt: string | null;
 }
+
+export interface TuningRequestDto {
+  name: string;
+  strings: string[];
+}

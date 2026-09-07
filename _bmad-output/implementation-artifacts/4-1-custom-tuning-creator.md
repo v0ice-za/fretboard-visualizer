@@ -1,6 +1,6 @@
 # Story 4.1: Custom Tuning Creator
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story (VS) for a quality check before dev-story (DS). -->
 
@@ -109,6 +109,33 @@ From `epics.distillate.md#Story 4.1`, refined against the current codebase:
 - **Q2 (octave range):** Octave selector range — default **1–6** (covers standard guitar E2–E4 with headroom). Confirm or narrow.
 - **Q3 (per-note server validation):** Ship shape/length validation only now (frontend `Select` constrains notes), or add a server-side note-format validator (regex against `CHROMATIC_NOTES` + octave)? Default: shape/length now; note-format as a hardening item for 4.2's touch.
 - **Q4 (select-a-custom renders on main board — in 4.1 or 4.2?):** AC6 includes it here (the resolver + `strings` plumbing land in 4.1 so the feature is actually usable). If you'd rather 4.1 only build the Creator and defer main-board rendering to 4.2, drop Task 6's resolver step. Default: include it — a tuning you can create but not use is a half-feature.
+
+## Review Findings
+
+### Patches (Resolved)
+
+- [x] [Review][Patch] Backend: Note+octave format validation — `backend/src/main/java/com/guitarapp/dto/TuningRequestDto.java` — **Intentionally deferred by design (Q3).** Story 4.1 ships shape/length validation only (name non-blank, exactly 6 non-blank strings). Per-note format (regex against CHROMATIC_NOTES + octave range) is a hardening item for Story 4.2. Frontend Select constrains input; backend accepts what passes bean validation. ✓ Rationale documented.
+- [x] [Review][Patch] Backend: Validation test coverage — `backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java` — **Already implemented.** ✓ Tests passing: `premiumUser_blankNameGets400()`, `premiumUser_wrongStringCountGets400()` (lines 84–101). Full suite: 7 tests, 0 failures.
+
+### Deferred (Pre-Existing / Out of Scope)
+
+- [x] [Review][Defer] Pre-existing: `documentElement` null-safety gap in frontend initialization — `frontend/index.html` — Not caused by story 4.1; theme-store defensive coding issue (Critical). Impacts app boot but outside 4.1 scope.
+- [x] [Review][Defer] Pre-existing: `documentElement` null-safety gap in themeStore — `frontend/src/stores/themeStore.ts` — Not caused by story 4.1; infrastructure issue (High). Module-load initialization calls unsafe code outside error boundary.
+- [x] [Review][Defer] Pre-existing: Broad try/catch masking errors — `frontend/index.html` — Not caused by story 4.1; initialization hardening issue (Medium).
+- [x] [Review][Defer] Pre-existing: Unhandled error in themeStore module load — `frontend/src/stores/themeStore.ts` — Not caused by story 4.1; infrastructure issue (High).
+- [x] [Review][Defer] Pre-existing: Race condition in theme initialization — `frontend/index.html` + `themeStore.ts` — Not caused by story 4.1; acceptable mitigation already in place (Medium).
+
+### Acceptance Criteria Audit
+
+✅ **All 8 acceptance criteria satisfied:**
+- AC1 Premium entry point: ✓ "＋ Create Custom Tuning" gated by `isPremium`
+- AC2 Per-string inputs: ✓ 6 rows, note+octave selectors, default E2 A2 D3 G3 B3 E4
+- AC3 Live preview: ✓ Read-only `FretboardCanvas` updates on every change
+- AC4 Name + Save: ✓ `POST /tunings` (201), query invalidation, Select update
+- AC5 Discard: ✓ Closes without posting
+- AC6 Selecting custom tuning renders: ✓ Resolver + `strings` override plumbing working
+- AC7 Persistence + migration: ✓ V6 migration, JSONB strings, user FK with cascade
+- AC8 Ownership + gating: ✓ `@PreAuthorize("hasRole('PREMIUM')")` on both endpoints, scoped by `AuthenticatedUser.id()`
 
 ## Dev Agent Record
 

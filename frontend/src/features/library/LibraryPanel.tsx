@@ -11,8 +11,8 @@ import ProgressionBuilder from './ProgressionBuilder'
 type Tab = 'scale' | 'chord' | 'progression'
 
 const TAB_LABELS: Record<Tab, string> = {
-  scale: 'Scale Library',
-  chord: 'Chord Library',
+  scale: 'Scales',
+  chord: 'Chords',
   progression: 'Progression',
 }
 
@@ -36,15 +36,15 @@ export default function LibraryPanel() {
   }
 
   const tabs = (
-    <div className="flex border-b border-[var(--border)]" role="tablist">
+    <div className="flex gap-1 px-2 border-b border-border" role="tablist">
       {(['scale', 'chord', 'progression'] as Tab[]).map((tab) => (
         <button
           key={tab}
           onClick={(e) => handleTabClick(tab, e)}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
+          className={`px-3 py-2.5 text-sm font-medium transition-colors -mb-px border-b-2 ${
             activeTab === tab
-              ? 'text-indigo-400 border-b-2 border-indigo-400'
-              : 'text-slate-500 hover:text-slate-300'
+              ? 'text-primary border-primary'
+              : 'text-muted-foreground border-transparent hover:text-foreground'
           }`}
           aria-selected={activeTab === tab}
           role="tab"
@@ -72,11 +72,11 @@ export default function LibraryPanel() {
           className="hidden md:flex flex-col border-l border-[var(--border)] bg-card"
           aria-label="Library panel"
         >
-          <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)]">
-            <span className="text-sm font-semibold text-slate-300">Library</span>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <span className="text-sm font-semibold text-foreground">Library</span>
             <button
               onClick={close}
-              className="p-1 rounded text-slate-500 hover:text-slate-300"
+              className="p-1 rounded text-muted-foreground hover:text-foreground"
               aria-label="Close library panel"
             >
               <X size={14} />

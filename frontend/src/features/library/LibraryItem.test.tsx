@@ -13,11 +13,11 @@ describe('LibraryItem', () => {
     expect(onSelect).toHaveBeenCalled()
   })
 
-  it('active variant renders checkmark icon, aria-selected=true, indigo styling', () => {
+  it('active variant renders checkmark icon, aria-selected=true, primary styling', () => {
     render(<LibraryItem title="D Dorian" variant="active" />)
     const btn = screen.getByRole('option')
     expect(btn).toHaveAttribute('aria-selected', 'true')
-    expect(btn.className).toContain('indigo')
+    expect(btn.className).toContain('text-primary')
   })
 
   it('locked variant renders lock Badge, aria-disabled=true, click calls onPaywallTrigger', async () => {

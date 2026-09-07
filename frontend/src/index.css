@@ -75,6 +75,17 @@
   --top-bar-height: 3rem;
   --mode-row-height: 2rem;
 
+  /* Fretboard-specific (light theme) — light board with darker strings/frets/text
+     so the SVG stays legible on the light page instead of falling back to the
+     dark-theme hex defaults baked into FretboardCanvas. */
+  --color-fretboard: oklch(0.95 0.005 270);
+  --color-string: oklch(0.55 0.03 270);
+  --color-fret: oklch(0.80 0.01 270);
+  --color-fret-marker: oklch(0.88 0.01 270);
+  --color-text-primary: oklch(0.20 0.01 270);
+  --color-text-secondary: oklch(0.45 0.02 270);
+  --color-text-muted: oklch(0.62 0.02 270);
+
   /* Dot colors (light theme fallback) */
   --color-dot-root: oklch(0.78 0.15 75);
   --color-dot-scale: oklch(0.52 0.24 264);

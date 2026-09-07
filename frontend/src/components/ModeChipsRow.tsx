@@ -28,7 +28,7 @@ export default function ModeChipsRow() {
       <div
         role="toolbar"
         aria-label="Mode overlay"
-        className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--color-surface,#0f0f1a)] border-b border-[var(--color-border,#1e1e30)] overflow-x-auto"
+        className="flex items-center gap-2 px-4 py-2 bg-card border-b border-border overflow-x-auto"
       >
         {MODES.map((mode, index) => {
           const isActive = modeIndex === index;
@@ -41,7 +41,7 @@ export default function ModeChipsRow() {
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                   isActive
                     ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                    : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-slate-700'
+                    : 'text-muted-foreground hover:text-foreground border border-transparent hover:border-border'
                 }`}
               >
                 {mode.name}

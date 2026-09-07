@@ -1,6 +1,21 @@
 # Deferred Work
 
-## Deferred from: code review of 3-4-frontend-auth-integration (2026-08-29)
+## Deferred from: code review of 4-2-custom-tuning-management (2026-09-07)
+
+- No transaction rollback testing for TuningService — Methods marked `@Transactional` but tests don't cover failure modes (DB constraint violations, timeouts). Add in future test-hardening story.
+- Tuning groups display logic scattered across components — ControlBar.tsx and ModeChipsRow.tsx both reference tuning state; tight coupling. Refactoring opportunity; defer to future architecture cleanup.
+- No audit logging on PATCH/DELETE operations — No server-side record of who deleted what tuning and when. Compliance/audit gap; add in future logging story (not in 4.2 scope).
+- TUNINGS data initialization edge cases — If TUNINGS object empty or Standard E missing, app breaks. Data validation issue; defer to data-integrity hardening story.
+
+## Future feature ideas (not yet storied)
+
+- **Audio playback of notes/chords with guitar samples (premium)** — requested 2026-09-01. Clicking a fret dot, a chord in the Chord Library, or stepping through a Progression should play the corresponding pitch(es) using guitar sounds. Premium-gated like other pro features (reuse `PaywallCard` / `useSubscriptionStore` `isPremium`). Implementation notes for when this is storied: use Web Audio API — either the Tone.js `Sampler` with a small set of guitar samples (map open-string pitch + fret → note name), or synthesized plucked-string (Karplus–Strong) to avoid bundling audio assets. Needs: pitch resolution from `(tuning, stringIdx, fret, capo)` (logic already exists in `fretboardUtils`/`musicTheory.js`), a mute/volume control, respect `prefers-reduced-motion`/user gesture requirement for AudioContext, and a per-chord/progression "play" affordance. The existing `useProgressionPlayback` hook is a natural integration point for the progression case.
+
+## Deferred from: code review of 4-1-custom-tuning-creator (2026-09-04)
+
+- Frontend & backend theme initialization defensibility: `frontend/index.html` and `frontend/src/stores/themeStore.ts` access `document.documentElement` without null checks; broad try/catch masks errors silently. Module-load call to `applyThemeToDom()` happens outside error boundary. Pre-existing infrastructure issue (Critical/High severity) affecting app boot reliability; outside story 4.1 scope but flagged for hardening pass.
+
+## Future feature ideas (not yet storied) — continued
 
 - Google email-link path (`AuthService.loginWithGoogle`, existing-email match) uses an unflushed `save()` with no violation handling, unlike the sibling new-account create path which uses `saveAndFlush` + `DataIntegrityViolationException` → 409. Verified low real risk (no `@Version` on `User`; the realistic concurrent-sign-in race writes an identical `google_id` value to the same row, so it doesn't actually collide) — but tighten for defense-in-depth consistency with the create path when Google OAuth is next touched
 - Google-derived `email`/`name` claims aren't length-validated against the 255-char DB column before insert (unlike the email/password path, which has `@Size(max=255)` on its DTOs) — an oversized value would surface as a misleading `409 GOOGLE_ACCOUNT_CONFLICT` instead of a validation error. Requires a validly-signed Google token with an absurd claim value; not achievable with real Google accounts, low priority

@@ -60,12 +60,12 @@ describe('LibraryPanel — desktop aside', () => {
     expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(false)
   })
 
-  it('"Scale Library" tab is active by default', () => {
+  it('"Scales" tab is active by default', () => {
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
     const { container } = renderPanel()
     const aside = container.querySelector('aside')!
     const scaleTab = aside.querySelector('button[role="tab"][aria-selected="true"]')
-    expect(scaleTab).toHaveTextContent('Scale Library')
+    expect(scaleTab).toHaveTextContent('Scales')
   })
 
   it('clicking "Chord Library" tab switches active tab', async () => {
@@ -74,7 +74,7 @@ describe('LibraryPanel — desktop aside', () => {
     const { container } = renderPanel()
     const aside = container.querySelector('aside')!
     const chordTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
-      (el) => el.textContent === 'Chord Library'
+      (el) => el.textContent === 'Chords'
     ) as HTMLElement
     await user.click(chordTab)
     expect(chordTab).toHaveAttribute('aria-selected', 'true')
@@ -99,7 +99,7 @@ describe('LibraryPanel — desktop aside', () => {
     await user.click(lockedBtn)
     expect(document.querySelector('[data-testid="paywall-card"]')).toBeInTheDocument()
     const chordTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
-      (el) => el.textContent === 'Chord Library'
+      (el) => el.textContent === 'Chords'
     ) as HTMLElement
     await user.click(chordTab)
     expect(document.querySelector('[data-testid="paywall-card"]')).not.toBeInTheDocument()

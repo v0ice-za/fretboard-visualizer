@@ -14,8 +14,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -122,5 +121,115 @@ class TuningControllerTest extends WebMockTestBase {
                         .header("Authorization", "Bearer " + token(4L, JwtService.ROLE_FREE)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void premiumUser_updateNameReturns200() throws Exception {
+        User user = User.builder().id(1L).build();
+        CustomTuning existingTuning = CustomTuning.builder()
+                .id(5L).user(user).name("Drop C").strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
+                .build();
+        when(customTuningRepository.findById(5L)).thenReturn(java.util.Optional.of(existingTuning));
+        when(customTuningRepository.save(any(CustomTuning.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(patch("/api/v1/tunings/5")
+                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Open D\",\"strings\":[\"D2\",\"A2\",\"D3\",\"F#3\",\"A3\",\"D4\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5))
+                .andExpect(jsonPath("$.name").value("Open D"))
+                .andExpect(jsonPath("$.strings[0]").value("D2"));
+    }
+
+    @Test
+    void freeUser_patchGets403() throws Exception {
+        mockMvc.perform(patch("/api/v1/tunings/5")
+                        .header("Authorization", "Bearer " + token(2L, JwtService.ROLE_FREE))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void unauthenticated_patchGets401() throws Exception {
+        mockMvc.perform(patch("/api/v1/tunings/5")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_BODY))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void premiumUser_patchOtherUsersTuningGets403() throws Exception {
+        User otherUser = User.builder().id(99L).build();
+        CustomTuning tuning = CustomTuning.builder()
+                .id(5L).user(otherUser).name("Drop C").strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
+                .build();
+        when(customTuningRepository.findById(5L)).thenReturn(java.util.Optional.of(tuning));
+
+        mockMvc.perform(patch("/api/v1/tunings/5")
+                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_BODY))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void premiumUser_deleteReturns204() throws Exception {
+        User user = User.builder().id(1L).build();
+        CustomTuning tuning = CustomTuning.builder()
+                .id(5L).user(user).name("Drop C").strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
+                .build();
+        when(customTuningRepository.findById(5L)).thenReturn(java.util.Optional.of(tuning));
+
+        mockMvc.perform(delete("/api/v1/tunings/5")
+                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM)))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void freeUser_deleteGets403() throws Exception {
+        mockMvc.perform(delete("/api/v1/tunings/5")
+                        .header("Authorization", "Bearer " + token(2L, JwtService.ROLE_FREE)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void unauthenticated_deleteGets401() throws Exception {
+        mockMvc.perform(delete("/api/v1/tunings/5"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void premiumUser_deleteOtherUsersTuningGets403() throws Exception {
+        User otherUser = User.builder().id(99L).build();
+        CustomTuning tuning = CustomTuning.builder()
+                .id(5L).user(otherUser).name("Drop C").strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
+                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
+                .build();
+        when(customTuningRepository.findById(5L)).thenReturn(java.util.Optional.of(tuning));
+
+        mockMvc.perform(delete("/api/v1/tunings/5")
+                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    void premiumUser_deleteNonexistentGets404() throws Exception {
+        when(customTuningRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(delete("/api/v1/tunings/999")
+                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
     }
 }

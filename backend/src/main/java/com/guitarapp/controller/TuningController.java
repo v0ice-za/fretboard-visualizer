@@ -41,4 +41,19 @@ public class TuningController {
     public List<TuningResponseDto> list(Authentication authentication) {
         return tuningService.listForUser(AuthenticatedUser.id(authentication));
     }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('PREMIUM')")
+    public TuningResponseDto update(@PathVariable Long id,
+                                    @Valid @RequestBody TuningRequestDto request,
+                                    Authentication authentication) {
+        return tuningService.update(AuthenticatedUser.id(authentication), id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('PREMIUM')")
+    public void delete(@PathVariable Long id, Authentication authentication) {
+        tuningService.delete(AuthenticatedUser.id(authentication), id);
+    }
 }

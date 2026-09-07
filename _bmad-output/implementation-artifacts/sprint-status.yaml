@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-08-31 (story 4.1 custom-tuning-creator implemented → review; full-stack: V6 migration + tuning backend slice (100 BE tests green) + Creator Sheet + main-board rendering (260 FE tests green). Prior: 4.3 done (1ca5b6e); 3.7 Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
+last_updated: 2026-09-07 (story 4.2 → done. Code review complete: 3 decisions resolved (active-only fallback / TanStack retry / eventual consistency all accepted), 2 patches applied (typed TuningException replacing message-based routing in GlobalExceptionHandler + service tests; delete-confirmation "in use" warning + test), 5 patches verified already-handled (@NotBlank whitespace/null guards, React JSX escaping, isPending disabled buttons), 4 deferred to deferred-work.md. Regression green — backend 115/115, ControlBar 24/24, type-check clean. Prior: 4.1 done; 4.3 done (1ca5b6e); 3.7 Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -46,8 +46,8 @@ development_status:
 
   # ─── Epic 4: Premium Features ─────────────────────────────────────────────────
   epic-4: in-progress
-  4-1-custom-tuning-creator: review
-  4-2-custom-tuning-management: backlog
+  4-1-custom-tuning-creator: done
+  4-2-custom-tuning-management: done
   4-3-chord-progression-builder: done
   4-4-session-persistence: backlog
   4-5-premium-themes-and-contrast-audit: backlog

@@ -2,6 +2,7 @@ package com.guitarapp.service;
 
 import com.guitarapp.dto.TuningRequestDto;
 import com.guitarapp.dto.TuningResponseDto;
+import com.guitarapp.exception.TuningException;
 import com.guitarapp.model.CustomTuning;
 import com.guitarapp.model.User;
 import com.guitarapp.repository.CustomTuningRepository;
@@ -14,7 +15,9 @@ import java.util.List;
 /**
  * Custom-tuning persistence for premium users. Premium enforcement lives at the controller
  * ({@code @PreAuthorize("hasRole('PREMIUM')")}); this service assumes an already-authorized
- * caller and only owns the create/list logic scoped to {@code userId}.
+ * caller and scopes all operations to {@code userId}. Ownership verification is performed
+ * in this service before any modification; unauthorized access throws a custom exception
+ * handled by GlobalExceptionHandler as a 403 Forbidden response.
  */
 @Service
 public class TuningService {
@@ -44,5 +47,33 @@ public class TuningService {
         return customTuningRepository.findByUserIdOrderByCreatedAtAsc(userId).stream()
                 .map(TuningResponseDto::from)
                 .toList();
+    }
+
+    @Transactional
+    public TuningResponseDto update(Long userId, Long tuningId, TuningRequestDto request) {
+        CustomTuning tuning = customTuningRepository.findById(tuningId)
+                .orElseThrow(TuningException::notFound);
+
+        // Ownership verification
+        if (!tuning.getUser().getId().equals(userId)) {
+            throw TuningException.accessDenied();
+        }
+
+        tuning.setName(request.name());
+        tuning.setStrings(List.copyOf(request.strings()));
+        return TuningResponseDto.from(customTuningRepository.save(tuning));
+    }
+
+    @Transactional
+    public void delete(Long userId, Long tuningId) {
+        CustomTuning tuning = customTuningRepository.findById(tuningId)
+                .orElseThrow(TuningException::notFound);
+
+        // Ownership verification
+        if (!tuning.getUser().getId().equals(userId)) {
+            throw TuningException.accessDenied();
+        }
+
+        customTuningRepository.deleteById(tuningId);
     }
 }

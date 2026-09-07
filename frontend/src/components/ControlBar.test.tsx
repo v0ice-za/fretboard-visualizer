@@ -19,6 +19,10 @@ vi.mock('@/hooks/useCustomTunings', async (importOriginal) => {
   return { ...actual, useCustomTunings: () => ({ data: mockState.tunings }) };
 });
 
+// Mock the HTTP boundary so the real rename/delete mutation hooks run against spies.
+const mockApiClient = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn() }));
+vi.mock('@/lib/apiClient', () => ({ apiClient: mockApiClient, default: mockApiClient }));
+
 // base-ui uses ResizeObserver internally — polyfill for jsdom
 (globalThis as Record<string, unknown>).ResizeObserver = class {
   observe() {}
@@ -43,6 +47,8 @@ beforeEach(() => {
   useLayoutStore.setState({ activeLayout: DEFAULT_LAYOUT });
   useSubscriptionStore.setState({ isPremium: false });
   mockState.tunings = undefined;
+  mockApiClient.patch.mockReset().mockResolvedValue(undefined);
+  mockApiClient.del.mockReset().mockResolvedValue(undefined);
 });
 
 const renderBar = () => {
@@ -155,6 +161,88 @@ describe('ControlBar — custom tunings (premium)', () => {
     await user.click(await screen.findByRole('option', { name: /Create Custom Tuning/ }));
     expect(await screen.findByText('Create Custom Tuning')).toBeInTheDocument();
     // The active tuning must NOT change to the sentinel value.
+    expect(useFretboardStore.getState().tuning).toBe('Standard E');
+  });
+});
+
+describe('ControlBar — rename/delete actions (Task 9)', () => {
+  const CUSTOM: CustomTuning = {
+    id: 7, name: 'My Drop C', strings: ['C2', 'G2', 'C3', 'F3', 'A3', 'D4'], createdAt: null,
+  };
+
+  // Premium user with `My Drop C` custom tuning active.
+  const setupActiveCustom = () => {
+    useSubscriptionStore.setState({ isPremium: true });
+    mockState.tunings = [CUSTOM];
+    useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE, tuning: 'My Drop C' });
+  };
+
+  it('non-premium: no rename/delete action buttons', () => {
+    mockState.tunings = [CUSTOM];
+    useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE, tuning: 'My Drop C' });
+    renderBar();
+    expect(screen.queryByRole('button', { name: 'Rename tuning' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete tuning' })).not.toBeInTheDocument();
+  });
+
+  it('premium + predefined tuning active: no rename/delete buttons', () => {
+    useSubscriptionStore.setState({ isPremium: true });
+    mockState.tunings = [CUSTOM];
+    // Active tuning is the predefined default (Standard E), not a custom one.
+    renderBar();
+    expect(screen.queryByRole('button', { name: 'Rename tuning' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete tuning' })).not.toBeInTheDocument();
+  });
+
+  it('premium + custom tuning active: shows rename and delete buttons', () => {
+    setupActiveCustom();
+    renderBar();
+    expect(screen.getByRole('button', { name: 'Rename tuning' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete tuning' })).toBeInTheDocument();
+  });
+
+  it('rename: opens a sheet with the current name prefilled', async () => {
+    const user = userEvent.setup();
+    setupActiveCustom();
+    renderBar();
+    await user.click(screen.getByRole('button', { name: 'Rename tuning' }));
+    const input = await screen.findByPlaceholderText('New tuning name');
+    expect(input).toHaveValue('My Drop C');
+  });
+
+  it('rename: submitting issues PATCH with the new name and existing strings', async () => {
+    const user = userEvent.setup();
+    setupActiveCustom();
+    renderBar();
+    await user.click(screen.getByRole('button', { name: 'Rename tuning' }));
+    const input = await screen.findByPlaceholderText('New tuning name');
+    await user.clear(input);
+    await user.type(input, 'My Drop B');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(mockApiClient.patch).toHaveBeenCalledWith('/tunings/7', {
+      name: 'My Drop B',
+      strings: CUSTOM.strings,
+    });
+  });
+
+  it('delete: confirmation sheet names the tuning and warns when it is in use', async () => {
+    const user = userEvent.setup();
+    setupActiveCustom();
+    renderBar();
+    await user.click(screen.getByRole('button', { name: 'Delete tuning' }));
+    // Active custom tuning → confirmation names it, warns it is in use, and notes irreversibility.
+    expect(await screen.findByText(/Delete "My Drop C"\?/)).toBeInTheDocument();
+    expect(screen.getByText(/currently in use/)).toBeInTheDocument();
+    expect(screen.getByText(/This cannot be undone\./)).toBeInTheDocument();
+  });
+
+  it('delete: confirming issues DELETE and falls back to Standard E', async () => {
+    const user = userEvent.setup();
+    setupActiveCustom();
+    renderBar();
+    await user.click(screen.getByRole('button', { name: 'Delete tuning' }));
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(mockApiClient.del).toHaveBeenCalledWith('/tunings/7');
     expect(useFretboardStore.getState().tuning).toBe('Standard E');
   });
 });
