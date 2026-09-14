@@ -51,7 +51,7 @@ export function EmailAuthForm({ onAuthenticated }: Props) {
 
   return (
     <form
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-4"
       onSubmit={(e) => {
         e.preventDefault();
         // The submit button is disabled while pending, but pressing Enter in a text input

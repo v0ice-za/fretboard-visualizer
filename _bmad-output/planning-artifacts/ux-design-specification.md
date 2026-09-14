@@ -1,6 +1,8 @@
 ---
 stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 status: complete
+revision: visual-overhaul-2026-09-08
+revisionScope: visual-design-foundation
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-personal_projects-2026-05-22/prd.md
 ---
@@ -792,3 +794,166 @@ Tailwind defaults (desktop-first):
 - Skip link: `<a href="#fretboard" className="sr-only focus:not-sr-only">Skip to fretboard</a>` at top of `AppShell`
 - Respect `prefers-reduced-motion`: dot transitions skip the 80ms fade when reduced motion is preferred
 - shadcn/ui + Radix handle ARIA automatically — don't override unless necessary
+
+---
+
+# Visual Overhaul Direction — 2026-09-08 Revision
+
+> **Scope note:** This revision refreshes only the *visual execution layer* (elevation, spacing, controls, affordance, motion). Product vision, user journeys (UJ-1–4), information architecture, and component *strategy* above remain authoritative and unchanged. The fretboard rendering itself is explicitly **out of scope** — it is already right. This section is the source of truth for the UI/UX overhaul stories that follow it.
+
+## Why this revision exists — diagnosed gaps
+
+The shipped chrome tests well functionally but reads as flat, cramped, and unlabelled. Four concrete gaps, verified against the current implementation:
+
+| # | Complaint | Root cause in current build |
+|---|---|---|
+| 1 | **Flat, no depth** | No elevation system. Zero shadow tokens. `--card` (L 0.11) and `--popover` (L 0.13) are near-identical near-blacks, so surfaces never separate. Control bar is `bg-card border-b` — a single flat plane against the fretboard. |
+| 2 | **Icons/graphics plain** | 16px lucide line-icons, uniform muted grey, in bare `p-2` buttons with no container. Active state a faint `bg-primary/15`. Logo a 22px hand-rolled SVG. |
+| 3 | **Cramped / everything small** | 48px bar with `py-2`; icon buttons 32px (**below the spec's own 44px touch-target rule**); 16px glyphs; `gap-1` (4px); 12px capo label. |
+| 4 | **"What does this icon do?"** | Icon buttons use native `title` (slow, unstyled) instead of the styled Tooltip the spec already mandates. No visible labels anywhere. |
+
+Gaps #3 and #4 are partly **spec non-compliance** (44px targets and tooltips were already specified) — the overhaul both raises the visual ceiling *and* brings the build back into line with the existing spec.
+
+## Chosen aesthetic — Glass-first dark
+
+**Direction: Glassy / translucent, dark-first.** Chrome surfaces become frosted glass floating over a solid near-black base, with luminous hairline borders, layered elevation, soft shadows, and restrained glows on active elements. This delivers the "modern + polished" feel while keeping the pro-tool, dim-room identity the app already has.
+
+**Decisions carried into this revision:**
+- **Depth style:** Glassy / translucent *(confirmed)*.
+- **Affordance:** Labels on desktop, tooltips on mobile *(confirmed)*.
+- **Palette:** **Bolder rethink** *(confirmed)* — a distinctive signature accent/gradient and rethought neutrals, not just enriched. This is a larger visual move than the rest of the overhaul and **extends to the fretboard dot palette** (root/scale/mode/freeform), so the signature direction must be chosen deliberately (see "Signature palette — pending selection" below). The `#080810`-class deep base is retained as the canvas; everything layered on it is open to change.
+
+### Guardrails (non-negotiable)
+
+1. **Glass on chrome only.** Control bar, library panel, dropdowns, sheets, tooltips, paywall card, account/auth surfaces get glass. The **fretboard area never sits under a blur** — it renders on the solid `--color-fretboard` base. The control bar floats *above* the board; the library panel floats *beside* it.
+2. **Clarity beats atmosphere.** If translucency ever reduces legibility of a control's text or a highlight, raise that surface's opacity toward opaque. Glass is a finish, not an excuse for low contrast.
+3. **Performance.** `backdrop-filter: blur()` is limited to the handful of persistent chrome surfaces (bar, open panel, open overlays) — never applied per-item in lists or per-dot.
+4. **Respect `prefers-reduced-transparency` and `prefers-reduced-motion`** — see Accessibility below.
+
+### Signature palette — Aurora *(confirmed)*
+
+The signature is **Aurora**: an indigo→violet→cyan signature gradient (logo, primary CTAs, active/focus glow), electric-violet primary, cool blue-slate neutrals over the retained deep near-black canvas. Chosen because it evolves the existing indigo lineage (continuity) and cool luminous tones read best through glass. Alternatives considered and rejected: *Ember* (warm amber→coral→magenta) and *Halcyon* (fresh teal→emerald→lime).
+
+**Signature tokens (dark):**
+
+| Token | Value | Usage |
+|---|---|---|
+| `--signature-grad` | `linear-gradient(100deg, #6366f1, #8b5cf6, #22d3ee)` | Logo, primary CTA, active fills |
+| `--primary` (retune) | `#8b5cf6` electric violet | Primary actions, active states |
+| `--accent` (retune) | `#22d3ee` cyan | Highlights, secondary accent |
+| neutrals | cool blue-slate (`#e6e8f2 / #99a1b7 / #626b83`) | Text primary / secondary / muted |
+
+Canvas base `#080810`-class deep near-black is retained.
+
+### Fretboard dot palette — Option B: retune to harmonize *(confirmed)*
+
+The new palette **extends to the fretboard dots** (Option B). Layout, rendering, and the 3-colour root/scale/mode logic are unchanged — only the hues shift so board and chrome read as one system. The **root stays warm** as the deliberate tonal anchor; scale and mode move into the Aurora cool range:
+
+| Dot | Old | New (Aurora) | Rationale |
+|---|---|---|---|
+| `--color-dot-root` | `#f59e0b` amber | `#fbbf24` gold | Warm anchor retained — root must dominate |
+| `--color-dot-scale` | `#6366f1` indigo | `#8b5cf6` violet | Harmonize with signature |
+| `--color-dot-mode` | `#fb7185` rose | `#22d3ee` cyan | Distinct third colour, matches accent |
+| `--color-dot-freeform` | `#22d3ee` cyan | `#f0abfc` pink | Re-separated from the new mode cyan |
+
+**Gate:** the retuned trio (gold/violet/cyan) + freeform pink must be re-verified for WCAG AA contrast over the glass-composited board *and* for deuteranopia/protanopia separation before shipping — this is an explicit task in the audit story. Note names remain the non-colour fallback.
+
+Visual reference mockup: `frontend`-independent artifact produced 2026-09-08 (Aurora glass direction, control-bar before/after + dot options A/B).
+
+## New token system — elevation, glass & glow
+
+Added to the dark theme block in `index.css` (`.dark, [data-theme="dark"]`). All values OKLCH to match the existing token style.
+
+```css
+/* ── Elevation & glass (dark) ─────────────────── */
+--glass-bar-bg:      oklch(0.11 0.02 270 / 0.70);   /* control bar */
+--glass-panel-bg:    oklch(0.12 0.02 270 / 0.78);   /* library / side panels */
+--glass-overlay-bg:  oklch(0.14 0.025 270 / 0.88);  /* dropdowns, sheets, tooltips, paywall */
+--glass-blur:        16px;                            /* backdrop-filter blur radius */
+--glass-blur-strong: 24px;                            /* modals / sheets */
+
+/* Luminous hairline borders — the "modern dark UI" separation trick */
+--glass-border:        oklch(0.70 0.04 270 / 0.14);
+--glass-border-strong: oklch(0.75 0.05 270 / 0.24);
+--glass-highlight:     oklch(1 0 0 / 0.06);          /* 1px inner top-edge highlight */
+
+/* Shadows — surfaces now cast, so they read as layered */
+--shadow-sm: 0 1px 2px oklch(0 0 0 / 0.30);
+--shadow-md: 0 4px 16px -2px oklch(0 0 0 / 0.45);
+--shadow-lg: 0 12px 40px -8px oklch(0 0 0 / 0.55);
+
+/* Glows — confident active/focus states */
+--glow-primary: 0 0 0 1px oklch(0.52 0.24 264 / 0.55), 0 0 18px oklch(0.52 0.24 264 / 0.35);
+--glow-accent:  0 0 0 1px oklch(0.82 0.18 75  / 0.55), 0 0 18px oklch(0.82 0.18 75  / 0.30);
+```
+
+**Glass surface recipe** (reusable utility, e.g. `.glass-surface`):
+```
+background: var(--glass-*-bg);
+backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+border: 1px solid var(--glass-border);
+box-shadow: var(--shadow-md), inset 0 1px 0 0 var(--glass-highlight);
+```
+The `inset 0 1px 0` top highlight + the drop shadow together are what make a dark surface read as lifted glass rather than a flat panel.
+
+**Light theme:** glass uses light-tinted translucency instead — `--glass-*-bg` become high-lightness whites at ~0.65–0.85 alpha, `--glass-highlight` stays white, shadows soften (`/ 0.12–0.18`), borders darken slightly. Both themes must feel first-class per the recent theme-toggle work.
+
+## Density & spacing upgrades
+
+| Element | Current | New | Rationale |
+|---|---|---|---|
+| `--top-bar-height` | 3rem (48px) | **3.75rem (60px)** | Room to breathe; fits labelled controls |
+| Control bar padding | `py-2 px-4` | **`py-2.5 px-5`** | Less pinched |
+| Gap between control groups | `gap-2` (8px) | **`gap-3` (12px)**, with `Separator`s between logical groups | Legible grouping |
+| Icon button hit area | 32px (`p-2`) | **44px min** (visual ~40px + padding) | Meets spec's own AA target |
+| Icon glyph size | 16px | **18–20px** | Presence |
+| Icon button gap | `gap-1` (4px) | **`gap-1.5`–`gap-2`** | Not crammed |
+| Capo label | 12px | **13px**, `--text-secondary` | Readability |
+| Base UI type | 13–14px | **14px baseline**, 15px for panel headers | Comfortable |
+
+Base spacing unit stays 4px (Tailwind). The point is *more* of it, applied consistently.
+
+## Control & icon treatment
+
+- **Icon buttons become real components.** A shared `IconButton`: 40px square container, 18–20px glyph, subtle transparent rest state, `--shadow-sm` + 1px `--glass-border` on hover with a 1px lift (`translateY(-1px)`), and on active/pressed a filled `--primary` tint + `--glow-primary`, settling on press.
+- **Affordance (desktop):** the toggle/action cluster (Note names, Freeform, Library, Account) shows **icon + short label** at `md`+ ("Notes", "Draw", "Library", "Account"). Below `md`, collapse to icon-only with a **styled shadcn `Tooltip`** (150ms open, `--glass-overlay-bg`, `--glass-border`) — replacing every native `title`. This is the direct fix for gap #4.
+- **Selectors (Tuning/Key/Scale):** taller triggers (h-10 / 40px) with glass rest state, clearer focus ring (`--glow-primary`), and a category label above the value per the existing "[Category] [Value] ▾" pattern. Dropdown content uses `--glass-overlay-bg` + `--shadow-lg`.
+- **Logo:** replace the 22px inline SVG with a refined, slightly larger mark (24–26px) with a subtle accent glow — small but it anchors the bar's quality.
+- **Capo slider:** give the track/thumb a glass+glow treatment consistent with the new controls; keep the live label.
+
+## Component-by-component polish
+
+- **ControlBar** — glass bar, floats over the board with `--shadow-md` beneath; logical groups (brand · selectors · capo · toggles/account) separated by `Separator`; labelled controls on desktop. *This is the highest-impact single change.*
+- **ModeChipsRow** — chips get a pill glass treatment; active chip filled in rose with `--glow`; larger tap size.
+- **LibraryPanel** — glass aside with `--shadow-lg` and a clearer elevation step from the board; tab row with a sliding active indicator; `LibraryItem`s get more vertical padding, hover elevation, and a distinct locked treatment (lock badge + `--glass-border` dim) driving `PaywallCard`.
+- **PaywallCard** — glass overlay card, `--shadow-lg`, luminous border, `--glow-primary` on the Subscribe CTA. Non-blocking as specified.
+- **Auth (LoginModal / EmailAuthForm / GoogleAuthButton)** — sheet/modal on `--glass-overlay-bg` + `--glass-blur-strong`; inputs and the Google button restyled to the new control language; generous spacing.
+- **Sheets/Dialogs (rename, delete, account, custom tuning creator)** — unified glass overlay treatment + shadow; consistent header/spacing rhythm.
+- **NavTabs reconciliation** — `NavTabs.jsx` (with its own hand-drawn icons + "Upgrade to Pro" button) appears to be parallel/legacy nav. During the overhaul: either fold its surviving needs into the unified control language or remove it, so there is one consistent navigation/control system, not two.
+
+## Motion & micro-interactions
+
+Subtle, fast, flow-preserving (the app's "instant and silent" principle still rules the fretboard):
+- Hover lift on buttons/chips/items: `transform` + `box-shadow`, 120ms ease-out.
+- Active/focus glow fades in 120ms.
+- Dropdowns/sheets: 150–180ms scale+fade in, blur clears in.
+- Library tab indicator slides 180ms.
+- **Fretboard interactions remain untouched** — no new motion there; the existing 80ms dot transition stays.
+- All of the above gated behind `prefers-reduced-motion`.
+
+## Accessibility deltas
+
+- **Contrast over translucency:** verify text/icon contrast against the *effective* composited glass background (worst case: glass over the darkest fretboard region), not against a solid swatch. Keep AA (4.5:1 text / 3:1 large & UI).
+- **`prefers-reduced-transparency`:** provide opaque fallbacks — `--glass-*-bg` collapse to their nearest solid surface (`--card` / `--popover`) and `backdrop-filter` is dropped.
+- **44px touch targets** now actually met (fixes prior violation).
+- **Focus:** the new `--glow-primary` doubles as a high-visibility focus ring; never `outline:none` without it.
+- **Labels:** visible desktop labels improve cognitive accessibility beyond just tooltips.
+
+## Downstream story seams
+
+This direction is sized to break into focused, consistent overhaul stories:
+1. **Token & foundation** — add elevation/glass/glow tokens + `.glass-surface` utility + density variables (both themes); `prefers-reduced-transparency` fallbacks.
+2. **ControlBar + IconButton + selectors** — glass bar, labelled controls, styled tooltips, refreshed logo, capo styling.
+3. **LibraryPanel + LibraryItem + ModeChips + PaywallCard** — glass panels, elevation, locked-item polish.
+4. **Auth + sheets/dialogs + NavTabs reconciliation** — unified overlay glass language, remove/merge legacy nav.
+5. **Contrast & motion audit** — verify AA over glass in both themes, reduced-transparency/motion, cross-browser `backdrop-filter`.

@@ -33,7 +33,7 @@ export function LoginModal({ open, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="right" className="w-full gap-4 p-4 sm:max-w-sm">
+      <SheetContent side="right" className="glass-overlay w-full gap-5 overflow-y-auto p-6 sm:max-w-sm">
         <SheetHeader className="p-0">
           <SheetTitle>Sign in</SheetTitle>
           <SheetDescription>Log in or create an account to save your work.</SheetDescription>
@@ -42,9 +42,9 @@ export function LoginModal({ open, onOpenChange }: Props) {
         <EmailAuthForm onAuthenticated={() => handleOpenChange(false)} />
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
+          <span aria-hidden className="h-px flex-1 bg-[var(--glass-border)]" />
           or
-          <span className="h-px flex-1 bg-border" />
+          <span aria-hidden className="h-px flex-1 bg-[var(--glass-border)]" />
         </div>
 
         {googleFailed && (

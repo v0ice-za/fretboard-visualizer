@@ -57,7 +57,7 @@
   --card-foreground: oklch(0.1 0.01 270);
   --popover: oklch(0.99 0 0);
   --popover-foreground: oklch(0.1 0.01 270);
-  --primary: oklch(0.52 0.24 264);
+  --primary: oklch(0.55 0.21 293);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.93 0.02 264);
   --secondary-foreground: oklch(0.1 0.01 270);
@@ -68,12 +68,39 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.88 0.01 270);
   --input: oklch(0.88 0.01 270);
-  --ring: oklch(0.52 0.24 264);
+  --ring: oklch(0.55 0.21 293);
   --radius: 0.625rem;
 
   /* Layout measurements */
-  --top-bar-height: 3rem;
+  --top-bar-height: 3.75rem;
   --mode-row-height: 2rem;
+
+  /* Density & spacing baseline (Story 5.1 AC3) — not tokenized here, documented
+     for Stories 5.2–5.4 to apply directly in component classes:
+       Control bar padding:     py-2 px-4      → py-2.5 px-5
+       Control group gap:       gap-2 (8px)    → gap-3 (12px), Separator between groups
+       Icon button hit area:    32px (p-2)     → 44px min (visual ~40px + padding)
+       Icon glyph size:         16px           → 18–20px
+       Icon button gap:         gap-1 (4px)    → gap-1.5–gap-2
+       Capo label:               12px           → 13px, --text-secondary
+       Base UI type:             13–14px        → 14px baseline, 15px panel headers
+     Base spacing unit stays 4px (Tailwind); apply more of it, consistently. */
+
+  /* ── Aurora signature + glass/elevation (Story 5.1) — light ── */
+  --signature-grad: linear-gradient(100deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
+  --glass-bar-bg: oklch(0.99 0.006 265 / 0.85);
+  --glass-panel-bg: oklch(0.985 0.006 265 / 0.86);
+  --glass-overlay-bg: oklch(1 0 0 / 0.85);
+  --glass-blur: 16px;
+  --glass-blur-strong: 24px;
+  --glass-border: oklch(0.55 0.03 265 / 0.16);
+  --glass-border-strong: oklch(0.50 0.03 265 / 0.26);
+  --glass-highlight: oklch(1 0 0 / 0.60);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.08);
+  --shadow-md: 0 4px 16px -2px oklch(0 0 0 / 0.14);
+  --shadow-lg: 0 16px 48px -10px oklch(0 0 0 / 0.18);
+  --glow-primary: 0 0 0 1px oklch(0.55 0.21 293 / 0.50), 0 0 16px oklch(0.55 0.21 293 / 0.25);
+  --glow-accent: 0 0 0 1px oklch(0.78 0.13 195 / 0.50), 0 0 16px oklch(0.78 0.13 195 / 0.22);
 
   /* Fretboard-specific (light theme) — light board with darker strings/frets/text
      so the SVG stays legible on the light page instead of falling back to the
@@ -86,11 +113,25 @@
   --color-text-secondary: oklch(0.45 0.02 270);
   --color-text-muted: oklch(0.62 0.02 270);
 
-  /* Dot colors (light theme fallback) */
-  --color-dot-root: oklch(0.78 0.15 75);
-  --color-dot-scale: oklch(0.52 0.24 264);
-  --color-dot-mode: oklch(0.67 0.20 0);
-  --color-dot-freeform: oklch(0.79 0.15 210);
+  /* Dot colors — Aurora Option B (Story 5.5). NOT consumed — FretDot.tsx
+     renders the hex directly (confirmed via grep: nothing references
+     var(--color-dot-*)). Kept in sync as documented intent only; note that
+     since :root and .dark hold identical values here (pre-existing, not
+     introduced by this story), wiring these up as-is would NOT produce
+     theme-aware dots on its own — light/dark divergence would still need
+     to be added at that time. */
+  --color-dot-root: oklch(0.85 0.16 86);      /* #fbbf24 — gold, root note */
+  --color-dot-scale: oklch(0.62 0.22 293);    /* #8b5cf6 — violet, scale notes */
+  --color-dot-mode: oklch(0.79 0.14 195);     /* #22d3ee — cyan, mode overlay */
+  --color-dot-freeform: oklch(0.82 0.13 330); /* #f0abfc — pink, freeform marks */
+
+  /* Note-name text colour for the `scale` dot state — genuinely consumed via
+     var() in FretDot.tsx (unlike --color-dot-* above). The scale dot renders
+     at 0.85 opacity, so its true on-screen colour is alpha-composited with
+     --color-fretboard, not the raw fill hex; that composite is light enough
+     on the light board that dark text stays AA-compliant. See the .dark
+     block for why dark theme needs the opposite polarity. */
+  --dot-text-scale: #0a0518;
 
   /* Sidebar */
   --sidebar: oklch(0.95 0.01 270);
@@ -126,7 +167,7 @@
   --popover-foreground: oklch(0.89 0.02 270);
 
   /* ── Brand colours ─────────────────────────── */
-  --primary: oklch(0.52 0.24 264);           /* #6366f1 — indigo */
+  --primary: oklch(0.55 0.21 293);           /* Aurora violet ~#7c5cf6 (Story 5.1; was indigo #6366f1) */
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.15 0.015 270);
   --secondary-foreground: oklch(0.89 0.02 270);
@@ -139,7 +180,23 @@
   /* ── Structure ─────────────────────────────── */
   --border: oklch(0.25 0.02 270);            /* #1e1e30 */
   --input: oklch(0.18 0.01 270);
-  --ring: oklch(0.52 0.24 264);
+  --ring: oklch(0.55 0.21 293);
+
+  /* ── Aurora signature + glass/elevation (Story 5.1) — dark ── */
+  --signature-grad: linear-gradient(100deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
+  --glass-bar-bg: oklch(0.16 0.025 270 / 0.86);     /* control bar — elevated tint so it reads over the page even with nothing behind it to blur */
+  --glass-panel-bg: oklch(0.15 0.02 270 / 0.85);    /* library / side panels */
+  --glass-overlay-bg: oklch(0.14 0.025 270 / 0.88); /* dropdowns, sheets, tooltips, paywall */
+  --glass-blur: 16px;
+  --glass-blur-strong: 24px;
+  --glass-border: oklch(0.70 0.04 270 / 0.14);      /* luminous hairline */
+  --glass-border-strong: oklch(0.75 0.05 270 / 0.24);
+  --glass-highlight: oklch(1 0 0 / 0.06);           /* inner top-edge highlight */
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.30);
+  --shadow-md: 0 4px 16px -2px oklch(0 0 0 / 0.45);
+  --shadow-lg: 0 16px 48px -10px oklch(0 0 0 / 0.60);
+  --glow-primary: 0 0 0 1px oklch(0.55 0.21 293 / 0.55), 0 0 18px oklch(0.55 0.21 293 / 0.35);
+  --glow-accent: 0 0 0 1px oklch(0.78 0.13 195 / 0.55), 0 0 18px oklch(0.78 0.13 195 / 0.30);
 
   /* ── Charts ────────────────────────────────── */
   --chart-1: oklch(0.52 0.24 264);
@@ -169,11 +226,19 @@
   --color-text-secondary: oklch(0.48 0.04 240); /* #64748b */
   --color-text-muted: oklch(0.3 0.04 240);      /* #334155 */
 
-  /* ── FretDot colours (from UX spec) ───────── */
-  --color-dot-root: oklch(0.78 0.15 75);     /* #f59e0b — amber, root note */
-  --color-dot-scale: oklch(0.52 0.24 264);   /* #6366f1 — indigo, scale notes */
-  --color-dot-mode: oklch(0.67 0.20 0);      /* #fb7185 — rose, mode overlay */
-  --color-dot-freeform: oklch(0.79 0.15 210);/* #22d3ee — cyan, freeform marks */
+  /* ── FretDot colours — Aurora Option B (Story 5.5) ───────
+     NOT consumed; FretDot.tsx renders the hex directly. Synced as intent only. */
+  --color-dot-root: oklch(0.85 0.16 86);      /* #fbbf24 — gold, root note */
+  --color-dot-scale: oklch(0.62 0.22 293);    /* #8b5cf6 — violet, scale notes */
+  --color-dot-mode: oklch(0.79 0.14 195);     /* #22d3ee — cyan, mode overlay */
+  --color-dot-freeform: oklch(0.82 0.13 330); /* #f0abfc — pink, freeform marks */
+
+  /* `scale` dot's note-name text — opposite polarity from :root. The dot
+     renders at 0.85 opacity and alpha-composites with the much darker
+     --color-fretboard here; that composite is dark enough that near-black
+     text falls to ~3.7:1 (fails AA) while this near-white passes at ~5.0:1.
+     See :root for the light-theme rationale. */
+  --dot-text-scale: #f5f3ff;
 }
 
 @layer base {
@@ -228,8 +293,99 @@
   transition: opacity 80ms ease, transform 80ms ease;
 }
 
+/* Reduced motion (Story 1.3 fretboard transition + Story 5.5 AC4 app-wide gate,
+   consolidated into one block). `.fret-dot` is neutralised explicitly (its own
+   transition is opacity/transform only, unaffected by the universal rule below
+   since `transition: none` here always wins for that selector); the universal
+   selector then catches everything else — hover-lift, glow, the sliding
+   library-tab indicator, dropdown/sheet slide-ins (tw-animate-css / base-ui) —
+   for users who ask for reduced motion. State changes still happen, just
+   instantly. */
 @media (prefers-reduced-motion: reduce) {
   .fret-dot {
     transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Glass surface utility (Story 5.1) — lifted, frosted-glass chrome.
+   Chrome ONLY (bar, panels, dropdowns, sheets, tooltips, paywall) — never
+   applied over the fretboard. Components override `background` with the
+   bar/overlay glass tokens as needed; the default is the panel tint. */
+.glass-surface {
+  background: var(--glass-panel-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-md), inset 0 1px 0 0 var(--glass-highlight);
+}
+
+/* Accessibility: users who ask for less transparency get solid, unblurred
+   surfaces instead of frosted glass. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-surface {
+    background: var(--card);
+    border-color: var(--border);
+    box-shadow: var(--shadow-sm);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Overlay chrome (Story 5.2) — dropdowns, sheets, tooltips, paywall. Stronger
+   blur + more opaque border than .glass-surface for content that floats above
+   other glass panels. */
+.glass-overlay {
+  background: var(--glass-overlay-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(1.2);
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(1.2);
+  border: 1px solid var(--glass-border-strong);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 0 var(--glass-highlight);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-overlay {
+    background: var(--card);
+    border-color: var(--border);
+    box-shadow: var(--shadow-sm);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Top control bar — an elevated bar reads via surface tint + a bottom hairline +
+   downward shadow (blur is intentionally omitted: there's nothing behind a top
+   bar for backdrop-filter to blur, so it would only cost perf for no visual gain). */
+.glass-bar {
+  background: var(--glass-bar-bg);
+  border-bottom: 1px solid var(--glass-border-strong);
+  box-shadow: var(--shadow-md), inset 0 1px 0 0 var(--glass-highlight);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-bar {
+    background: var(--card);
+    border-bottom-color: var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+/* Reduced transparency (Story 5.4): standalone uses of the glass border tokens
+   outside .glass-surface/.glass-overlay/.glass-bar (divider hairlines, preview
+   borders, panel headers, etc.) also collapse to a fully opaque border. */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  .dark,
+  [data-theme='dark'] {
+    --glass-border: var(--border);
+    --glass-border-strong: var(--border);
   }
 }

@@ -294,7 +294,7 @@ export default function FretboardCanvas({
           />
         ))}
 
-        {/* Freeform dots — rendered after scale dots so cyan appears on top */}
+        {/* Freeform dots — rendered after scale dots so freeform (pink) appears on top */}
         {freeformDots.map(dot => (
           <FretDot
             key={`free-${dot.fret}-${dot.string}`}

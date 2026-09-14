@@ -4,7 +4,8 @@ sources:
   - "ux-design-specification.md"
 downstream_consumer: "dev agent implementing guitar app stories"
 created: "2026-05-26"
-token_estimate: 2100
+revised: "2026-09-08 (added Visual Overhaul Direction — Epic 5, Aurora glass-first)"
+token_estimate: 2450
 parts: 1
 ---
 
@@ -163,3 +164,48 @@ parts: 1
 - Offline support (not required for v1)
 - Layout variants tied to premium themes (enabled by modular layout config)
 - A/B testing layout without codebase branching (enabled by modular layout config)
+
+## Visual Overhaul Direction — 2026-09-08 Revision (Epic 5)
+- Scope: visual execution layer ONLY (elevation, spacing, controls, affordance, motion). Vision/flows/IA/component-strategy above UNCHANGED. Fretboard rendering out of scope.
+- Diagnosed gaps in shipped chrome: (1) flat — no elevation/shadow tokens, `--card`/`--popover` near-identical; (2) plain 16px grey icons in bare `p-2` buttons; (3) cramped — 48px bar, 32px buttons (below 44px rule), `gap-1`; (4) mystery icons — native `title` not styled Tooltip (both #3/#4 were already spec-violations)
+- Confirmed decisions: depth=**glassy/translucent**; affordance=**labels-on-desktop + tooltips-on-mobile**; signature=**Aurora**; fretboard dot scope=**Option B (retune)**
+- Aesthetic = **Glass-first dark**: frosted chrome over solid near-black, luminous hairline borders, layered elevation, soft shadows, restrained glows
+- GUARDRAIL: glass on chrome ONLY (bar/panels/dropdowns/sheets/tooltips/paywall). Fretboard NEVER under blur — renders on solid `--color-fretboard`. Also honor `prefers-reduced-transparency` (collapse to solid, drop backdrop-filter) + `prefers-reduced-motion`
+
+### Aurora signature (dark chrome tokens)
+- `--signature-grad`: `linear-gradient(100deg, #6366f1, #8b5cf6, #22d3ee)` (logo, primary CTA, active fills)
+- `--primary` → `#8b5cf6` electric violet; accent → `#22d3ee` cyan; neutrals → cool blue-slate (`#e6e8f2`/`#99a1b7`/`#626b83`); canvas `#080810` retained
+- Alternatives rejected: Ember (warm amber→coral→magenta), Halcyon (teal→emerald→lime)
+
+### New tokens (add to `.dark`/`[data-theme]` + light `:root`, OKLCH)
+- `--glass-bar-bg` ~`oklch(0.11 0.02 270 / 0.70)`; `--glass-panel-bg` ~`/0.78`; `--glass-overlay-bg` ~`oklch(0.14 0.025 270 / 0.88)`; `--glass-blur` 16px; `--glass-blur-strong` 24px
+- `--glass-border` `oklch(0.70 0.04 270 / 0.14)`; `--glass-border-strong` `/0.24`; `--glass-highlight` `oklch(1 0 0 / 0.06)`
+- `--shadow-sm/md/lg`; `--glow-primary` (1px violet ring + soft violet blur); `--glow-accent` (cyan)
+- Light theme: glass = light-tinted white translucency ~0.65–0.85 alpha; softer shadows; darker borders
+- `.glass-surface` recipe: bg + `backdrop-filter: blur() saturate(1.2)` + 1px `--glass-border` + `--shadow-md` + `inset 0 1px 0 --glass-highlight` (the inset top-highlight + shadow = "lifted glass")
+
+### Density upgrades (from → to)
+- `--top-bar-height` 48px → **60px (3.75rem)**; bar padding `py-2 px-4` → `py-2.5 px-5`; group gap `gap-2` → `gap-3` + `Separator`s
+- icon button 32px → **44px min** (visual ~40px); icon glyph 16px → **18–20px**; icon gap `gap-1` → `gap-1.5/2`; capo label 12px → 13px; base UI type 14px, panel headers 15px
+
+### Control & affordance
+- `IconButton` component: 40px container, 18–20px glyph, hover-lift + `--shadow-sm`, active = `--primary` fill + `--glow-primary`, 44px touch, visible focus ring
+- Desktop (`md`+): action cluster shows icon + label ("Notes"/"Draw"/"Library"/"Account"); < `md`: icon-only + styled shadcn `Tooltip` (~150ms) — REMOVE all native `title`
+- Selectors: taller (h-10), glass rest, `[Category]`/`[Value]`, `--glow-primary` focus; `SelectContent` on `--glass-overlay-bg` + `--shadow-lg`
+- Logo refreshed ~24–26px + accent glow; capo slider glass+glow
+
+### Component polish
+- ControlBar (highest impact): glass bar floats over board + `--shadow-md`, grouped w/ `Separator`s, desktop labels
+- ModeChipsRow: pill glass chips, active rose+glow, bigger tap; LibraryPanel: glass aside + `--shadow-lg`, sliding tab indicator, item hover-elevation + polished locked state
+- PaywallCard: glass overlay + `--shadow-lg` + `--glow-primary` CTA, still non-blocking; Auth (LoginModal/EmailAuthForm/GoogleAuthButton) + all sheets/dialogs on `--glass-overlay-bg` unified
+- NavTabs.jsx (parallel legacy nav + "Upgrade to Pro") → fold-in or remove; one nav system only
+
+### Fretboard dot retune — Option B (token values only; layout/logic/3-colour scheme unchanged)
+- root `#f59e0b`→**`#fbbf24` gold** (warm anchor kept); scale `#6366f1`→**`#8b5cf6` violet**; mode `#fb7185`→**`#22d3ee` cyan**; freeform `#22d3ee`→**`#f0abfc` pink**
+- GATE: retuned trio + freeform must re-verify WCAG AA over glass-composited board (both themes) + deuteranopia/protanopia separation before ship; note names = non-colour fallback
+
+### Motion
+- hover-lift/glow 120ms; dropdowns/sheets 150–180ms scale+fade; library tab slide 180ms; ALL behind `prefers-reduced-motion`; fretboard 80ms dot transition UNCHANGED
+
+### Epic 5 story seams
+- 5.1 tokens+`.glass-surface`+density+reduced-transparency (both themes; dots NOT changed) → 5.2 ControlBar+IconButton+selectors+tooltips → 5.3 Library+chips+PaywallCard → 5.4 auth+sheets+NavTabs reconcile → 5.5 dot retune + contrast/colour-blind/motion/cross-browser audit

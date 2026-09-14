@@ -26,12 +26,12 @@ export default function LibraryItem({ title, variant, onSelect, onPaywallTrigger
       aria-disabled={variant === 'locked'}
       onClick={handleClick}
       disabled={false}
-      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm transition-colors ${
+      className={`flex w-full select-none items-center justify-between rounded-lg border px-3.5 py-3 text-sm transition-[transform,box-shadow,background-color,color] duration-150 ease-out ${
         variant === 'locked'
-          ? 'opacity-50 cursor-not-allowed text-muted-foreground'
+          ? 'cursor-not-allowed border-[var(--glass-border)] text-muted-foreground opacity-50'
           : variant === 'active'
-          ? 'bg-primary/15 text-primary'
-          : 'text-foreground hover:bg-muted'
+          ? 'border-transparent bg-primary/15 text-primary [box-shadow:var(--glow-primary)]'
+          : 'border-transparent text-foreground hover:-translate-y-px hover:bg-[var(--glass-border)] hover:[box-shadow:var(--shadow-sm)]'
       }`}
     >
       <span>{title}</span>

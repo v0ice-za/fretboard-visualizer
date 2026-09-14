@@ -28,7 +28,7 @@ export default function ModeChipsRow() {
       <div
         role="toolbar"
         aria-label="Mode overlay"
-        className="flex items-center gap-2 px-4 py-2 bg-card border-b border-border overflow-x-auto"
+        className="flex items-center gap-2 overflow-x-auto border-b border-[var(--glass-border)] bg-[var(--glass-bar-bg)] px-4 py-2.5 backdrop-blur-[var(--glass-blur)]"
       >
         {MODES.map((mode, index) => {
           const isActive = modeIndex === index;
@@ -38,10 +38,10 @@ export default function ModeChipsRow() {
                 aria-pressed={isActive}
                 onClick={() => setModeIndex(isActive ? null : index)}
                 onKeyDown={e => handleKeyDown(e, index)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                className={`inline-flex min-h-11 flex-shrink-0 select-none items-center justify-center rounded-full px-3.5 text-xs font-medium transition-[transform,box-shadow,background-color,color,border-color] duration-150 focus-visible:outline-none focus-visible:[box-shadow:var(--glow-primary)] ${
                   isActive
-                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                    : 'text-muted-foreground hover:text-foreground border border-transparent hover:border-border'
+                    ? 'border border-rose-500/40 bg-rose-500/20 text-rose-300 [box-shadow:0_0_16px_oklch(0.7_0.16_15/0.25)]'
+                    : 'border border-transparent text-muted-foreground hover:-translate-y-px hover:border-[var(--glass-border)] hover:text-foreground'
                 }`}
               >
                 {mode.name}

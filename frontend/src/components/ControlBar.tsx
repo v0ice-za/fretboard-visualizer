@@ -16,6 +16,7 @@ import CustomTuningCreator from '@/features/settings/CustomTuningCreator';
 import { subscriptionQueryKey } from '@/hooks/useSubscription';
 import { useCustomTunings } from '@/hooks/useCustomTunings';
 import { useRenameTuning, useDeleteTuning } from '@/hooks/useTuningMutations';
+import { IconButton } from '@/components/shared/IconButton';
 import {
   Select,
   SelectContent,
@@ -25,6 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Sheet,
   SheetContent,
@@ -38,6 +45,20 @@ import { Slider } from '@/components/ui/slider';
 
 // Sentinel Select value that opens the creator instead of selecting a tuning.
 const CREATE_TUNING_VALUE = '__create_custom_tuning__';
+
+/** Small uppercase category label sitting above a selector's value. */
+function SelectCategory({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-none">
+      {children}
+    </span>
+  );
+}
+
+/** Vertical hairline divider between logical control groups. */
+function Divider() {
+  return <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-[var(--glass-border)]" />;
+}
 
 export default function ControlBar() {
   const {
@@ -132,24 +153,29 @@ export default function ControlBar() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-card border-b border-border">
+    <div className="glass-bar relative z-20 flex flex-wrap items-center gap-3 px-5 py-2">
       {/* Logo */}
-      <span className="app-logo flex-shrink-0">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 19L19 3M3 19c0 0 2-1 4-1s4 1 4 1 2-1 4-1 2 1 2 1" stroke="#6366f1" strokeWidth="1.8" strokeLinecap="round" />
-          <circle cx="11" cy="11" r="2" fill="#fbbf24" />
+      <span className="flex-shrink-0 grid size-6 place-items-center rounded-xl [background:var(--signature-grad)] [box-shadow:var(--glow-primary)]">
+        <svg width="14" height="14" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+          <path d="M3 19L19 3M3 19c0 0 2-1 4-1s4 1 4 1 2-1 4-1 2 1 2 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="11" cy="11" r="2.2" fill="white" />
         </svg>
       </span>
 
+      <Divider />
+
       {/* Tuning */}
       <Select value={tuning} onValueChange={onTuningChange}>
-        <SelectTrigger className="w-40" aria-label="Tuning">
-          {(FREE_TUNINGS as readonly string[]).includes(tuning)
-            ? <SelectValue />
-            : <span className="flex flex-1 text-left text-sm">{tuning}</span>
-          }
+        <SelectTrigger className="h-auto! w-44 py-1.5" aria-label="Tuning">
+          <span className="flex min-w-0 flex-col items-start gap-0.5">
+            <SelectCategory>Tuning</SelectCategory>
+            {(FREE_TUNINGS as readonly string[]).includes(tuning)
+              ? <SelectValue className="max-w-full truncate text-sm font-medium text-foreground" />
+              : <span className="max-w-full truncate text-sm font-medium text-foreground">{tuning}</span>
+            }
+          </span>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="glass-overlay">
           {/* Free tunings group */}
           <SelectGroup>
             <SelectLabel>Free Tunings</SelectLabel>
@@ -187,10 +213,13 @@ export default function ControlBar() {
 
       {/* Key (root note) */}
       <Select value={rootNote} onValueChange={(v) => v && setRootNote(v)}>
-        <SelectTrigger className="w-24" aria-label="Key">
-          <SelectValue />
+        <SelectTrigger className="h-auto! w-24 py-1.5" aria-label="Key">
+          <span className="flex min-w-0 flex-col items-start gap-0.5">
+            <SelectCategory>Key</SelectCategory>
+            <SelectValue className="max-w-full truncate text-sm font-medium text-foreground" />
+          </span>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="glass-overlay">
           {CHROMATIC_NOTES.map(note => (
             <SelectItem key={note} value={note}>{note}</SelectItem>
           ))}
@@ -199,10 +228,13 @@ export default function ControlBar() {
 
       {/* Scale (grouped by category) */}
       <Select value={scaleName} onValueChange={(v) => v && setScaleName(v)}>
-        <SelectTrigger className="w-52" aria-label="Scale">
-          <SelectValue />
+        <SelectTrigger className="h-auto! w-52 py-1.5" aria-label="Scale">
+          <span className="flex min-w-0 flex-col items-start gap-0.5">
+            <SelectCategory>Scale</SelectCategory>
+            <SelectValue className="max-w-full truncate text-sm font-medium text-foreground" />
+          </span>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="glass-overlay">
           {SCALE_CATEGORIES.map((cat: string) => (
             <SelectGroup key={cat}>
               <SelectLabel>{cat}</SelectLabel>
@@ -214,9 +246,11 @@ export default function ControlBar() {
         </SelectContent>
       </Select>
 
+      <Divider />
+
       {/* Capo */}
-      <div className="flex items-center gap-2 flex-shrink-0" aria-label="Capo position">
-        <span id="capo-label" className="text-xs text-muted-foreground whitespace-nowrap">
+      <div className="flex flex-shrink-0 items-center gap-2.5 rounded-lg px-1" aria-label="Capo position">
+        <span id="capo-label" className="whitespace-nowrap text-[13px] text-muted-foreground">
           {capoPosition === 0 ? 'Capo: None' : `Capo: ${capoPosition}`}
         </span>
         <Slider
@@ -225,110 +259,136 @@ export default function ControlBar() {
           step={1}
           value={[capoPosition]}
           onValueChange={(v) => { const n = Array.isArray(v) ? v[0] : v; if (typeof n === 'number') setCapoPosition(n); }}
-          className="w-20"
+          className="w-24 [&_[data-slot=slider-range]]:[background-image:var(--signature-grad)] [&_[data-slot=slider-thumb]]:size-4 [&_[data-slot=slider-thumb]]:[box-shadow:var(--glow-primary)]"
           aria-labelledby="capo-label"
         />
       </div>
 
-      {/* Right-aligned icon buttons */}
-      <div className="flex-shrink-0 flex items-center gap-1 ml-auto">
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
+      {/* Right-aligned action cluster — labelled on desktop, tooltip everywhere */}
+      <TooltipProvider delay={150}>
+        <div className="ml-auto flex flex-shrink-0 items-center gap-1.5">
+          {/* Theme toggle */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <IconButton
+                  onClick={toggleTheme}
+                  aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  {theme === 'dark' ? <Sun /> : <Moon />}
+                </IconButton>
+              }
+            />
+            <TooltipContent>{theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}</TooltipContent>
+          </Tooltip>
 
-        <button
-          onClick={() => setNoteNamesVisible(!noteNamesVisible)}
-          className={`p-2 rounded-lg transition-colors ${
-            noteNamesVisible
-              ? 'bg-primary/15 text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-          title="Toggle note names"
-          aria-label="Toggle note names"
-          aria-pressed={noteNamesVisible}
-        >
-          <Type size={16} />
-        </button>
+          {/* Note names */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <IconButton
+                  onClick={() => setNoteNamesVisible(!noteNamesVisible)}
+                  active={noteNamesVisible}
+                  aria-label="Toggle note names"
+                  aria-pressed={noteNamesVisible}
+                >
+                  <Type />
+                  <span className="hidden md:inline">Notes</span>
+                </IconButton>
+              }
+            />
+            <TooltipContent>Toggle note names</TooltipContent>
+          </Tooltip>
 
-        <button
-          onClick={() => setFreeformModeActive(!freeformModeActive)}
-          className={`p-2 rounded-lg transition-colors ${
-            freeformModeActive
-              ? 'bg-primary/15 text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-          title="Toggle freeform mode"
-          aria-label="Toggle freeform mode"
-          aria-pressed={freeformModeActive}
-        >
-          <Pencil size={16} />
-        </button>
+          {/* Freeform */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <IconButton
+                  onClick={() => setFreeformModeActive(!freeformModeActive)}
+                  active={freeformModeActive}
+                  aria-label="Toggle freeform mode"
+                  aria-pressed={freeformModeActive}
+                >
+                  <Pencil />
+                  <span className="hidden md:inline">Draw</span>
+                </IconButton>
+              }
+            />
+            <TooltipContent>Toggle freeform mode</TooltipContent>
+          </Tooltip>
 
-        {/* Library */}
-        <button
-          onClick={() => setLayout({ sidePanel: !sidePanel })}
-          className={`p-2 rounded-lg transition-colors ${
-            sidePanel
-              ? 'bg-primary/15 text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-          title="Library"
-          aria-label="Library"
-          aria-pressed={sidePanel}
-        >
-          <Library size={16} />
-        </button>
+          {/* Library */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <IconButton
+                  onClick={() => setLayout({ sidePanel: !sidePanel })}
+                  active={sidePanel}
+                  aria-label="Library"
+                  aria-pressed={sidePanel}
+                >
+                  <Library />
+                  <span className="hidden md:inline">Library</span>
+                </IconButton>
+              }
+            />
+            <TooltipContent>Library</TooltipContent>
+          </Tooltip>
 
-        {/* Account */}
-        <button
-          className={`p-2 rounded-lg transition-colors ${
-            isAuthenticated
-              ? 'bg-primary/15 text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-          title={isAuthenticated ? 'Account' : 'Sign in'}
-          aria-label={isAuthenticated ? 'Account' : 'Sign in'}
-          onClick={() => (isAuthenticated ? setAccountOpen(true) : openLoginModal())}
-        >
-          <User size={16} />
-        </button>
-      </div>
+          {/* Account */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <IconButton
+                  onClick={() => (isAuthenticated ? setAccountOpen(true) : openLoginModal())}
+                  active={isAuthenticated}
+                  aria-label={isAuthenticated ? 'Account' : 'Sign in'}
+                >
+                  <User />
+                  <span className="hidden md:inline">{isAuthenticated ? 'Account' : 'Sign in'}</span>
+                </IconButton>
+              }
+            />
+            <TooltipContent>{isAuthenticated ? 'Account' : 'Sign in'}</TooltipContent>
+          </Tooltip>
 
-      {/* Custom tuning actions (rename/delete) — show when a custom tuning is active */}
-      {isPremium && isCurrentTuningCustom && (
-        <div className="flex gap-1 flex-shrink-0">
-          <button
-            onClick={handleRenameClick}
-            className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
-            title="Rename tuning"
-            aria-label="Rename tuning"
-          >
-            <Edit2 size={16} />
-          </button>
-          <button
-            onClick={handleDeleteClick}
-            className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            title="Delete tuning"
-            aria-label="Delete tuning"
-          >
-            <Trash2 size={16} />
-          </button>
+          {/* Custom tuning actions (rename/delete) — show when a custom tuning is active */}
+          {isPremium && isCurrentTuningCustom && (
+            <>
+              <Divider />
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <IconButton onClick={handleRenameClick} aria-label="Rename tuning">
+                      <Edit2 />
+                    </IconButton>
+                  }
+                />
+                <TooltipContent>Rename tuning</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <IconButton onClick={handleDeleteClick} tone="destructive" aria-label="Delete tuning">
+                      <Trash2 />
+                    </IconButton>
+                  }
+                />
+                <TooltipContent>Delete tuning</TooltipContent>
+              </Tooltip>
+            </>
+          )}
         </div>
-      )}
+      </TooltipProvider>
 
       {/* Custom tuning creator (premium) */}
       <CustomTuningCreator open={creatorOpen} onOpenChange={setCreatorOpen} />
 
       {/* Rename tuning sheet */}
       <Sheet open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
-        <SheetContent side="bottom" className="gap-4">
-          <SheetHeader className="p-0 mb-4">
+        <SheetContent side="bottom" className="glass-overlay gap-5 p-6">
+          <SheetHeader className="p-0">
             <SheetTitle>Rename Tuning</SheetTitle>
             <SheetDescription>Enter a new name for this tuning</SheetDescription>
           </SheetHeader>
@@ -359,8 +419,8 @@ export default function ControlBar() {
 
       {/* Delete tuning confirmation sheet */}
       <Sheet open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <SheetContent side="bottom" className="gap-4">
-          <SheetHeader className="p-0 mb-4">
+        <SheetContent side="bottom" className="glass-overlay gap-5 p-6">
+          <SheetHeader className="p-0">
             <SheetTitle>Delete Tuning?</SheetTitle>
             <SheetDescription>
               Delete "{deletingTuningName}"?
@@ -390,7 +450,7 @@ export default function ControlBar() {
 
       {/* Account menu (authenticated) */}
       <Sheet open={accountOpen} onOpenChange={setAccountOpen}>
-        <SheetContent side="right" className="w-full gap-4 p-4 sm:max-w-sm">
+        <SheetContent side="right" className="glass-overlay w-full gap-5 p-6 sm:max-w-sm">
           <SheetHeader className="p-0">
             <SheetTitle>Account</SheetTitle>
             <SheetDescription>{user?.name ?? user?.email ?? ''}</SheetDescription>

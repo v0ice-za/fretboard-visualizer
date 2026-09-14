@@ -54,24 +54,24 @@ function CardBody({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="flex items-start justify-between mb-2">
-        <span className="text-sm font-semibold text-slate-200">Unlock Premium</span>
+        <span className="text-sm font-semibold text-foreground">Unlock Premium</span>
         <button
           onClick={onClose}
-          className="text-slate-500 hover:text-slate-300"
+          className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-[var(--glass-border)] hover:text-foreground"
           aria-label="Dismiss paywall"
         >
           <X size={14} />
         </button>
       </div>
-      <ul className="text-xs text-slate-400 space-y-1 mb-3">
+      <ul className="text-xs text-muted-foreground space-y-1.5 mb-3">
         {BENEFITS.map((b) => (
-          <li key={b} className="flex gap-1">
-            <span>•</span>
+          <li key={b} className="flex gap-2 items-start">
+            <span aria-hidden className="mt-1.5 size-1.5 flex-none rounded-full [background:var(--signature-grad)]" />
             {b}
           </li>
         ))}
       </ul>
-      <p className="text-xs text-slate-500 mb-3">$12/yr</p>
+      <p className="text-sm font-semibold text-foreground mb-3">$12/yr</p>
       {checkout.isError && (
         <p role="alert" className="text-xs text-destructive mb-2">
           Something went wrong — please try again.
@@ -79,7 +79,7 @@ function CardBody({ onClose }: { onClose: () => void }) {
       )}
       <Button
         size="sm"
-        className="w-full"
+        className="w-full text-primary-foreground [background-image:var(--signature-grad)] [box-shadow:var(--glow-primary)]"
         disabled={checkout.isPending}
         onClick={handleUpgrade}
       >
@@ -136,7 +136,7 @@ export default function PaywallCard({ open, onClose, anchorEl, inline = false }:
     return (
       <div
         ref={inlineRef}
-        className="max-w-[280px] mx-auto mt-4 rounded-lg border border-[var(--border)] bg-card p-4"
+        className="glass-overlay max-w-[280px] mx-auto mt-4 rounded-xl p-4"
         data-testid="paywall-card"
       >
         <CardBody onClose={onClose} />
@@ -153,7 +153,7 @@ export default function PaywallCard({ open, onClose, anchorEl, inline = false }:
           role="dialog"
           aria-label="Upgrade to Premium"
           style={floatingStyles}
-          className="z-50 max-w-[280px] rounded-lg border border-[var(--border)] bg-popover p-4 shadow-xl"
+          className="glass-overlay z-50 max-w-[280px] rounded-xl p-4"
           data-testid="paywall-card"
           {...getFloatingProps()}
         >

@@ -36,7 +36,7 @@ const DEFAULT_ROWS: StringRow[] = [
 
 // Native <select>: accessible + robust to test (see 4.3 rationale); native OS pickers on mobile.
 const selectClass =
-  'h-8 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm text-slate-300 outline-none focus-visible:border-indigo-400';
+  'h-8 rounded-md border border-[var(--glass-border)] bg-transparent px-2 text-sm text-foreground outline-none focus-visible:[box-shadow:var(--glow-primary)]';
 
 interface CustomTuningCreatorProps {
   open: boolean;
@@ -79,14 +79,14 @@ export default function CustomTuningCreator({ open, onOpenChange }: CustomTuning
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) close(); }}>
-      <SheetContent side="right" className="w-full gap-4 overflow-y-auto p-4 sm:max-w-md">
+      <SheetContent side="right" className="glass-overlay w-full gap-5 overflow-y-auto p-6 sm:max-w-md">
         <SheetHeader className="p-0">
           <SheetTitle>Create Custom Tuning</SheetTitle>
           <SheetDescription>Define each string&apos;s pitch, low to high.</SheetDescription>
         </SheetHeader>
 
         {/* Live preview */}
-        <div className="rounded-md border border-[var(--border)] p-2" data-testid="tuning-preview">
+        <div className="rounded-md border border-[var(--glass-border)] p-2" data-testid="tuning-preview">
           <FretboardCanvas
             tuning="(custom)"
             strings={previewStrings}
@@ -96,7 +96,7 @@ export default function CustomTuningCreator({ open, onOpenChange }: CustomTuning
         </div>
 
         {/* Name */}
-        <label className="flex flex-col gap-1 text-sm text-slate-300">
+        <label className="flex flex-col gap-1 text-sm text-foreground">
           Name
           <Input
             value={name}
@@ -110,7 +110,7 @@ export default function CustomTuningCreator({ open, onOpenChange }: CustomTuning
         <div className="flex flex-col gap-2">
           {rows.map((r, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="w-16 text-sm text-slate-400">String {i + 1}</span>
+              <span className="w-16 text-sm text-muted-foreground">String {i + 1}</span>
               <select
                 aria-label={`String ${i + 1} note`}
                 value={r.note}
@@ -136,7 +136,7 @@ export default function CustomTuningCreator({ open, onOpenChange }: CustomTuning
         </div>
 
         {save.isError && (
-          <p role="alert" className="text-xs text-rose-400">
+          <p role="alert" className="text-xs text-destructive">
             Could not save tuning. Please try again.
           </p>
         )}

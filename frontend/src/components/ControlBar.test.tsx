@@ -7,6 +7,8 @@ import { FREE_TUNINGS } from '@/data/freeTunings';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
 import { useLayoutStore } from '@/stores/layoutStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALE_NAMES } from '@/data/scales.js';
 import { TUNINGS } from '@/data/tunings.js';
@@ -280,5 +282,51 @@ describe('ControlBar — capo control', () => {
     useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE, capoPosition: 5 });
     renderBar();
     expect(screen.getByText('Capo: 5')).toBeInTheDocument();
+  });
+});
+
+describe('ControlBar — overhaul affordance (Story 5.2)', () => {
+  it('action buttons carry visible desktop labels', () => {
+    renderBar();
+    expect(screen.getByText('Notes')).toBeInTheDocument();
+    expect(screen.getByText('Draw')).toBeInTheDocument();
+    expect(screen.getByText('Library')).toBeInTheDocument();
+    expect(screen.getByText('Sign in')).toBeInTheDocument();
+  });
+
+  it('account label reads "Account" when authenticated', () => {
+    try {
+      useAuthStore.setState({
+        user: { id: 1, name: 'Voice', email: 'v@example.com' },
+        accessToken: 'tok',
+      });
+      renderBar();
+      expect(screen.getByText('Account')).toBeInTheDocument();
+    } finally {
+      useAuthStore.getState().clearAuth();
+    }
+  });
+
+  it('replaces native title tooltips (no title attribute on action buttons)', () => {
+    useThemeStore.setState({ theme: 'dark' });
+    useSubscriptionStore.setState({ isPremium: true });
+    mockState.tunings = [{ id: 7, name: 'My Drop C', strings: ['C2', 'G2', 'C3', 'F3', 'A3', 'D4'], createdAt: null }];
+    useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE, tuning: 'My Drop C' });
+    renderBar();
+    expect(screen.getByRole('button', { name: 'Switch to light mode' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Toggle note names' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Toggle freeform mode' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Library' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Sign in' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Rename tuning' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Delete tuning' })).not.toHaveAttribute('title');
+  });
+
+  it('note-name toggle still flips store state after the restyle', async () => {
+    const user = userEvent.setup();
+    renderBar();
+    expect(useFretboardStore.getState().noteNamesVisible).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Toggle note names' }));
+    expect(useFretboardStore.getState().noteNamesVisible).toBe(true);
   });
 });
