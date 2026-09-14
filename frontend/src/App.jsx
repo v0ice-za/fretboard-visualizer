@@ -6,6 +6,7 @@ import AppShell from './components/shared/AppShell';
 import { useFretboardStore } from '@/stores/fretboardStore';
 import { useUrlState } from '@/hooks/useUrlState';
 import { useSubscription, subscriptionQueryKey } from '@/hooks/useSubscription';
+import { useSessionSync } from '@/hooks/useSessionSync';
 import { useCustomTunings, resolveCustomTuningStrings } from '@/hooks/useCustomTunings';
 import { bootstrapAuth } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
@@ -15,6 +16,7 @@ export default function App() {
   const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark, chordName } = useFretboardStore();
   useUrlState();
   useSubscription();
+  useSessionSync();
   const { data: customTunings } = useCustomTunings();
   // undefined for predefined tunings (FretboardCanvas falls back to its own by-name lookup),
   // pitch-class strings for a selected custom tuning.

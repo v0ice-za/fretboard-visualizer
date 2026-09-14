@@ -1,5 +1,49 @@
 # Deferred Work
 
+## Deferred from: code review of story-4.4 (2026-09-14)
+
+- `SessionService.upsert` does read-then-write with no locking (`findByUserId(...).orElseGet(...)` then `save(...)`). Two near-simultaneous autosave POSTs from the same user (e.g. two open tabs) can both see `Optional.empty()` and both attempt an insert, violating `saved_sessions.user_id`'s `UNIQUE` constraint and throwing an unhandled `DataIntegrityViolationException` instead of a clean `SessionException`. Narrow window (needs literal same-millisecond concurrent saves), but a real gap. Fix needs either `ON CONFLICT (user_id) DO UPDATE` at the SQL level or `@Version` optimistic locking with a retry — bigger than a review-cycle patch.
+- `SessionStateDto` (the request-validation DTO) is used directly as `SavedSession.state`'s persisted JSONB shape (`@JdbcTypeCode(SqlTypes.JSON)`). Any future change to that record (renamed/added/removed field, tightened validation) changes how already-stored rows deserialize, with no versioning or migration strategy. Not a bug today; a real trap if `SessionStateDto` is ever reshaped without also handling old rows. Consider a separate persistence-only value type if/when the DTO needs to change.
+
+## Deferred from: code review of story-5.5 (2026-09-14)
+
+- `--color-dot-*` CSS custom properties in `index.css` are dead code — nothing references `var(--color-dot-*)`; `FretDot.tsx`'s `DOT_CONFIG` renders hardcoded hex instead. Pre-existing (predates 5.5; this story's diff only kept the dead tokens in sync with the new palette). Wiring them into `FretDot`/`FretboardCanvas` would remove the duplicate source of truth and could enable theme-aware dots — though note `:root`/`.dark` currently hold identical values, so divergence would need adding too, not just wiring.
+- Implemented motion durations diverge from the UX spec's documented values ("Motion & micro-interactions": hover-lift 120ms, dropdown/sheet 150–180ms, library tab indicator 180ms). Actual: hover-lift (`IconButton`/`ModeChipsRow`/`LibraryItem`) 150ms; select dropdown (`components/ui/select.tsx`) 100ms; sheet content (`components/ui/sheet.tsx`) 200ms; library tab indicator (`LibraryPanel`) 200ms. All in files outside 5.5's scope (`components/ui/*` is do-not-hand-edit per CLAUDE.md; the rest are already-reviewed 5.2/5.3 work). Recommend a follow-up to either update the spec's documented numbers to match reality or retune the components.
+- Light-theme gold/cyan dot vs. board graphical contrast is low (~1.5:1) — pre-existing, not newly introduced. Bright dots on the near-white light board read subtly (dark note labels keep them identifiable); a real fix needs theme-aware dots (see the dead-tokens item above).
+- `FretboardCanvas` capo indicator still strokes `#f59e0b` (old amber) — mildly inconsistent with the new gold root `#fbbf24`. Chrome, not a dot; low priority.
+- Under protanopia simulation, `scale` (violet) and `mode` (cyan) become hard to distinguish by colour alone (simulated RGB distance ≈24 — the tightest pair found across either colour-blind simulation, vs. ≈53 under deuteranopia and ≈130–230 for every other pair). This is the scenario the design's note-name text fallback exists for (AC3 explicitly names it); no code defect, but worth flagging as the closest call found.
+
+## Deferred from: code review of story-5.4 (2026-09-10)
+
+- `focus-visible` border→box-shadow swap on `CustomTuningCreator`'s `<select>`s (`focus-visible:border-indigo-400` → `focus-visible:[box-shadow:var(--glow-primary)]`) is theoretically weaker under forced-colors/Windows High Contrast mode — consistent with the same pattern already used throughout `IconButton`/`Select` triggers since 5.1–5.3, not a new regression, but worth revisiting as part of Story 5.5's contrast/motion audit
+- `backdrop-filter: blur(24px)` on `CustomTuningCreator`'s scrollable `SheetContent` (`.glass-overlay` applied to an `overflow-y-auto` container) — theoretical WebKit scroll-repaint concern, no concrete evidence of an actual bug; matches Story 5.5's own designated scope for cross-browser `backdrop-filter` checks
+- Mixed `--glass-border` (regular) vs `--glass-border-strong` (`.glass-overlay`'s own border) usage within the same panel has no inline comment explaining the intentional two-tier hierarchy from Story 5.1 — cosmetic documentation gap
+- Sheets' `p-6` padding (`LoginModal`, `CustomTuningCreator`, `ControlBar`'s rename/delete/account) with unchanged `max-w-sm`/`max-w-md` caps — minor width squeeze on very narrow phones (~360px); consistent with AC1's "generous spacing" intent, worth a mobile-viewport visual QA pass
+- `LibraryPanel.tsx`'s `PaywallCard` usage passes `anchorEl={null}` while tracking a `paywallAnchor` state value that's never actually wired to it — pre-existing code, not introduced by Story 5.4 (spotted incidentally while reviewing the surrounding mobile-sheet block), looks like either dead state or a forgotten wire-up; worth investigating in a future story
+
+## Deferred from: code review of story-5.3 (2026-09-10)
+
+- Inconsistent magic hover-tint opacities (`hover:bg-white/[0.03]`, `[0.04]`, `[0.06]`) with no shared token across `LibraryItem.tsx`/`LibraryPanel.tsx`/`PaywallCard.tsx` — consolidate into a shared `--glass-hover-bg`-style token once the light-theme fix lands
+- `hover:-translate-y-px` transform added in `ModeChipsRow.tsx`, `LibraryItem.tsx`, and `LibraryPanel.tsx` tabs with no `prefers-reduced-motion` guard — cross-cutting gap, also affects Story 5.2's `IconButton`; revisit in Story 5.5's contrast/motion audit
+- Icon sizing inconsistency between `LibraryPanel`'s close button (16px icon / `size-8` target) and `PaywallCard`'s dismiss button (14px icon / `size-7` target) — no shared `IconButton` reuse; low priority, revisit if unified in Story 5.4
+- "Glass hover lift" idiom (transform + box-shadow + border-color transition) hand-rolled independently in `ModeChipsRow.tsx`, `LibraryItem.tsx`, and `LibraryPanel.tsx` tabs with slightly different property lists per instance — DRY opportunity, not urgent
+- Global `vitest.config.ts` timeout bump (5s→15s, `testTimeout`/`hookTimeout`) bundled into a visual-restyle diff, applies suite-wide rather than only to the cited heavy-mount tests — masks genuine hangs elsewhere in principle; the underlying flakiness fix is sound and already relied upon across multiple stories, but a per-file override would be more precise
+
+## Deferred from: code review of story-5.2 (2026-09-10)
+
+- AC4's `h-10` trigger height became `h-auto!` + stacked category/value labels in `ControlBar.tsx`; actual rendered height likely exceeds 40px, and the `h-auto!` override pattern is brittle, repeated across all 3 Select triggers — verify visually during the Story 5.5 contrast/motion audit, consider a proper size variant instead of the override hack
+- No test verifies tooltip content actually becomes visible on hover/focus in `ControlBar.test.tsx` — meaningful gap for a "replace title with Tooltip" story, but base-ui tooltip open-state testing in jsdom is nontrivial/flaky; revisit with a more deliberate testing approach (e.g. Playwright) rather than a rushed brittle unit test
+- No responsiveness test for the `hidden md:inline` desktop labels — jsdom has no real CSS/media-query engine, so the current test only proves the text exists in the DOM, not that it's conditionally visible; matches this project's existing repeatedly-deferred "needs Playwright/E2E for viewport-driven behavior" pattern (see Story 1.9 backlog)
+- No dedicated test that the Account button's click handler still fires `setAccountOpen`/`openLoginModal` through the new `TooltipTrigger render={...}` wrapper — low risk, bundle with the `IconButton.test.tsx` coverage when that patch lands
+- `IconButton`'s `active` styling silently no-ops when `tone="destructive"` (`active && tone === 'default' && ...`), documented only in a code comment, not in prop types/JSDoc — not exercised today (the only destructive button, delete-tuning, never passes `active`), tighten if a future caller combines both props
+
+## Deferred from: code review of story-5.1 (2026-09-10)
+
+- No `@supports not (backdrop-filter: ...)` fallback for browsers without `backdrop-filter` support at all (distinct from the `prefers-reduced-transparency` OS setting) — not required by any AC; `backdrop-filter` support is now >96% globally, low priority
+- `--sidebar-primary`/`--sidebar-ring`/`--chart-1`/`--chart-5` still hardcode the old indigo literal `oklch(0.52 0.24 264)` rather than referencing `--primary`/`--ring` — pre-existing pattern in `frontend/src/index.css`, not introduced by this diff; sidebar/charts won't visually pick up Aurora violet until a future story wires them to the primary token (`--color-dot-*` is correctly and intentionally excluded per AC6)
+- Overlay-tier tokens (`--glass-overlay-bg`, `--glass-blur-strong`) intended for "dropdowns, sheets, tooltips, paywall" have no consuming utility class yet (expected — this story is token-layer only); `frontend/src/components/shared/PaywallCard.tsx` already uses `.glass-surface`/`--glass-panel-bg` instead of an overlay-tier class — revisit whether paywall chrome should be visually distinct (more opaque) from library panels when reviewing Story 5.3
+- Minor undisclosed numeric drift between dark-theme glass/shadow token values in the diff and the literal values given in `ux-design-specification.md` (`--glass-bar-bg`, `--glass-panel-bg` alpha bumped; `--shadow-lg` magnitude bumped) — the `--glass-bar-bg` bump has an inline rationale comment; the rest look like reasonable visual tuning but weren't flagged as deviations the way `--primary` was
+
 ## Deferred from: code review of 4-2-custom-tuning-management (2026-09-07)
 
 - No transaction rollback testing for TuningService — Methods marked `@Transactional` but tests don't cover failure modes (DB constraint violations, timeouts). Add in future test-hardening story.

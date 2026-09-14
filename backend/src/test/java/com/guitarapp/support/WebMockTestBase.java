@@ -2,6 +2,7 @@ package com.guitarapp.support;
 
 import com.guitarapp.repository.CustomTuningRepository;
 import com.guitarapp.repository.ProcessedStripeEventRepository;
+import com.guitarapp.repository.SavedSessionRepository;
 import com.guitarapp.repository.SubscriptionRepository;
 import com.guitarapp.repository.UserRepository;
 import com.guitarapp.security.StripeGateway;
@@ -52,6 +53,9 @@ public abstract class WebMockTestBase {
 
     @MockitoBean
     protected CustomTuningRepository customTuningRepository;
+
+    @MockitoBean
+    protected SavedSessionRepository savedSessionRepository;
 
     @MockitoBean
     protected StripeGateway stripeGateway;

@@ -2,6 +2,7 @@ package com.guitarapp;
 
 import com.guitarapp.repository.CustomTuningRepository;
 import com.guitarapp.repository.ProcessedStripeEventRepository;
+import com.guitarapp.repository.SavedSessionRepository;
 import com.guitarapp.repository.SubscriptionRepository;
 import com.guitarapp.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,9 @@ class GuitarAppApplicationTests {
 
     @MockitoBean
     private CustomTuningRepository customTuningRepository;
+
+    @MockitoBean
+    private SavedSessionRepository savedSessionRepository;
 
     @Test
     void contextLoads() {

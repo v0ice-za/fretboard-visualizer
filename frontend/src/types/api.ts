@@ -25,3 +25,22 @@ export interface TuningRequestDto {
   name: string;
   strings: string[];
 }
+
+/** A single freeform-marked fret/string pair — mirrors `FreeformMark` in `fretboardStore`. */
+export interface FreeformMarkDto {
+  fret: number;
+  string: number;
+}
+
+/** Fretboard state saved/restored for premium session persistence (Story 4.4). */
+export interface SessionStateDto {
+  tuning: string;
+  capoPosition: number;
+  freeformMarks: FreeformMarkDto[];
+}
+
+export interface SessionResponseDto {
+  id: number;
+  state: SessionStateDto;
+  updatedAt: string | null;
+}

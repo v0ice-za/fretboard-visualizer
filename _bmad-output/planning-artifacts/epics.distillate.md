@@ -281,3 +281,96 @@ As a premium user, I want to choose from premium visual themes.
 - Non-premium users see other 4 themes with lock indicator → clicking triggers PaywallCard
 - All 5 themes audited + confirmed WCAG 2.1 AA contrast for dot colors, note names, UI chrome
 - Neon, mono, vibrant, minimal token sets defined as CSS custom property blocks alongside dark theme
+
+---
+## Epic 5: UI/UX Visual Overhaul
+Goal: Modernize the chrome (not the fretboard rendering) into the "Aurora glass-first dark" direction — elevation/glass/glow token system, Aurora signature palette (indigo→violet→cyan), richer + labelled controls, more breathing room, and instant affordance. Frontend-only; no backend/API changes. Source of truth: `ux-design-specification.md#Visual Overhaul Direction — 2026-09-08 Revision`.
+Reqs: UX-DR (visual execution refresh). Confirmed decisions: depth=glass; affordance=labels-on-desktop + tooltips-on-mobile; signature=Aurora; fretboard dot scope=Option B (retune to harmonize).
+
+### Story 5.1: Elevation, Glass & Aurora Token Foundation
+As a developer, I want the elevation/glass/glow token system + Aurora signature installed so every overhaul story builds on one foundation.
+
+**Acceptance Criteria:**
+- `--glass-*` (bar/panel/overlay bg, blur, border, highlight), `--shadow-{sm,md,lg}`, `--glow-{primary,accent}`, `--signature-grad` tokens added to `index.css` for both `.dark`/`[data-theme="dark"]` and `:root` (light) blocks
+- Aurora signature applied to chrome tokens: `--primary` → electric violet `#8b5cf6`; accent → cyan `#22d3ee`; neutrals → cool blue-slate
+- Density variables added/updated: `--top-bar-height` → 3.75rem; comfortable spacing scale documented
+- Reusable `.glass-surface` utility (bg + backdrop-filter blur+saturate + luminous border + shadow + inset top-highlight)
+- `prefers-reduced-transparency` fallback: `.glass-surface` collapses to nearest solid surface, drops `backdrop-filter`
+- Fretboard dot tokens (`--color-dot-*`) are NOT changed here (deferred to 5.5)
+- No visual regression to fretboard rendering; existing tests pass
+
+### Story 5.2: ControlBar Glass + Labelled Controls + Tooltips
+As a user, I want a modern, legible control bar so I can tell what everything does at a glance.
+
+**Acceptance Criteria:**
+- ControlBar uses `.glass-surface`, floats over the board with `--shadow-md`; 60px min height; logical groups (brand · selectors · capo · actions) separated by `Separator`
+- Shared `IconButton` component: 40px container, 18–20px glyph, hover-lift + `--shadow-sm`, active = `--primary` fill + `--glow-primary`; 44px min touch target
+- Action cluster (Note names, Freeform, Library, Account) shows icon + text label at `md`+; collapses to icon-only + styled shadcn `Tooltip` (150ms) below `md` — native `title` removed
+- Selectors (Tuning/Key/Scale) restyled: taller trigger, glass rest state, `[Category]`/`[Value]` layout, `--glow-primary` focus ring; dropdown content on `--glass-overlay-bg` + `--shadow-lg`
+- Refreshed logo mark (~24–26px) with subtle accent glow
+- Capo slider track/thumb given glass+glow treatment; live label kept
+- Control bar still wraps gracefully <768px; keyboard tab order preserved
+
+### Story 5.3: Library, Mode Chips & Paywall Glass Polish
+As a user, I want the library and premium prompts to feel part of the same polished system.
+
+**Acceptance Criteria:**
+- `LibraryPanel` aside uses glass + `--shadow-lg` with a clear elevation step from the board; tab row gets a sliding active indicator
+- `LibraryItem`: more vertical padding, hover elevation, refined active (violet tint + `--glow`) and locked (lock badge + dimmed `--glass-border`) states
+- `ModeChipsRow` chips get pill glass treatment; active chip filled + glow; larger tap size
+- `PaywallCard`: glass overlay, `--shadow-lg`, luminous border, `--glow-primary` on Subscribe CTA; remains non-blocking / never covers fretboard
+- Mobile bottom-sheet variants inherit the same glass treatment
+- No change to gating logic or subscription behavior — visual only
+
+### Story 5.4: Overlays Unified + Legacy Nav Reconciliation
+As a user, I want auth and all sheets/dialogs to share one glass language and the app to have a single navigation system.
+
+**Acceptance Criteria:**
+- `LoginModal` / `EmailAuthForm` / `GoogleAuthButton` restyled to the new control language on `--glass-overlay-bg` + `--glass-blur-strong`; generous spacing
+- Rename/delete/account sheets and `CustomTuningCreator` share a unified glass overlay + shadow + header/spacing rhythm
+- `NavTabs.jsx` (parallel/legacy nav with its own icons + "Upgrade to Pro") is either folded into the unified control language or removed — no duplicate navigation systems remain
+- All overlays respect `prefers-reduced-transparency` fallback
+- No change to auth/checkout flows — visual + consolidation only
+
+### Story 5.5: Fretboard Dot Retune + Contrast & Motion Audit
+As a user, I want the fretboard to share the Aurora palette while staying perfectly readable and accessible.
+
+**Acceptance Criteria:**
+- `--color-dot-*` retuned (Option B): root `#fbbf24` gold, scale `#8b5cf6` violet, mode `#22d3ee` cyan, freeform `#f0abfc` pink — layout/rendering/3-colour logic unchanged
+- Retuned dots verified WCAG 2.1 AA over the glass-composited board in BOTH dark and light themes
+- Deuteranopia + protanopia separation verified for the root/scale/mode trio; note names remain the non-colour fallback
+- Motion: hover-lift/glow/dropdown transitions land at documented durations; all gated behind `prefers-reduced-motion`; fretboard 80ms dot transition unchanged
+- Cross-browser `backdrop-filter` check (Chrome, Firefox, Safari/WebKit, Edge) with acceptable fallback where unsupported
+- Full regression: frontend suite + type-check + lint green
+
+---
+## Epic 6: Harmony & Chord Discovery
+Goal: Turn the app from a chord *viewer* into a chord *discovery* tool for songwriters — show the diatonic chords for the current key/scale, expand the chord vocabulary substantially, and surface shared-note substitutions / "jazzify" suggestions. Frontend-only, pure music-theory computation; NO backend, NO new API routes (same shape as Story 4.3 progression builder). Provisional decisions (pending user confirmation): sequencing = after Epic 5; gating = Chords-in-Key free, expanded library + jazzify premium; `chords.js` treated as editable app-data (musicTheory.js/tunings.js/scales.js stay frozen).
+
+### Story 6.1: Chords in Key (Diatonic Chords)
+As a songwriter, I want to see the chords that belong to the selected key + scale so I know what fits.
+**Acceptance Criteria:**
+- For the active key + scale, compute diatonic chords by stacking scale thirds on each degree (triads by default; optional 7ths toggle)
+- A "Chords in Key" strip shows each degree with correct Roman-numeral quality (I ii iii IV V vi vii for major; computed, not hardcoded) and the concrete chord name (e.g. C major -> C Dm Em F G Am Bdim)
+- Clicking a degree highlights that chord's shape on the fretboard in the active tuning (reuses existing chord-highlight rendering + chordName/root state)
+- Heptatonic scales harmonize fully; non-heptatonic (e.g. pentatonic) degrade gracefully (only buildable chords, or a "needs a 7-note scale" note)
+- Free tier
+- Pure frontend; harmonization in a NEW util (e.g. lib/harmony.ts) reading scales.js + chords.js; frozen files untouched; no new API routes
+
+### Story 6.2: Expanded Chord Library
+As a guitarist, I want a much larger chord vocabulary.
+**Acceptance Criteria:**
+- Add ~15-20 chord types to chords.js with correct intervals (6, m6, m7b5/half-dim, add9, 9, m9, maj9, 11, 13, 7b5, 7#5, 7sus4, aug7, 6/9, ...)
+- CHORD_NAMES order keeps common chords first so the free preview stays the useful basics
+- Existing fretboard chord-highlight renders 5+ note / extended chords gracefully
+- Expanded set follows existing free-preview / premium-lock pattern (gating per decision)
+- No regression to existing chord selection/highlight or the progression builder
+
+### Story 6.3: Chord Relationships / "Jazzify"
+As a songwriter, I want to find chords that share notes and jazzier substitutions.
+**Acceptance Criteria:**
+- For the active chord (root + type) compute its pitch-class set and surface: (a) shares notes — other library chords at any root sharing >= N common tones, ranked; (b) jazzify — extension upgrades (triad->7th/9th/...) + common subs (relative, tritone-sub for dominants, ii-V framing)
+- Each suggestion is clickable -> highlights on the fretboard
+- Premium-gated
+- Pure frontend; reuses the 6.1/6.2 harmony util; no new API routes
+- UI lives in the Library panel (new tab or contextual sub-panel), consistent with the Epic 5 glass styling
