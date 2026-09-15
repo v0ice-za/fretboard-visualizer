@@ -2,27 +2,25 @@ import type { DotState } from '@/utils/fretboardUtils';
 
 export const GLOW_FILTER_ID = 'fret-dot-mode-glow';
 
-// Aurora dot palette — Option B (Story 5.5). Fills come from the UX spec
-// (`ux-design-specification.md#Fretboard dot palette — Option B`); text colours
-// are chosen to clear WCAG 2.1 AA (>=4.5:1) for the bold ~8px note label sitting
-// inside each dot. NOTE: these hex values (not the unused `--color-dot-*` CSS
-// tokens in index.css) are the real render source of truth.
+// Aurora dot palette — Option B (Story 5.5), theme-driven since Story 4.5.
+// `fill`/`textColor` read CSS custom properties (`--color-dot-*`/`--dot-text-*`,
+// defined per-theme in index.css) so every theme — including the 4 premium ones —
+// genuinely changes dot colours. Each var() carries a fallback equal to the
+// original dark/light hex, so rendering is byte-identical to the pre-4.5
+// hardcoded values whenever no theme (or an unrecognised one) is applied, e.g.
+// in a test environment that doesn't set `data-theme` on <html>.
 //
-// Contrast ratios below are the WORST CASE across both themes against the
-// TRUE RENDERED colour — i.e. the dot's fill alpha-composited with the
-// fretboard background (`--color-fretboard`), not the raw fill hex. For
-// opacity<1 states this composite is meaningfully different from the nominal
-// fill (code review 2026-09-14 caught this: the original comments/test here
-// checked nominal-fill-vs-text, which never actually renders on screen).
-// `scale` is the one state where the composite swings enough between themes
-// that a single static text colour can't clear AA in both — its text colour
-// is theme-aware via `--dot-text-scale` (defined per-theme in index.css).
+// `radius`/`opacity` stay fixed JS constants across ALL themes (Story 4.5 Design
+// Decision: opacity stays constant) — only colour varies per theme. Per-theme
+// WCAG contrast (composited fill vs. text, at these exact fixed opacities) was
+// computed and verified for all 6 themes — see the story's Dev Agent Record for
+// the full ratio table; the dark/light values below are unchanged from 5.5.
 const DOT_CONFIG: Record<DotState, { radius: number; fill: string; opacity: number; textColor: string }> = {
-  root:       { radius: 13, fill: '#fbbf24', opacity: 1,    textColor: '#1a0e00' },                     // gold  · text 11.4:1 (opacity 1, no compositing)
-  scale:      { radius: 11, fill: '#8b5cf6', opacity: 0.85, textColor: 'var(--dot-text-scale, #0a0518)' }, // violet · theme-aware text: ~4.7:1 (light theme) / ~5.0:1 (dark theme, composited)
-  mode:       { radius: 11, fill: '#22d3ee', opacity: 0.9,  textColor: '#04191c' },                     // cyan  · text >=8.2:1 worst-case composited (both themes)
-  'mode-root':{ radius: 13, fill: '#d946ef', opacity: 1,    textColor: '#1a0030' },                     // fuchsia (root-in-mode) — shifted off scale's violet hue for at-a-glance separation; text 5.6:1
-  freeform:   { radius: 11, fill: '#f0abfc', opacity: 0.8,  textColor: '#2a0730' },                     // pink  · text >=6.7:1 worst-case composited (both themes)
+  root:       { radius: 13, fill: 'var(--color-dot-root, #fbbf24)',           opacity: 1,    textColor: 'var(--dot-text-root, #1a0e00)' },
+  scale:      { radius: 11, fill: 'var(--color-dot-scale, #8b5cf6)',          opacity: 0.85, textColor: 'var(--dot-text-scale, #0a0518)' },
+  mode:       { radius: 11, fill: 'var(--color-dot-mode, #22d3ee)',           opacity: 0.9,  textColor: 'var(--dot-text-mode, #04191c)' },
+  'mode-root':{ radius: 13, fill: 'var(--color-dot-mode-root, #d946ef)',      opacity: 1,    textColor: 'var(--dot-text-mode-root, #1a0030)' },
+  freeform:   { radius: 11, fill: 'var(--color-dot-freeform, #f0abfc)',       opacity: 0.8,  textColor: 'var(--dot-text-freeform, #2a0730)' },
 };
 
 // Exported for the WCAG-AA composited-contrast guardrail suite in FretDot.test.tsx,

@@ -113,25 +113,34 @@
   --color-text-secondary: oklch(0.45 0.02 270);
   --color-text-muted: oklch(0.62 0.02 270);
 
-  /* Dot colors — Aurora Option B (Story 5.5). NOT consumed — FretDot.tsx
-     renders the hex directly (confirmed via grep: nothing references
-     var(--color-dot-*)). Kept in sync as documented intent only; note that
-     since :root and .dark hold identical values here (pre-existing, not
-     introduced by this story), wiring these up as-is would NOT produce
-     theme-aware dots on its own — light/dark divergence would still need
-     to be added at that time. */
-  --color-dot-root: oklch(0.85 0.16 86);      /* #fbbf24 — gold, root note */
-  --color-dot-scale: oklch(0.62 0.22 293);    /* #8b5cf6 — violet, scale notes */
-  --color-dot-mode: oklch(0.79 0.14 195);     /* #22d3ee — cyan, mode overlay */
-  --color-dot-freeform: oklch(0.82 0.13 330); /* #f0abfc — pink, freeform marks */
+  /* Dot colors — Aurora Option B (Story 5.5), now genuinely theme-driven
+     (Story 4.5 wired FretDot.tsx's DOT_CONFIG to read these via var(), with a
+     same-value fallback for safety). :root and .dark happen to share identical
+     dot values (light/dark don't diverge on hue, only on text polarity below),
+     which is why the Aurora palette renders unchanged after the rewiring. */
+  /* Raw hex, not oklch — these feed an exact-match no-regression requirement
+     (Story 4.5 AC6: dark/light must render byte-identical to the pre-rewire
+     hardcoded hex), so there's no hand-converted oklch approximation to
+     possibly drift from the real value. */
+  --color-dot-root: #fbbf24;      /* gold, root note */
+  --color-dot-scale: #8b5cf6;     /* violet, scale notes */
+  --color-dot-mode: #22d3ee;      /* cyan, mode overlay */
+  --color-dot-mode-root: #d946ef; /* fuchsia, root note while a mode overlay is active */
+  --color-dot-freeform: #f0abfc;  /* pink, freeform marks */
 
-  /* Note-name text colour for the `scale` dot state — genuinely consumed via
-     var() in FretDot.tsx (unlike --color-dot-* above). The scale dot renders
-     at 0.85 opacity, so its true on-screen colour is alpha-composited with
-     --color-fretboard, not the raw fill hex; that composite is light enough
-     on the light board that dark text stays AA-compliant. See the .dark
-     block for why dark theme needs the opposite polarity. */
+  /* Note-name text colour per dot state — genuinely consumed via var() in
+     FretDot.tsx. Dots with opacity<1 (scale, mode, freeform) alpha-composite
+     with --color-fretboard, so their true on-screen colour differs from the
+     raw fill hex; `scale`'s composite is light enough on the light board that
+     dark text stays AA-compliant here. See the .dark block for why dark theme
+     needs the opposite polarity for that one state. root/mode/mode-root render
+     at full/near-full opacity so their composite barely shifts — one value per
+     state is enough for both light and dark today. */
+  --dot-text-root: #1a0e00;
   --dot-text-scale: #0a0518;
+  --dot-text-mode: #04191c;
+  --dot-text-mode-root: #1a0030;
+  --dot-text-freeform: #2a0730;
 
   /* Sidebar */
   --sidebar: oklch(0.95 0.01 270);
@@ -226,19 +235,337 @@
   --color-text-secondary: oklch(0.48 0.04 240); /* #64748b */
   --color-text-muted: oklch(0.3 0.04 240);      /* #334155 */
 
-  /* ── FretDot colours — Aurora Option B (Story 5.5) ───────
-     NOT consumed; FretDot.tsx renders the hex directly. Synced as intent only. */
-  --color-dot-root: oklch(0.85 0.16 86);      /* #fbbf24 — gold, root note */
-  --color-dot-scale: oklch(0.62 0.22 293);    /* #8b5cf6 — violet, scale notes */
-  --color-dot-mode: oklch(0.79 0.14 195);     /* #22d3ee — cyan, mode overlay */
-  --color-dot-freeform: oklch(0.82 0.13 330); /* #f0abfc — pink, freeform marks */
+  /* ── FretDot colours — Aurora Option B (Story 5.5), theme-driven since
+     Story 4.5 (see :root for why these are raw hex, not oklch). Identical
+     hue set to :root — light/dark only diverge on `scale`'s text polarity. */
+  --color-dot-root: #fbbf24;      /* gold, root note */
+  --color-dot-scale: #8b5cf6;     /* violet, scale notes */
+  --color-dot-mode: #22d3ee;      /* cyan, mode overlay */
+  --color-dot-mode-root: #d946ef; /* fuchsia, root note while a mode overlay is active */
+  --color-dot-freeform: #f0abfc;  /* pink, freeform marks */
 
+  --dot-text-root: #1a0e00;
   /* `scale` dot's note-name text — opposite polarity from :root. The dot
      renders at 0.85 opacity and alpha-composites with the much darker
      --color-fretboard here; that composite is dark enough that near-black
      text falls to ~3.7:1 (fails AA) while this near-white passes at ~5.0:1.
      See :root for the light-theme rationale. */
   --dot-text-scale: #f5f3ff;
+  --dot-text-mode: #04191c;
+  --dot-text-mode-root: #1a0030;
+  --dot-text-freeform: #2a0730;
+}
+
+/* ── Premium themes (Story 4.5) ──────────────────────────────────────────
+   Chrome brand tokens (--primary, --signature-grad, --glow-*, --shadow-*) stay
+   Aurora-consistent across all 6 themes — these are "board + dot mood"
+   themes layered on the shipped Aurora chrome identity, not full re-skins.
+   Only background/surface/text/fretboard/dot tokens vary per theme. Raw hex
+   throughout (not oklch) — hand-picked and WCAG-verified against each
+   theme's own --color-fretboard at the dot states' real opacity via the
+   exact composite-then-contrast method FretDot.test.tsx uses (see Dev Agent
+   Record for the computed ratios). `neon`/`mono`/`vibrant` are dark-family
+   (get the shared Aurora dark shadow/glow values + the `.dark` class, wired
+   in themeStore.ts); `minimal` is light-family (reuses the light shadow/glow
+   values, no `.dark` class). */
+
+[data-theme="neon"] {
+  --background: #0a0a0a;
+  --foreground: #e4e4e7;
+  --card: #141414;
+  --card-foreground: #e4e4e7;
+  --popover: #191919;
+  --popover-foreground: #e4e4e7;
+  --primary: oklch(0.55 0.21 293);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: #1c1c1c;
+  --secondary-foreground: #e4e4e7;
+  --muted: #202020;
+  --muted-foreground: #a1a1aa;
+  --accent: #fbbf24;
+  --accent-foreground: #1a1a1a;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgb(228 228 231 / 0.14);
+  --input: #1c1c1c;
+  --ring: oklch(0.55 0.21 293);
+
+  --signature-grad: linear-gradient(100deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
+  --glass-bar-bg: rgb(26 26 26 / 0.86);
+  --glass-panel-bg: rgb(24 24 24 / 0.85);
+  --glass-overlay-bg: rgb(22 22 22 / 0.88);
+  --glass-blur: 16px;
+  --glass-blur-strong: 24px;
+  --glass-border: rgb(228 228 231 / 0.14);
+  --glass-border-strong: rgb(228 228 231 / 0.24);
+  --glass-highlight: rgb(255 255 255 / 0.06);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.30);
+  --shadow-md: 0 4px 16px -2px oklch(0 0 0 / 0.45);
+  --shadow-lg: 0 16px 48px -10px oklch(0 0 0 / 0.60);
+  --glow-primary: 0 0 0 1px oklch(0.55 0.21 293 / 0.55), 0 0 18px oklch(0.55 0.21 293 / 0.35);
+  --glow-accent: 0 0 0 1px oklch(0.78 0.13 195 / 0.55), 0 0 18px oklch(0.78 0.13 195 / 0.30);
+
+  --chart-1: oklch(0.52 0.24 264);
+  --chart-2: oklch(0.82 0.18 75);
+  --chart-3: oklch(0.45 0.15 280);
+  --chart-4: oklch(0.7 0.14 75);
+  --chart-5: oklch(0.7 0.15 264);
+  --sidebar: #0d0d0d;
+  --sidebar-foreground: #e4e4e7;
+  --sidebar-primary: oklch(0.52 0.24 264);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.82 0.18 75);
+  --sidebar-accent-foreground: oklch(0.1 0 0);
+  --sidebar-border: rgb(228 228 231 / 0.14);
+  --sidebar-ring: oklch(0.52 0.24 264);
+
+  --color-fretboard: #0d0d0d;
+  --color-string: #3a3a3a;
+  --color-fret: #1c1c1c;
+  --color-fret-marker: #202020;
+  --color-text-primary: #e4e4e7;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #52525b;
+
+  /* Dot states verified: root 12.05:1, scale 8.54:1, mode 9.76:1,
+     mode-root 9.80:1, freeform 9.00:1 (all composited over #0d0d0d — see
+     Dev Agent Record for the script + full output). */
+  --color-dot-root: #4ade80;
+  --color-dot-scale: #22d3ee;
+  --color-dot-mode: #f0abfc;
+  --color-dot-mode-root: #38bdf8;
+  --color-dot-freeform: #facc15;
+  --dot-text-root: #000000;
+  --dot-text-scale: #000000;
+  --dot-text-mode: #000000;
+  --dot-text-mode-root: #000000;
+  --dot-text-freeform: #000000;
+}
+
+[data-theme="mono"] {
+  --background: #1a1a1a;
+  --foreground: #f4f4f5;
+  --card: #242424;
+  --card-foreground: #f4f4f5;
+  --popover: #292929;
+  --popover-foreground: #f4f4f5;
+  --primary: oklch(0.55 0.21 293);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: #2a2a2a;
+  --secondary-foreground: #f4f4f5;
+  --muted: #2e2e2e;
+  --muted-foreground: #a1a1aa;
+  --accent: #fbbf24;
+  --accent-foreground: #1a1a1a;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgb(228 228 231 / 0.14);
+  --input: #2a2a2a;
+  --ring: oklch(0.55 0.21 293);
+
+  --signature-grad: linear-gradient(100deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
+  --glass-bar-bg: rgb(36 36 36 / 0.86);
+  --glass-panel-bg: rgb(34 34 34 / 0.85);
+  --glass-overlay-bg: rgb(32 32 32 / 0.88);
+  --glass-blur: 16px;
+  --glass-blur-strong: 24px;
+  --glass-border: rgb(228 228 231 / 0.14);
+  --glass-border-strong: rgb(228 228 231 / 0.24);
+  --glass-highlight: rgb(255 255 255 / 0.06);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.30);
+  --shadow-md: 0 4px 16px -2px oklch(0 0 0 / 0.45);
+  --shadow-lg: 0 16px 48px -10px oklch(0 0 0 / 0.60);
+  --glow-primary: 0 0 0 1px oklch(0.55 0.21 293 / 0.55), 0 0 18px oklch(0.55 0.21 293 / 0.35);
+  --glow-accent: 0 0 0 1px oklch(0.78 0.13 195 / 0.55), 0 0 18px oklch(0.78 0.13 195 / 0.30);
+
+  --chart-1: oklch(0.52 0.24 264);
+  --chart-2: oklch(0.82 0.18 75);
+  --chart-3: oklch(0.45 0.15 280);
+  --chart-4: oklch(0.7 0.14 75);
+  --chart-5: oklch(0.7 0.15 264);
+  --sidebar: #1e1e1e;
+  --sidebar-foreground: #f4f4f5;
+  --sidebar-primary: oklch(0.52 0.24 264);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.82 0.18 75);
+  --sidebar-accent-foreground: oklch(0.1 0 0);
+  --sidebar-border: rgb(228 228 231 / 0.14);
+  --sidebar-ring: oklch(0.52 0.24 264);
+
+  --color-fretboard: #1e1e1e;
+  --color-string: #4a4a4a;
+  --color-fret: #2a2a2a;
+  --color-fret-marker: #2e2e2e;
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #52525b;
+
+  /* Dot states differentiated by LIGHTNESS, not hue (deliberate — see Dev
+     Agent Record: this is the most colour-vision-deficiency-safe scheme
+     available for a near-monochrome theme). Verified: root 20.07:1,
+     scale 6.39:1, mode 11.79:1, mode-root 8.33:1, freeform 6.19:1
+     (composited over #1e1e1e). */
+  --color-dot-root: #f8fafc;
+  --color-dot-scale: #94a3b8;
+  --color-dot-mode: #cbd5e1;
+  --color-dot-mode-root: #a8a29e;
+  --color-dot-freeform: #78716c;
+  --dot-text-root: #000000;
+  --dot-text-scale: #000000;
+  --dot-text-mode: #000000;
+  --dot-text-mode-root: #000000;
+  --dot-text-freeform: #ffffff;
+}
+
+[data-theme="vibrant"] {
+  --background: #0d1b2a;
+  --foreground: #e2e8f0;
+  --card: #13293d;
+  --card-foreground: #e2e8f0;
+  --popover: #16304a;
+  --popover-foreground: #e2e8f0;
+  --primary: oklch(0.55 0.21 293);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: #142838;
+  --secondary-foreground: #e2e8f0;
+  --muted: #16304a;
+  --muted-foreground: #94a3b8;
+  --accent: #fbbf24;
+  --accent-foreground: #0d1b2a;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgb(148 163 184 / 0.16);
+  --input: #142838;
+  --ring: oklch(0.55 0.21 293);
+
+  --signature-grad: linear-gradient(100deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
+  --glass-bar-bg: rgb(22 43 64 / 0.86);
+  --glass-panel-bg: rgb(20 40 60 / 0.85);
+  --glass-overlay-bg: rgb(18 36 54 / 0.88);
+  --glass-blur: 16px;
+  --glass-blur-strong: 24px;
+  --glass-border: rgb(148 163 184 / 0.16);
+  --glass-border-strong: rgb(148 163 184 / 0.26);
+  --glass-highlight: rgb(255 255 255 / 0.06);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.30);
+  --shadow-md: 0 4px 16px -2px oklch(0 0 0 / 0.45);
+  --shadow-lg: 0 16px 48px -10px oklch(0 0 0 / 0.60);
+  --glow-primary: 0 0 0 1px oklch(0.55 0.21 293 / 0.55), 0 0 18px oklch(0.55 0.21 293 / 0.35);
+  --glow-accent: 0 0 0 1px oklch(0.78 0.13 195 / 0.55), 0 0 18px oklch(0.78 0.13 195 / 0.30);
+
+  --chart-1: oklch(0.52 0.24 264);
+  --chart-2: oklch(0.82 0.18 75);
+  --chart-3: oklch(0.45 0.15 280);
+  --chart-4: oklch(0.7 0.14 75);
+  --chart-5: oklch(0.7 0.15 264);
+  --sidebar: #0b1622;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: oklch(0.52 0.24 264);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.82 0.18 75);
+  --sidebar-accent-foreground: oklch(0.1 0 0);
+  --sidebar-border: rgb(148 163 184 / 0.16);
+  --sidebar-ring: oklch(0.52 0.24 264);
+
+  --color-fretboard: #102030;
+  --color-string: #3a5a75;
+  --color-fret: #16283a;
+  --color-fret-marker: #1a3040;
+  --color-text-primary: #e2e8f0;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #5c7285;
+
+  /* Dot states verified: root 12.58:1, scale 5.58:1, mode 6.43:1,
+     mode-root 7.95:1, freeform 7.82:1 (composited over #102030). */
+  --color-dot-root: #fbbf24;
+  --color-dot-scale: #818cf8;
+  --color-dot-mode: #f87171;
+  --color-dot-mode-root: #c084fc;
+  --color-dot-freeform: #2dd4bf;
+  --dot-text-root: #000000;
+  --dot-text-scale: #000000;
+  --dot-text-mode: #000000;
+  --dot-text-mode-root: #000000;
+  --dot-text-freeform: #000000;
+}
+
+/* Light-family (no .dark class — see themeStore.ts DARK_FAMILY_THEMES) */
+[data-theme="minimal"] {
+  --background: #f5f5f0;
+  --foreground: #1c1917;
+  --card: #fbfbf8;
+  --card-foreground: #1c1917;
+  --popover: #fdfdfb;
+  --popover-foreground: #1c1917;
+  --primary: oklch(0.55 0.21 293);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: #e7e7e0;
+  --secondary-foreground: #1c1917;
+  --muted: #ececE5;
+  --muted-foreground: #57534e;
+  --accent: oklch(0.82 0.18 75);
+  --accent-foreground: #1c1917;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: rgb(41 37 36 / 0.14);
+  --input: #e7e7e0;
+  --ring: oklch(0.55 0.21 293);
+
+  --signature-grad: linear-gradient(100deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
+  --glass-bar-bg: rgb(250 250 247 / 0.85);
+  --glass-panel-bg: rgb(248 248 244 / 0.86);
+  --glass-overlay-bg: rgb(253 253 251 / 0.85);
+  --glass-blur: 16px;
+  --glass-blur-strong: 24px;
+  --glass-border: rgb(41 37 36 / 0.16);
+  --glass-border-strong: rgb(38 33 32 / 0.26);
+  --glass-highlight: rgb(255 255 255 / 0.60);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.08);
+  --shadow-md: 0 4px 16px -2px oklch(0 0 0 / 0.14);
+  --shadow-lg: 0 16px 48px -10px oklch(0 0 0 / 0.18);
+  --glow-primary: 0 0 0 1px oklch(0.55 0.21 293 / 0.50), 0 0 16px oklch(0.55 0.21 293 / 0.25);
+  --glow-accent: 0 0 0 1px oklch(0.78 0.13 195 / 0.50), 0 0 16px oklch(0.78 0.13 195 / 0.22);
+
+  --chart-1: oklch(0.52 0.24 264);
+  --chart-2: oklch(0.82 0.18 75);
+  --chart-3: oklch(0.45 0.15 280);
+  --chart-4: oklch(0.7 0.14 75);
+  --chart-5: oklch(0.7 0.15 264);
+  --sidebar: #ececE5;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: oklch(0.52 0.24 264);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.82 0.18 75);
+  --sidebar-accent-foreground: oklch(0.1 0 0);
+  --sidebar-border: rgb(41 37 36 / 0.14);
+  --sidebar-ring: oklch(0.52 0.24 264);
+
+  --color-fretboard: #efefe8;
+  --color-string: #8a8578;
+  --color-fret: #ddddd2;
+  --color-fret-marker: #e4e4da;
+  --color-text-primary: #1c1917;
+  --color-text-secondary: #57534e;
+  --color-text-muted: #78716c;
+
+  /* Dot states verified: root 7.09:1, scale 6.92:1, mode 5.76:1,
+     mode-root 8.24:1, freeform 6.24:1 (composited over #efefe8). `mode` and
+     `freeform` were both changed from their first-draft seed hex during this
+     task's colour-blind audit: the UX-spec seed rose (#9f1239) sat too close
+     to root's amber (#92400e) under protanopia/deuteranopia simulation
+     (root-mode distance 28.2/18.8, below the ~30 distinguishability floor) —
+     moved to green (#166534), which clears >84 against both root and scale
+     under both simulations. `freeform` (originally a teal) still sits fairly
+     close to `scale`'s indigo under simulation (~22-24) after that change,
+     but freeform dots also render a dashed ring (FretDot.tsx) as a
+     non-colour cue, and freeform/scale don't co-occur as an ambiguous pair
+     the way root/scale/mode do — accepted as a documented residual. */
+  --color-dot-root: #92400e;
+  --color-dot-scale: #3730a3;
+  --color-dot-mode: #166534;
+  --color-dot-mode-root: #86198f;
+  --color-dot-freeform: #1e3a8a;
+  --dot-text-root: #ffffff;
+  --dot-text-scale: #ffffff;
+  --dot-text-mode: #ffffff;
+  --dot-text-mode-root: #ffffff;
+  --dot-text-freeform: #ffffff;
 }
 
 @layer base {
@@ -384,7 +711,11 @@
 @media (prefers-reduced-transparency: reduce) {
   :root,
   .dark,
-  [data-theme='dark'] {
+  [data-theme='dark'],
+  [data-theme='neon'],
+  [data-theme='mono'],
+  [data-theme='vibrant'],
+  [data-theme='minimal'] {
     --glass-border: var(--border);
     --glass-border-strong: var(--border);
   }

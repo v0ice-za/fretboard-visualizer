@@ -7,6 +7,7 @@ import { useFretboardStore } from '@/stores/fretboardStore';
 import { useUrlState } from '@/hooks/useUrlState';
 import { useSubscription, subscriptionQueryKey } from '@/hooks/useSubscription';
 import { useSessionSync } from '@/hooks/useSessionSync';
+import { useThemeGuard } from '@/hooks/useThemeGuard';
 import { useCustomTunings, resolveCustomTuningStrings } from '@/hooks/useCustomTunings';
 import { bootstrapAuth } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
@@ -17,6 +18,7 @@ export default function App() {
   useUrlState();
   useSubscription();
   useSessionSync();
+  useThemeGuard();
   const { data: customTunings } = useCustomTunings();
   // undefined for predefined tunings (FretboardCanvas falls back to its own by-name lookup),
   // pitch-class strings for a selected custom tuning.

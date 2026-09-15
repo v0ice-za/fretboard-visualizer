@@ -74,4 +74,28 @@ describe('ControlBar — account/auth', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/auth/logout');
     expect(removeSpy).toHaveBeenCalledWith({ queryKey: subscriptionQueryKey });
   });
+
+  describe('theme picker (Story 4.5)', () => {
+    it('the Account sheet includes the theme picker', async () => {
+      useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a@b.c', name: null } });
+      const user = userEvent.setup();
+      renderBar();
+
+      await user.click(screen.getByLabelText('Account'));
+      expect(await screen.findByText('Theme')).toBeInTheDocument();
+      expect(screen.getAllByRole('option')).toHaveLength(6);
+    });
+
+    it('clicking a locked premium theme in the Account sheet opens the paywall card', async () => {
+      useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a@b.c', name: null } });
+      useSubscriptionStore.setState({ isPremium: false });
+      const user = userEvent.setup();
+      renderBar();
+
+      await user.click(screen.getByLabelText('Account'));
+      await user.click(await screen.findByRole('option', { name: /Neon/ }));
+
+      expect(await screen.findByTestId('paywall-card')).toBeInTheDocument();
+    });
+  });
 });

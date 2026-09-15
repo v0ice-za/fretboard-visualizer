@@ -13,6 +13,8 @@ import { apiClient } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
 import { LoginModal } from '@/features/auth/LoginModal';
 import CustomTuningCreator from '@/features/settings/CustomTuningCreator';
+import ThemePicker from '@/features/settings/ThemePicker';
+import PaywallCard from '@/components/shared/PaywallCard';
 import { subscriptionQueryKey } from '@/hooks/useSubscription';
 import { useCustomTunings } from '@/hooks/useCustomTunings';
 import { useRenameTuning, useDeleteTuning } from '@/hooks/useTuningMutations';
@@ -81,6 +83,7 @@ export default function ControlBar() {
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [paywallAnchor, setPaywallAnchor] = useState<HTMLElement | null>(null);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -455,11 +458,18 @@ export default function ControlBar() {
             <SheetTitle>Account</SheetTitle>
             <SheetDescription>{user?.name ?? user?.email ?? ''}</SheetDescription>
           </SheetHeader>
+          <ThemePicker onPaywallTrigger={(el) => setPaywallAnchor(el)} />
           <Button variant="outline" onClick={handleLogout}>
             Log out
           </Button>
         </SheetContent>
       </Sheet>
+
+      <PaywallCard
+        open={!!paywallAnchor}
+        anchorEl={paywallAnchor}
+        onClose={() => setPaywallAnchor(null)}
+      />
     </div>
   );
 }
