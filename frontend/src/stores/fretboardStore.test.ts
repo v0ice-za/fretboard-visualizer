@@ -156,6 +156,35 @@ describe('toggleFreeformMark', () => {
   });
 });
 
+describe('chordRoot (diatonic chord root)', () => {
+  it('defaults to null', () => {
+    expect(useFretboardStore.getState().chordRoot).toBeNull();
+  });
+
+  it('setChordRoot updates chordRoot', () => {
+    useFretboardStore.getState().setChordRoot('D');
+    expect(useFretboardStore.getState().chordRoot).toBe('D');
+  });
+
+  it('setChordName(null) clears a previously-set chordRoot', () => {
+    useFretboardStore.getState().setChordName('Minor');
+    useFretboardStore.getState().setChordRoot('D');
+    useFretboardStore.getState().setChordName(null);
+    expect(useFretboardStore.getState().chordName).toBeNull();
+    expect(useFretboardStore.getState().chordRoot).toBeNull();
+  });
+
+  it('setChordName(name) resets a stale chordRoot (cross-feature leak guard)', () => {
+    // Simulate a diatonic chord left rooted at D, then picking a chord from the
+    // standard Chord tab — it must not inherit the leftover D root.
+    useFretboardStore.getState().setChordName('Minor');
+    useFretboardStore.getState().setChordRoot('D');
+    useFretboardStore.getState().setChordName('Major');
+    expect(useFretboardStore.getState().chordName).toBe('Major');
+    expect(useFretboardStore.getState().chordRoot).toBeNull();
+  });
+});
+
 describe('setFreeformModeActive', () => {
   it('sets freeformModeActive to true', () => {
     useFretboardStore.getState().setFreeformModeActive(true);

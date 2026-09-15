@@ -14,7 +14,7 @@ import { queryClient } from '@/lib/queryClient';
 import './App.css';
 
 export default function App() {
-  const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark, chordName } = useFretboardStore();
+  const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark, chordName, chordRoot } = useFretboardStore();
   useUrlState();
   useSubscription();
   useSessionSync();
@@ -56,6 +56,7 @@ export default function App() {
             freeformModeActive={freeformModeActive}
             noteNamesVisible={noteNamesVisible}
             chordName={chordName}
+            chordRoot={chordRoot}
             strings={resolvedStrings}
             onFretClick={(mark) => toggleFreeformMark(mark)}
           />

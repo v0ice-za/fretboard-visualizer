@@ -9,6 +9,7 @@ export const CHORDS = {
   'Diminished':     { intervals: [0, 3, 6] },
   'Augmented':      { intervals: [0, 4, 8] },
   'Diminished 7':   { intervals: [0, 3, 6, 9] },
+  'Minor 7♭5':      { intervals: [0, 3, 6, 10] },
   'Minor Major 7':  { intervals: [0, 3, 7, 11] },
   'Dominant 9':     { intervals: [0, 4, 7, 10, 14] },
 }

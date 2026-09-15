@@ -119,6 +119,21 @@ describe('LibraryPanel — desktop aside', () => {
     expect(screen.queryByText('Add chords to build a progression')).not.toBeInTheDocument()
   })
 
+  it('non-premium: the Diatonic tab is free — selects with no paywall', async () => {
+    const user = userEvent.setup()
+    useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
+    const { container } = renderPanel()
+    const aside = container.querySelector('aside')!
+    const inKeyTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+      (el) => el.textContent === 'Diatonic'
+    ) as HTMLElement
+    await user.click(inKeyTab)
+    expect(inKeyTab).toHaveAttribute('aria-selected', 'true')
+    expect(document.querySelector('[data-testid="paywall-card"]')).not.toBeInTheDocument()
+    // Default scale (Pentatonic Minor) is non-heptatonic → degrade note renders.
+    expect(screen.getByText(/needs a 7-note scale/i)).toBeInTheDocument()
+  })
+
   it('premium: the Progression tab renders the ProgressionBuilder', async () => {
     const user = userEvent.setup()
     useSubscriptionStore.setState({ isPremium: true })

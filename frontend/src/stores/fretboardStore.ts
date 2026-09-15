@@ -15,6 +15,7 @@ export interface FretboardState {
   noteNamesVisible: boolean;
   freeformModeActive: boolean;
   chordName: string | null;
+  chordRoot: string | null;
   setTuning: (tuning: string) => void;
   setRootNote: (rootNote: string) => void;
   setScaleName: (scaleName: string) => void;
@@ -25,6 +26,7 @@ export interface FretboardState {
   setNoteNamesVisible: (visible: boolean) => void;
   setFreeformModeActive: (active: boolean) => void;
   setChordName: (name: string | null) => void;
+  setChordRoot: (root: string | null) => void;
 }
 
 export const DEFAULT_FRETBOARD_STATE = {
@@ -37,6 +39,7 @@ export const DEFAULT_FRETBOARD_STATE = {
   noteNamesVisible: false,
   freeformModeActive: false,
   chordName: null as string | null,
+  chordRoot: null as string | null,
 };
 
 export const useFretboardStore = create<FretboardState>((set) => ({
@@ -64,5 +67,10 @@ export const useFretboardStore = create<FretboardState>((set) => ({
   setFreeformMarks: (marks) => set({ freeformMarks: marks.slice(0, 150) }),
   setNoteNamesVisible: (noteNamesVisible) => set({ noteNamesVisible }),
   setFreeformModeActive: (freeformModeActive) => set({ freeformModeActive }),
-  setChordName: (chordName) => set({ chordName }),
+  // Selecting/clearing a chord always resets chordRoot so a chord picked from the
+  // standard Chord tab never inherits a leftover diatonic root (cross-feature
+  // state-leak class from 4.4/4.5 reviews). The In-Key feature calls setChordRoot
+  // AFTER setChordName to root a diatonic chord at its own degree.
+  setChordName: (chordName) => set({ chordName, chordRoot: null }),
+  setChordRoot: (chordRoot) => set({ chordRoot }),
 }));

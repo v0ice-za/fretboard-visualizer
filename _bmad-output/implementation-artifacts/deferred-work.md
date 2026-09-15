@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of story-6.1 (2026-09-15)
+
+- Exotic heptatonic scales (Hungarian Minor, Double Harmonic, Persian, Arabic, Enigmatic, Lydian Dominant, Super Locrian) are not tested for producing only buildable triads in the `Diatonic` tab. The code degrades gracefully when a stacked-thirds interval set has no `CHORDS` match (`buildable: false` → disabled/greyed button, no crash), but there's no test proving which — if any — of these scales surface a non-buildable degree, nor a fuller chord vocabulary to cover them. Belongs with Story 6.2 (expanded chord library), which will both add the missing chord types and is the natural home for a matrix test across all heptatonic scales.
+
 ## Deferred from: code review of story-4.4 (2026-09-14)
 
 - `SessionService.upsert` does read-then-write with no locking (`findByUserId(...).orElseGet(...)` then `save(...)`). Two near-simultaneous autosave POSTs from the same user (e.g. two open tabs) can both see `Optional.empty()` and both attempt an insert, violating `saved_sessions.user_id`'s `UNIQUE` constraint and throwing an unhandled `DataIntegrityViolationException` instead of a clean `SessionException`. Narrow window (needs literal same-millisecond concurrent saves), but a real gap. Fix needs either `ON CONFLICT (user_id) DO UPDATE` at the SQL level or `@Version` optimistic locking with a retry — bigger than a review-cycle patch.

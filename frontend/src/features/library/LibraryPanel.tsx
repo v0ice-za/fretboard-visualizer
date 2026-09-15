@@ -6,17 +6,19 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import PaywallCard from '@/components/shared/PaywallCard'
 import ScaleLibrary from './ScaleLibrary'
 import ChordLibrary from './ChordLibrary'
+import ChordsInKey from './ChordsInKey'
 import ProgressionBuilder from './ProgressionBuilder'
 
-type Tab = 'scale' | 'chord' | 'progression'
+type Tab = 'scale' | 'chord' | 'inKey' | 'progression'
 
 const TAB_LABELS: Record<Tab, string> = {
   scale: 'Scales',
   chord: 'Chords',
+  inKey: 'Diatonic',
   progression: 'Progression',
 }
 
-const TAB_ORDER: Tab[] = ['scale', 'chord', 'progression']
+const TAB_ORDER: Tab[] = ['scale', 'chord', 'inKey', 'progression']
 
 /** Tab row with a sliding active indicator (Story 5.3 AC1) — measures the active
  * tab's own position/width so the highlight animates to it, instead of a static
@@ -94,6 +96,7 @@ export default function LibraryPanel() {
     <div className="flex-1 overflow-y-auto p-4">
       {activeTab === 'scale' && <ScaleLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
       {activeTab === 'chord' && <ChordLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
+      {activeTab === 'inKey' && <ChordsInKey />}
       {activeTab === 'progression' && isPremium && <ProgressionBuilder />}
     </div>
   )

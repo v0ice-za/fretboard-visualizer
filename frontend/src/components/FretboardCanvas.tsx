@@ -35,6 +35,9 @@ interface FretboardCanvasProps {
   freeformModeActive?: boolean;
   noteNamesVisible?: boolean;
   chordName?: string | null;
+  /** Root the active chord elsewhere than rootNote (diatonic chords each have their
+   *  own root — ii of C major = D). Falls back to rootNote when null/undefined. */
+  chordRoot?: string | null;
   /** Explicit pitch-class open strings (low→high), overriding the by-name TUNINGS lookup.
    *  Supplied for custom tunings (which aren't in TUNINGS) and the creator's live preview. */
   strings?: string[];
@@ -51,6 +54,7 @@ export default function FretboardCanvas({
   freeformModeActive = false,
   noteNamesVisible = false,
   chordName,
+  chordRoot,
   strings,
   onFretClick,
 }: FretboardCanvasProps) {
@@ -64,10 +68,10 @@ export default function FretboardCanvas({
   const dots = useMemo(() => {
     if (chordName) {
       const chord = (CHORDS as Record<string, { intervals: number[] }>)[chordName]
-      if (chord) return calculateChordDots(chord.intervals, rootNote, tuning, capoPosition, strings)
+      if (chord) return calculateChordDots(chord.intervals, chordRoot ?? rootNote, tuning, capoPosition, strings)
     }
     return calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex, strings)
-  }, [tuning, rootNote, scaleName, capoPosition, modeIndex, chordName, strings]);
+  }, [tuning, rootNote, scaleName, capoPosition, modeIndex, chordName, chordRoot, strings]);
 
   const freeformDots = useMemo(
     () => calculateFreeformDots(freeformMarks, tuning, capoPosition),
