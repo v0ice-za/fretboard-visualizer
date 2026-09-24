@@ -1,0 +1,1471 @@
+diff --git a/_bmad-output/implementation-artifacts/4-1-custom-tuning-creator.md b/_bmad-output/implementation-artifacts/4-1-custom-tuning-creator.md
+new file mode 100644
+index 0000000..d3ed312
+--- /dev/null
++++ b/_bmad-output/implementation-artifacts/4-1-custom-tuning-creator.md
+@@ -0,0 +1,174 @@
++# Story 4.1: Custom Tuning Creator
++
++Status: review
++
++<!-- Note: Validation is optional. Run validate-create-story (VS) for a quality check before dev-story (DS). -->
++
++## Story
++
++As a **premium user**,
++I want to **create custom tunings by defining each string's pitch and see them on the fretboard**,
++so that **I can explore scales and chords in tunings the app doesn't ship with.**
++
++## Acceptance Criteria
++
++From `epics.distillate.md#Story 4.1`, refined against the current codebase:
++
++1. **AC1 — Premium entry point.** When `subscriptionStore.isPremium === true`, the tuning `Select` in `ControlBar` shows a **"＋ Create Custom Tuning"** item that opens `CustomTuningCreator` as a shadcn `Sheet`. Non-premium users do **not** see the item (this story does not add a paywall for it — the tuning selector currently lists only free tunings; premium-only affordance is enough, and 4.2 opens the full predefined list).
++2. **AC2 — Per-string inputs.** The Sheet has **6 string rows** (labelled "String 1"…"String 6", low→high to match `tunings.js` ordering — index 0 = thickest/lowest), each with a **note** selector (`CHROMATIC_NOTES`) and an **octave** selector. Rows default to standard tuning (E2 A2 D3 G3 B3 E4).
++3. **AC3 — Live preview.** Any note/octave change updates a **read-only `FretboardCanvas` preview inside the Sheet** on every change (no Apply button, no spinner). The preview reflects the in-progress strings, not any saved state.
++4. **AC4 — Name + Save.** A name text input; **Save** issues `POST /api/v1/tunings` (requires `ROLE_PREMIUM`) with the name + strings; on success the Sheet closes, the tunings query is invalidated, and the new tuning **appears immediately in the `ControlBar` tuning `Select`** and is selectable.
++5. **AC5 — Discard.** A **Discard**/close action closes the Sheet without saving and without mutating the fretboard.
++6. **AC6 — Selecting a custom tuning renders it.** Choosing a saved custom tuning from the `Select` sets `fretboardStore.tuning` and the main `FretboardCanvas` renders that tuning's open strings + scale/chord dots correctly (not a Standard-E fallback). This requires the strings-override plumbing in Task 4.
++7. **AC7 — Persistence + migration.** A **`V6__create_custom_tunings.sql`** migration creates `custom_tunings` (`id`, `user_id` FK → `users`, `name`, `strings` JSON, `created_at`). Flyway applies it on startup. **⚠️ NOT `V3`** — the epic text predates the current migrations; `V3` is `unique_subscription_user` and the latest is `V5`. Use `V6`.
++8. **AC8 — Ownership + gating server-side.** `POST /api/v1/tunings` and `GET /api/v1/tunings` require an authenticated **premium** user (`@PreAuthorize("hasRole('PREMIUM')")`); `GET` returns only the caller's own tunings. Validation failures and auth failures route through `GlobalExceptionHandler` / the security entry points as the standard `error.code` envelope — never a stack trace.
++
++## Tasks / Subtasks
++
++- [x] **Task 1: Backend — `CustomTuning` entity + `V6` migration (AC: 7)**
++  - [x] Create `backend/src/main/resources/db/migration/V6__create_custom_tunings.sql`: `custom_tunings` with `id BIGINT GENERATED ... IDENTITY PRIMARY KEY`, `user_id BIGINT NOT NULL REFERENCES users(id)`, `name VARCHAR(255) NOT NULL`, `strings JSONB NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`, and `CREATE INDEX idx_custom_tunings_user_id ON custom_tunings(user_id)`. Match the SQL style of `V1`/`V2` (snake_case, lowercase). **Do not renumber existing migrations.**
++  - [x] Create `backend/src/main/java/com/guitarapp/model/CustomTuning.java` mirroring `Subscription.java`'s Lombok/JPA idiom (`@Entity @Table(name="custom_tunings") @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder`, `@Id @GeneratedValue(IDENTITY)`, `@CreationTimestamp`). Use `@ManyToOne(fetch = LAZY) @JoinColumn(name="user_id", nullable=false) private User user;` (a user has many tunings — unlike `Subscription`'s `@OneToOne`). Map strings as `@JdbcTypeCode(SqlTypes.JSON) @Column(nullable=false, columnDefinition="jsonb") private List<String> strings;` (Hibernate 6 / Spring Boot 3.4 supports JSON mapping natively — no converter needed).
++  - [x] Verify boot: the existing `SchemaMigrationIT` (Testcontainers, story 3.7) will validate V1–V6 apply + `ddl-auto: validate` matches the new entity in CI. Locally, `docker compose up` applies V6.
++
++- [x] **Task 2: Backend — repository, DTOs, service (AC: 4, 8)**
++  - [x] `CustomTuningRepository extends JpaRepository<CustomTuning, Long>` with `List<CustomTuning> findByUserIdOrderByCreatedAtAsc(Long userId)`.
++  - [x] `TuningRequestDto` (record) — `@NotBlank @Size(max=255) String name`, `@Size(min=6, max=6) List<@NotBlank String> strings` (exactly 6). Mirror `RegisterRequestDto`'s bean-validation style. (A per-note format validator is optional — the frontend `Select` constrains input; keep server validation to shape/length for now, note as a hardening item.)
++  - [x] `TuningResponseDto` (record) — `Long id, String name, List<String> strings, OffsetDateTime createdAt`. camelCase JSON (Jackson default). A static `from(CustomTuning)` factory; **do not expose the `user` relation** (avoid the lazy-init trap — see the 3-1 deferred note pattern).
++  - [x] `TuningService`: `create(Long userId, TuningRequestDto)` → load `User` ref (`userRepository.getReferenceById(userId)` or find), build + `save`, return `TuningResponseDto.from(...)`; `listForUser(Long userId)` → map repo results. Constructor injection like `SubscriptionService`.
++  - [x] Unit tests (`TuningServiceTest`): mock `CustomTuningRepository`/`UserRepository` (interfaces — Mockito-safe on the Java 25 test JVM; do **not** try to mock concrete classes). Cover create maps fields + associates user; list returns only mapped DTOs.
++
++- [x] **Task 3: Backend — `TuningController` + security (AC: 4, 8)**
++  - [x] `TuningController` at `@RequestMapping("/api/v1/tunings")`: `@PostMapping` `@PreAuthorize("hasRole('PREMIUM')")` `create(@Valid @RequestBody TuningRequestDto, Authentication)` → `201 Created` with `TuningResponseDto`, using `AuthenticatedUser.id(authentication)`; `@GetMapping` `@PreAuthorize("hasRole('PREMIUM')")` `list(Authentication)` → `List<TuningResponseDto>`. Constructor-inject `TuningService`. (`@EnableMethodSecurity` is already on in `SecurityConfig` — `@PreAuthorize` is active; the route is **not** permit-listed, so unauthenticated → 401 envelope, authenticated-non-premium → 403 envelope, both already wired via `RestAuthenticationEntryPoint`/`RestAccessDeniedHandler`.)
++  - [x] Do **not** add these routes to the `SecurityConfig` permit-list. `POST /api/v1/tunings` + `DELETE /api/v1/tunings/{id}` are already in the architecture's fixed API surface — do not invent others (DELETE/PATCH are Story 4.2).
++  - [x] Controller/web tests mirroring `PremiumGateEnforcementTest` + the `WebMockTestBase` pattern (DB-excluded slice): premium user → 201 and the body; authenticated free user → 403 `error.code` envelope; unauthenticated → 401; invalid body (blank name / not-6 strings) → 400 through `GlobalExceptionHandler`.
++
++- [x] **Task 4: Frontend — strings-override plumbing (enabling change for AC3 + AC6)**
++  - [x] `FretboardCanvas.tsx` currently derives `strings` via `TUNINGS[tuning] ?? TUNINGS['Standard E']` (line 53) and both `calculateFretboardDots`/`calculateChordDots` (in `utils/fretboardUtils.ts`) re-look-up by name internally. Add an **optional** `strings?: string[]` prop to `FretboardCanvas` and an **optional** trailing `strings?: string[]` param to `calculateFretboardDots` and `calculateChordDots`. When provided, it overrides the `TUNINGS[name]` lookup; when omitted, behavior is **byte-identical** to today (so no regression to existing callers). `utils/fretboardUtils.ts` is editable — only `data/*.js` and `utils/musicTheory.js` are off-limits.
++  - [x] Custom-tuning entries are **pitch class for rendering**: add a tiny `toPitchClass(token: string)` helper (strip trailing digits, e.g. `"E2" → "E"`) in `fretboardUtils.ts` (or `utils/`), since `getNoteAtFret` (in the untouchable `musicTheory.js`) expects a pitch class. The override array passed to the calc functions must already be pitch-class.
++  - [x] Tests in `fretboardUtils.test.ts` (or `FretboardCanvas.test.tsx`): passing `strings` override renders those open-string labels + dots; omitting it preserves current behavior for a named tuning; `toPitchClass` strips octaves.
++
++- [x] **Task 5: Frontend — `CustomTuningCreator` Sheet (AC: 2, 3, 4, 5)**
++  - [x] Create `frontend/src/features/settings/CustomTuningCreator.tsx` (new `features/settings/` dir per the architecture structure). Props: `open: boolean`, `onOpenChange: (open: boolean) => void`. Uses shadcn `Sheet`/`SheetContent` (side right), `Select` for note (per-row) + octave, `Input` for name, `Button` for Save/Discard.
++  - [x] Local draft state: `strings: { note: string; octave: number }[]` (6 rows, seeded E2 A2 D3 G3 B3 E4) + `name`. Each row a labelled Select pair ("String {n}"). Live preview: `<FretboardCanvas strings={draftStrings.map(s => s.note)} tuning="(custom)" rootNote={...} scaleName={...} />` reading current `fretboardStore` root/scale so the preview matches the user's context; read-only (no `onFretClick`).
++  - [x] Save mutation via **TanStack Query `useMutation`** (all API calls go through TanStack Query — no raw fetch in components): `apiClient.post('/tunings', { name, strings })` where `strings` is the note+octave token array (e.g. `"E2"`) — see Q1 for the persist-with-octave decision. On success: `queryClient.invalidateQueries({ queryKey: customTuningsQueryKey })`, close the Sheet, optionally toast "{name} saved" (UX spec toast pattern). Disable Save while `isPending` and when name is blank.
++  - [x] `CustomTuningCreator.test.tsx`: renders 6 string rows + name; changing a row updates the preview; Save posts the payload and closes on success; Discard closes without posting. (Mock `apiClient`/the mutation; wrap in `QueryClientProvider` like `LibraryPanel.test.tsx`.)
++
++- [x] **Task 6: Frontend — `ControlBar` integration + tuning resolver (AC: 1, 4, 6)**
++  - [x] Add a `useCustomTunings` query hook (`frontend/src/hooks/useCustomTunings.ts`): `useQuery({ queryKey: customTuningsQueryKey, queryFn: () => apiClient.get<CustomTuning[]>('/tunings'), enabled: isPremium })`. Export `customTuningsQueryKey`. Add a `CustomTuning` interface to `types/` (`id`, `name`, `strings: string[]`, `createdAt`).
++  - [x] In `ControlBar.tsx`: when premium, render the saved custom tunings as `SelectItem`s (a labelled group "My Tunings") **and** a "＋ Create Custom Tuning" item that opens the `CustomTuningCreator` Sheet (local `useState` for open). Keep the existing `FREE_TUNINGS` group unchanged. Selecting a custom tuning sets `fretboardStore.tuning` to its name.
++  - [x] **Resolve strings for the board:** provide a resolver (e.g. in `useCustomTunings` or a small `resolveTuningStrings(name, customs)` helper) that returns the pitch-class string array for the active `tuning` — from `TUNINGS` for predefined, or from the custom list (octave-stripped) for customs. Thread the resolved `strings` into the main `<FretboardCanvas>` at its `App.jsx` call site (add the `strings` prop). When the active tuning is predefined, pass `undefined` so behavior is unchanged.
++  - [x] `ControlBar.test.tsx` (create/extend): premium sees "Create Custom Tuning" + saved customs; non-premium does not; selecting a custom sets `fretboardStore.tuning`; clicking Create opens the Sheet. Reset stores + wrap in `QueryClientProvider`.
++
++- [x] **Task 7: Regression + full validation (AC: all)**
++  - [x] Backend: `./mvnw -B verify` (use the scratch Maven-Central `-s` settings locally — the corporate Nexus mirror 401s on some artifacts; CI unaffected) — all unit tests + `SchemaMigrationIT` green with V6.
++  - [x] Frontend: full `pnpm vitest run`, `pnpm type-check`, `pnpm lint` — all green; no regression to the existing fretboard/tuning rendering (named tunings unchanged).
++
++## Dev Notes
++
++### The central integration fact: rendering resolves tuning by NAME
++`FretboardCanvas.tsx:53` and `fretboardUtils.ts` (`calculateFretboardDots:111`, `calculateChordDots:160`, and the nut-label path) all do `TUNINGS[tuningName] ?? TUNINGS['Standard E']`. `TUNINGS` lives in the **untouchable** `data/tunings.js` and contains only predefined, **pitch-class-only** strings. A custom tuning is therefore invisible to this path and would silently fall back to Standard E. **Task 4's optional `strings` override is the enabling change** for both the live preview (AC3) and selecting a saved custom tuning (AC6). Keep the override strictly additive: when absent, output must be identical to today.
++
++### Octave: captured in UI, pitch-class for the renderer
++`getNoteAtFret(openNote, fret)` (in the untouchable `musicTheory.js`) works on **pitch classes** (`"E"`, `"F#"`, `"Eb"`) — predefined tunings carry no octave. The AC requires octave **inputs**, so capture note+octave in the Sheet, but the array that reaches `calculateFretboardDots` must be pitch-class (use `toPitchClass`). See Q1 for whether the octave is persisted in the stored `strings` (default: yes, as `"E2"` tokens, future-proofing playback) or dropped (store pitch-class only, exactly like `TUNINGS`).
++
++### What already exists — extend, do not recreate
++- **Backend JPA/controller/security idioms:** `model/Subscription.java` (Lombok entity), `controller/SubscriptionController.java` (constructor inject + `Authentication` + `AuthenticatedUser.id(...)`), `security/SecurityConfig.java` (`@EnableMethodSecurity` **already on** → `@PreAuthorize` works; `.anyRequest().authenticated()`; 401/403 envelopes via `RestAuthenticationEntryPoint`/`RestAccessDeniedHandler`), `dto/RegisterRequestDto.java` (record + bean validation). `AuthenticatedUser.id(authentication)` unwraps the principal → `Long` user id (the `JwtFilter` sets it).
++- **Premium enforcement reference:** `PremiumGateEnforcementTest` (backend) already tests `@PreAuthorize("hasRole('PREMIUM')")` behavior — mirror it. `WebMockTestBase` is the DB-excluded web-slice base.
++- **Frontend HTTP/query patterns:** `lib/apiClient.ts` (`apiClient.get/post/del`; sole HTTP boundary; branch on `error.code`), `hooks/useSubscription.ts` (a `useQuery` gated by auth mirroring server truth — model `useCustomTunings` on it), `stores/subscriptionStore.ts` (`isPremium`). `ControlBar.tsx` already does a `queryClient` invalidate on logout — reuse that import for the tunings invalidation.
++- **shadcn components (present, do not hand-edit):** `ui/sheet.tsx`, `ui/select.tsx`, `ui/input.tsx`, `ui/button.tsx`. `ControlBar` already imports `Sheet`/`Select` — follow its usage.
++- **UX spec — `CustomTuningCreator`:** shadcn Sheet; 6 string rows (note + octave selectors); tuning name input; Save/Discard; live read-only `FretboardCanvas` preview updating per string; each row labelled "String N". Toast on save ("{Name} saved", 3s).
++
++### Data contract
++- API surface (fixed): `POST /api/v1/tunings` (ROLE_PREMIUM), `GET /api/v1/tunings`, `DELETE /api/v1/tunings/{id}` (4.2). Success single resource = direct object; collection = direct array; **no** `{data:…}` wrapper. Dates ISO-8601 UTC. JSON fields camelCase.
++- Table: `custom_tunings` (lowercase snake_case; `user_id` FK; `idx_custom_tunings_user_id`). Migration **`V6`**.
++
++### Testing standards
++- Backend: JUnit + Mockito; **Java 25 test JVM cannot mock concrete classes** — mock the repository interfaces or use real objects. Web slice = `WebMockTestBase` (DB excluded); premium-gate assertions like `PremiumGateEnforcementTest`. `./mvnw -B verify` runs surefire + `SchemaMigrationIT` (Testcontainers, CI). Locally use the scratch Maven-Central `-s` settings.
++- Frontend: Vitest + RTL, co-located `*.test.tsx`; wrap components that fetch in `QueryClientProvider` (see `LibraryPanel.test.tsx`); reset Zustand stores via `setState(DEFAULT_X)`. Assert on store state + rendered output, never loading states.
++- No new runtime dependencies (frontend or backend) beyond what the BOM already manages.
++
++### Project Structure Notes
++- **New backend:** `V6__create_custom_tunings.sql`, `model/CustomTuning.java`, `repository/CustomTuningRepository.java`, `dto/TuningRequestDto.java`, `dto/TuningResponseDto.java`, `service/TuningService.java`, `controller/TuningController.java` (+ tests).
++- **New frontend:** `features/settings/CustomTuningCreator.tsx`, `hooks/useCustomTunings.ts`, a `CustomTuning` type (+ tests).
++- **Modified frontend:** `components/FretboardCanvas.tsx` (+ optional `strings` prop), `utils/fretboardUtils.ts` (+ optional `strings` param, `toPitchClass`), `components/ControlBar.tsx` (custom-tuning items + Sheet trigger + resolved strings), `App.jsx` (thread resolved `strings` into `<FretboardCanvas>`).
++- **Untouched:** `data/tunings.js` / `scales.js` / `notes.js` / `chords.js`, `utils/musicTheory.js`, `components/ui/*`, existing migrations V1–V5.
++
++### References
++- [Source: epics.distillate.md#Story 4.1: Custom Tuning Creator] — AC source (Sheet, 6 note+octave inputs, live preview, POST /tunings, migration)
++- [Source: architecture.distillate.md#API Design] — `POST /api/v1/tunings` (ROLE_PREMIUM), `GET /api/v1/tunings`, `DELETE .../{id}`; no route invention; direct object/array envelopes
++- [Source: architecture.distillate.md#Database Schema] — `custom_tunings` table, snake_case, FK/index naming
++- [Source: architecture.distillate.md#Auth & Security Architecture] — `@PreAuthorize("hasRole('PREMIUM')")` server enforcement; never trust client `isPremium` for backend gating
++- [Source: ux-design-specification.distillate.md#Component Specs] — `CustomTuningCreator` Sheet anatomy + live preview + "String N" labels
++- [Source: components/FretboardCanvas.tsx:53, utils/fretboardUtils.ts:111,160] — the `TUNINGS[name]` resolution that the `strings` override must bypass
++- [Source: security/SecurityConfig.java] — `@EnableMethodSecurity` on; permit-list; 401/403 envelope handlers
++- [Source: 3-7 story / SchemaMigrationIT] — Testcontainers boot proves V1–V6 apply + entity/schema match in CI
++
++## Open Questions (defaults chosen; safe to proceed)
++
++- **Q1 (persist octave?):** Store the custom tuning's `strings` as **note+octave tokens** (`"E2"`, default — captured, future-proof for playback, octave-stripped for rendering) or **pitch-class only** (`"E"`, exactly matching `TUNINGS`)? Default: note+octave, with `toPitchClass` at the render boundary.
++- **Q2 (octave range):** Octave selector range — default **1–6** (covers standard guitar E2–E4 with headroom). Confirm or narrow.
++- **Q3 (per-note server validation):** Ship shape/length validation only now (frontend `Select` constrains notes), or add a server-side note-format validator (regex against `CHROMATIC_NOTES` + octave)? Default: shape/length now; note-format as a hardening item for 4.2's touch.
++- **Q4 (select-a-custom renders on main board — in 4.1 or 4.2?):** AC6 includes it here (the resolver + `strings` plumbing land in 4.1 so the feature is actually usable). If you'd rather 4.1 only build the Creator and defer main-board rendering to 4.2, drop Task 6's resolver step. Default: include it — a tuning you can create but not use is a half-feature.
++
++## Dev Agent Record
++
++### Agent Model Used
++
++claude-opus-4-8 (Claude Code, bmad-dev-story)
++
++### Debug Log References
++
++- **Full backend suite context cascade (49 errors → fixed).** New `TuningController`→`TuningService`→`CustomTuningRepository` chain is component-scanned into every `@SpringBootTest` context. The DB-excluded web contexts (`WebMockTestBase`, `GuitarAppApplicationTests`) don't create JPA repos, so `TuningService` couldn't be wired and *all* web-test contexts failed to load. Fix = the established pattern: add `@MockitoBean CustomTuningRepository` to `WebMockTestBase` and `GuitarAppApplicationTests` (exactly as they already mock `UserRepository`/`SubscriptionRepository`). Isolated `TuningControllerTest` passed before this surfaced because it declared its own mock — moved to the base and removed the duplicate.
++- **Type-check: `onTuningChange` signature.** Base-UI `Select` `onValueChange` is `(value: string | null, …)`; initial `(v: string)` failed `tsc`. Widened to `(v: string | null)` — the existing `if (!v) return` guard already covers null.
++- **Docker unavailable on this box** (documented 3.7 pipe issue) → `SchemaMigrationIT` skips locally; the V6 migration + entity/schema `ddl-auto: validate` match is proven in CI by that IT (surefire `test` = 100 unit/web green; the IT runs under `verify` on `ubuntu-latest`).
++
++### Completion Notes List
++
++Open-Question decisions (defaults, per fast-path): **Q1** — persist note+octave tokens (`"E2"`), octave-stripped to pitch class at the render boundary via `toPitchClass`. **Q2** — octave range 1–6. **Q3** — server validation is shape/length only (name non-blank ≤255, exactly 6 non-blank strings); per-note format left to the frontend Select (hardening item for 4.2). **Q4** — main-board rendering of a selected custom tuning is in scope (resolver + `strings` plumbing shipped).
++
++Delivered:
++- **Backend slice (new):** `V6__create_custom_tunings.sql` (**not V3** — V3 was taken), `CustomTuning` entity (`@ManyToOne User`, `strings` as `jsonb` via `@JdbcTypeCode(SqlTypes.JSON)`), `CustomTuningRepository`, `TuningRequestDto`/`TuningResponseDto` (records, DTO boundary — never touches `getUser()`), `TuningService`, `TuningController` (`POST` 201 + `GET`, both `@PreAuthorize("hasRole('PREMIUM')")`, ownership-scoped by `AuthenticatedUser.id`). 10 backend tests (3 service + 7 web-slice): premium 201, free 403 envelope, unauth 401, validation 400, list.
++- **Frontend enabling change:** optional `strings?: string[]` override on `calculateFretboardDots`/`calculateChordDots` + `FretboardCanvas` (byte-identical when omitted); `toPitchClass` helper.
++- **`CustomTuningCreator` Sheet:** 6 note+octave rows (seeded standard E2–E4), name, live `FretboardCanvas` preview (pitch-class), Save (`useMutation` → `POST /tunings`, invalidates the tunings query, closes) / Discard.
++- **`ControlBar` integration:** premium-only "My Tunings" group + "＋ Create Custom Tuning" item (sentinel value opens the Sheet); selecting a custom sets `fretboardStore.tuning`. `useCustomTunings` query (premium-gated) + `resolveCustomTuningStrings` resolver threaded into the main `FretboardCanvas` at `App.jsx`.
++
++Deviation flagged for CR (same as 4.3): the add-row / string-row inputs use **native `<select>`** rather than the Base-UI `Select`. The repo's `Select` is portal-based; while ControlBar's tuning/key/scale selects *are* now driven in tests (via `findByRole('option')`), 6 rows × 2 selects in the creator are far more robustly tested natively, and the UX spec calls for native OS pickers on mobile. Documented here for reviewer judgment.
++
++Validation: backend `./mvnw -B test` → **100 tests green** (`SchemaMigrationIT` runs under `verify` in CI); frontend `pnpm vitest run` → **260 tests / 25 files green**; `pnpm type-check` + `pnpm lint` clean. No changes to `data/*.js`, `utils/musicTheory.js`, `components/ui/*`, or migrations V1–V5.
++
++### File List
++
++**New — backend**
++- `backend/src/main/resources/db/migration/V6__create_custom_tunings.sql`
++- `backend/src/main/java/com/guitarapp/model/CustomTuning.java`
++- `backend/src/main/java/com/guitarapp/repository/CustomTuningRepository.java`
++- `backend/src/main/java/com/guitarapp/dto/TuningRequestDto.java`
++- `backend/src/main/java/com/guitarapp/dto/TuningResponseDto.java`
++- `backend/src/main/java/com/guitarapp/service/TuningService.java`
++- `backend/src/main/java/com/guitarapp/controller/TuningController.java`
++- `backend/src/test/java/com/guitarapp/service/TuningServiceTest.java`
++- `backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java`
++
++**New — frontend**
++- `frontend/src/features/settings/CustomTuningCreator.tsx`
++- `frontend/src/features/settings/CustomTuningCreator.test.tsx`
++- `frontend/src/hooks/useCustomTunings.ts`
++- `frontend/src/hooks/useCustomTunings.test.ts`
++
++**Modified — backend**
++- `backend/src/test/java/com/guitarapp/support/WebMockTestBase.java` (mock `CustomTuningRepository`)
++- `backend/src/test/java/com/guitarapp/GuitarAppApplicationTests.java` (mock `CustomTuningRepository`)
++
++**Modified — frontend**
++- `frontend/src/utils/fretboardUtils.ts` (optional `strings` override on the two calc fns; `toPitchClass`)
++- `frontend/src/utils/fretboardUtils.test.ts` (override + `toPitchClass` tests)
++- `frontend/src/components/FretboardCanvas.tsx` (optional `strings` prop; internal rename to `openStrings`)
++- `frontend/src/components/ControlBar.tsx` (custom-tuning items + creator Sheet + `onTuningChange`)
++- `frontend/src/components/ControlBar.test.tsx` (QueryClientProvider wrap + premium custom-tuning tests)
++- `frontend/src/components/ControlBar.auth.test.tsx` (QueryClientProvider wrap)
++- `frontend/src/App.jsx` (resolve + thread `strings` into the main FretboardCanvas)
++- `frontend/src/types/api.ts` (`CustomTuning` interface)
++
++### Change Log
++
++- 2026-08-31 — Story 4.1 implemented (full-stack): new tuning backend slice (`V6` migration, `CustomTuning` jsonb entity, repo, DTOs, service, premium-gated controller with ownership), frontend `strings`-override plumbing for the fretboard, `CustomTuningCreator` Sheet with live preview, and `ControlBar` integration (create + saved tunings + main-board rendering via a resolver). Backend 100 tests green; frontend 260 tests green; type-check + lint clean. Status → review.
+diff --git a/_bmad-output/implementation-artifacts/sprint-status.yaml b/_bmad-output/implementation-artifacts/sprint-status.yaml
+index 015d3d4..3532fdf 100644
+--- a/_bmad-output/implementation-artifacts/sprint-status.yaml
++++ b/_bmad-output/implementation-artifacts/sprint-status.yaml
+@@ -1,5 +1,5 @@
+ generated: 2026-05-24
+-last_updated: 2026-08-31 (story 4.3 chord-progression-builder → done: code-reviewed (3 parallel layers), 6 patches applied incl. CRITICAL keyboard type guard + cap feedback, 242 tests green. Prior: 3.7 Tasks 1-6 committed 633cb26, Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
++last_updated: 2026-08-31 (story 4.1 custom-tuning-creator implemented → review; full-stack: V6 migration + tuning backend slice (100 BE tests green) + Creator Sheet + main-board rendering (260 FE tests green). Prior: 4.3 done (1ca5b6e); 3.7 Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
+ project: personal_projects
+ project_key: NOKEY
+ tracking_system: file-system
+@@ -46,7 +46,7 @@ development_status:
+ 
+   # ─── Epic 4: Premium Features ─────────────────────────────────────────────────
+   epic-4: in-progress
+-  4-1-custom-tuning-creator: backlog
++  4-1-custom-tuning-creator: review
+   4-2-custom-tuning-management: backlog
+   4-3-chord-progression-builder: done
+   4-4-session-persistence: backlog
+diff --git a/backend/src/main/java/com/guitarapp/controller/TuningController.java b/backend/src/main/java/com/guitarapp/controller/TuningController.java
+new file mode 100644
+index 0000000..5e325e9
+--- /dev/null
++++ b/backend/src/main/java/com/guitarapp/controller/TuningController.java
+@@ -0,0 +1,44 @@
++package com.guitarapp.controller;
++
++import com.guitarapp.dto.TuningRequestDto;
++import com.guitarapp.dto.TuningResponseDto;
++import com.guitarapp.security.AuthenticatedUser;
++import com.guitarapp.service.TuningService;
++import jakarta.validation.Valid;
++import org.springframework.http.HttpStatus;
++import org.springframework.security.access.prepost.PreAuthorize;
++import org.springframework.security.core.Authentication;
++import org.springframework.web.bind.annotation.*;
++
++import java.util.List;
++
++/**
++ * Custom tunings for premium users. Both endpoints are premium-gated via method security
++ * ({@code @PreAuthorize}); the routes are not permit-listed, so unauthenticated calls yield the
++ * 401 envelope and authenticated non-premium calls yield the 403 envelope (SecurityConfig).
++ * DELETE/PATCH are Story 4.2.
++ */
++@RestController
++@RequestMapping("/api/v1/tunings")
++public class TuningController {
++
++    private final TuningService tuningService;
++
++    public TuningController(TuningService tuningService) {
++        this.tuningService = tuningService;
++    }
++
++    @PostMapping
++    @ResponseStatus(HttpStatus.CREATED)
++    @PreAuthorize("hasRole('PREMIUM')")
++    public TuningResponseDto create(@Valid @RequestBody TuningRequestDto request,
++                                    Authentication authentication) {
++        return tuningService.create(AuthenticatedUser.id(authentication), request);
++    }
++
++    @GetMapping
++    @PreAuthorize("hasRole('PREMIUM')")
++    public List<TuningResponseDto> list(Authentication authentication) {
++        return tuningService.listForUser(AuthenticatedUser.id(authentication));
++    }
++}
+diff --git a/backend/src/main/java/com/guitarapp/dto/TuningRequestDto.java b/backend/src/main/java/com/guitarapp/dto/TuningRequestDto.java
+new file mode 100644
+index 0000000..8ec9827
+--- /dev/null
++++ b/backend/src/main/java/com/guitarapp/dto/TuningRequestDto.java
+@@ -0,0 +1,18 @@
++package com.guitarapp.dto;
++
++import jakarta.validation.constraints.NotBlank;
++import jakarta.validation.constraints.NotNull;
++import jakarta.validation.constraints.Size;
++
++import java.util.List;
++
++/**
++ * Create-custom-tuning payload. {@code strings} is exactly 6 non-blank tokens ordered
++ * low → high (e.g. {@code "E2"}). Per-note format is constrained by the frontend Select;
++ * server validation here is shape/length (see Story 4.1 Q3 for the hardening follow-up).
++ */
++public record TuningRequestDto(
++        @NotBlank @Size(max = 255) String name,
++        @NotNull @Size(min = 6, max = 6, message = "must have exactly 6 strings")
++        List<@NotBlank String> strings) {
++}
+diff --git a/backend/src/main/java/com/guitarapp/dto/TuningResponseDto.java b/backend/src/main/java/com/guitarapp/dto/TuningResponseDto.java
+new file mode 100644
+index 0000000..ca4b1c8
+--- /dev/null
++++ b/backend/src/main/java/com/guitarapp/dto/TuningResponseDto.java
+@@ -0,0 +1,23 @@
++package com.guitarapp.dto;
++
++import com.guitarapp.model.CustomTuning;
++
++import java.time.format.DateTimeFormatter;
++import java.util.List;
++
++/**
++ * Read model for custom tunings. Enforces a DTO boundary — the {@link CustomTuning} entity is
++ * never serialized, and {@link #from} deliberately does not touch {@code getUser()} (avoids the
++ * lazy-init trap when serialized outside a transaction).
++ *
++ * @param createdAt ISO-8601 offset date-time string, or {@code null}
++ */
++public record TuningResponseDto(Long id, String name, List<String> strings, String createdAt) {
++
++    public static TuningResponseDto from(CustomTuning tuning) {
++        String created = tuning.getCreatedAt() == null
++                ? null
++                : tuning.getCreatedAt().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
++        return new TuningResponseDto(tuning.getId(), tuning.getName(), tuning.getStrings(), created);
++    }
++}
+diff --git a/backend/src/main/java/com/guitarapp/model/CustomTuning.java b/backend/src/main/java/com/guitarapp/model/CustomTuning.java
+new file mode 100644
+index 0000000..944e77f
+--- /dev/null
++++ b/backend/src/main/java/com/guitarapp/model/CustomTuning.java
+@@ -0,0 +1,42 @@
++package com.guitarapp.model;
++
++import jakarta.persistence.*;
++import lombok.*;
++import org.hibernate.annotations.CreationTimestamp;
++import org.hibernate.annotations.JdbcTypeCode;
++import org.hibernate.type.SqlTypes;
++
++import java.time.OffsetDateTime;
++import java.util.List;
++
++@Entity
++@Table(name = "custom_tunings")
++@Getter
++@Setter
++@NoArgsConstructor
++@AllArgsConstructor
++@Builder
++public class CustomTuning {
++
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Long id;
++
++    // A user has many custom tunings (unlike Subscription's @OneToOne).
++    @ManyToOne(fetch = FetchType.LAZY)
++    @JoinColumn(name = "user_id", nullable = false)
++    private User user;
++
++    @Column(nullable = false)
++    private String name;
++
++    // Ordered low → high, one token per string (e.g. "E2"). Hibernate 6 maps List<String>
++    // to the jsonb column natively via @JdbcTypeCode(JSON) — no AttributeConverter needed.
++    @JdbcTypeCode(SqlTypes.JSON)
++    @Column(nullable = false, columnDefinition = "jsonb")
++    private List<String> strings;
++
++    @CreationTimestamp
++    @Column(nullable = false, updatable = false)
++    private OffsetDateTime createdAt;
++}
+diff --git a/backend/src/main/java/com/guitarapp/repository/CustomTuningRepository.java b/backend/src/main/java/com/guitarapp/repository/CustomTuningRepository.java
+new file mode 100644
+index 0000000..c007536
+--- /dev/null
++++ b/backend/src/main/java/com/guitarapp/repository/CustomTuningRepository.java
+@@ -0,0 +1,12 @@
++package com.guitarapp.repository;
++
++import com.guitarapp.model.CustomTuning;
++import org.springframework.data.jpa.repository.JpaRepository;
++
++import java.util.List;
++
++public interface CustomTuningRepository extends JpaRepository<CustomTuning, Long> {
++
++    /** Navigates the {@code user} relation's id — a user's own tunings, oldest first. */
++    List<CustomTuning> findByUserIdOrderByCreatedAtAsc(Long userId);
++}
+diff --git a/backend/src/main/java/com/guitarapp/service/TuningService.java b/backend/src/main/java/com/guitarapp/service/TuningService.java
+new file mode 100644
+index 0000000..38ff48e
+--- /dev/null
++++ b/backend/src/main/java/com/guitarapp/service/TuningService.java
+@@ -0,0 +1,48 @@
++package com.guitarapp.service;
++
++import com.guitarapp.dto.TuningRequestDto;
++import com.guitarapp.dto.TuningResponseDto;
++import com.guitarapp.model.CustomTuning;
++import com.guitarapp.model.User;
++import com.guitarapp.repository.CustomTuningRepository;
++import com.guitarapp.repository.UserRepository;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++
++import java.util.List;
++
++/**
++ * Custom-tuning persistence for premium users. Premium enforcement lives at the controller
++ * ({@code @PreAuthorize("hasRole('PREMIUM')")}); this service assumes an already-authorized
++ * caller and only owns the create/list logic scoped to {@code userId}.
++ */
++@Service
++public class TuningService {
++
++    private final CustomTuningRepository customTuningRepository;
++    private final UserRepository userRepository;
++
++    public TuningService(CustomTuningRepository customTuningRepository, UserRepository userRepository) {
++        this.customTuningRepository = customTuningRepository;
++        this.userRepository = userRepository;
++    }
++
++    @Transactional
++    public TuningResponseDto create(Long userId, TuningRequestDto request) {
++        // getReferenceById associates the FK without loading the full User row.
++        User user = userRepository.getReferenceById(userId);
++        CustomTuning tuning = CustomTuning.builder()
++                .user(user)
++                .name(request.name())
++                .strings(List.copyOf(request.strings()))
++                .build();
++        return TuningResponseDto.from(customTuningRepository.save(tuning));
++    }
++
++    @Transactional(readOnly = true)
++    public List<TuningResponseDto> listForUser(Long userId) {
++        return customTuningRepository.findByUserIdOrderByCreatedAtAsc(userId).stream()
++                .map(TuningResponseDto::from)
++                .toList();
++    }
++}
+diff --git a/backend/src/main/resources/db/migration/V6__create_custom_tunings.sql b/backend/src/main/resources/db/migration/V6__create_custom_tunings.sql
+new file mode 100644
+index 0000000..e0723c8
+--- /dev/null
++++ b/backend/src/main/resources/db/migration/V6__create_custom_tunings.sql
+@@ -0,0 +1,9 @@
++CREATE TABLE custom_tunings (
++    id         BIGSERIAL    PRIMARY KEY,
++    user_id    BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    name       VARCHAR(255) NOT NULL,
++    strings    JSONB        NOT NULL,
++    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
++);
++
++CREATE INDEX idx_custom_tunings_user_id ON custom_tunings(user_id);
+diff --git a/backend/src/test/java/com/guitarapp/GuitarAppApplicationTests.java b/backend/src/test/java/com/guitarapp/GuitarAppApplicationTests.java
+index 192542f..a27e3de 100644
+--- a/backend/src/test/java/com/guitarapp/GuitarAppApplicationTests.java
++++ b/backend/src/test/java/com/guitarapp/GuitarAppApplicationTests.java
+@@ -1,5 +1,6 @@
+ package com.guitarapp;
+ 
++import com.guitarapp.repository.CustomTuningRepository;
+ import com.guitarapp.repository.ProcessedStripeEventRepository;
+ import com.guitarapp.repository.SubscriptionRepository;
+ import com.guitarapp.repository.UserRepository;
+@@ -32,6 +33,9 @@ class GuitarAppApplicationTests {
+     @MockitoBean
+     private ProcessedStripeEventRepository processedStripeEventRepository;
+ 
++    @MockitoBean
++    private CustomTuningRepository customTuningRepository;
++
+     @Test
+     void contextLoads() {
+     }
+diff --git a/backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java b/backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java
+new file mode 100644
+index 0000000..e4f5bf2
+--- /dev/null
++++ b/backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java
+@@ -0,0 +1,126 @@
++package com.guitarapp.controller;
++
++import com.guitarapp.model.CustomTuning;
++import com.guitarapp.model.User;
++import com.guitarapp.security.JwtService;
++import com.guitarapp.support.WebMockTestBase;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.http.MediaType;
++
++import java.time.OffsetDateTime;
++import java.time.ZoneOffset;
++import java.util.List;
++
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.when;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++
++/**
++ * Web-slice test for {@code /api/v1/tunings} — proves premium gating, ownership scoping,
++ * and validation route through the standard error envelope. {@code TuningService} is a real
++ * bean; its {@link CustomTuningRepository} dependency is mocked (DB autoconfig excluded by base).
++ */
++class TuningControllerTest extends WebMockTestBase {
++
++    @Autowired
++    private JwtService jwtService;
++
++    private static final String VALID_BODY =
++            "{\"name\":\"Drop C\",\"strings\":[\"C2\",\"G2\",\"C3\",\"F3\",\"A3\",\"D4\"]}";
++
++    private String token(long id, String role) {
++        User user = User.builder().email("u@example.com").name("U").tokenVersion(0).build();
++        user.setId(id);
++        return jwtService.generateAccessToken(user, role);
++    }
++
++    @Test
++    void premiumUser_createReturns201AndBody() throws Exception {
++        when(userRepository.getReferenceById(1L)).thenReturn(User.builder().id(1L).build());
++        when(customTuningRepository.save(any(CustomTuning.class))).thenAnswer(inv -> {
++            CustomTuning t = inv.getArgument(0);
++            return CustomTuning.builder()
++                    .id(10L).user(t.getUser()).name(t.getName()).strings(t.getStrings())
++                    .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                    .build();
++        });
++
++        mockMvc.perform(post("/api/v1/tunings")
++                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM))
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content(VALID_BODY))
++                .andExpect(status().isCreated())
++                .andExpect(jsonPath("$.id").value(10))
++                .andExpect(jsonPath("$.name").value("Drop C"))
++                .andExpect(jsonPath("$.strings[0]").value("C2"))
++                .andExpect(jsonPath("$.strings.length()").value(6));
++    }
++
++    @Test
++    void freeUser_createGets403Envelope() throws Exception {
++        mockMvc.perform(post("/api/v1/tunings")
++                        .header("Authorization", "Bearer " + token(2L, JwtService.ROLE_FREE))
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content(VALID_BODY))
++                .andExpect(status().isForbidden())
++                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"))
++                .andExpect(jsonPath("$.error.status").value(403));
++    }
++
++    @Test
++    void unauthenticated_createGets401Envelope() throws Exception {
++        mockMvc.perform(post("/api/v1/tunings")
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content(VALID_BODY))
++                .andExpect(status().isUnauthorized())
++                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
++    }
++
++    @Test
++    void premiumUser_blankNameGets400() throws Exception {
++        mockMvc.perform(post("/api/v1/tunings")
++                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM))
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content("{\"name\":\"\",\"strings\":[\"C2\",\"G2\",\"C3\",\"F3\",\"A3\",\"D4\"]}"))
++                .andExpect(status().isBadRequest())
++                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
++    }
++
++    @Test
++    void premiumUser_wrongStringCountGets400() throws Exception {
++        mockMvc.perform(post("/api/v1/tunings")
++                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM))
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content("{\"name\":\"Bad\",\"strings\":[\"C2\",\"G2\",\"C3\"]}"))
++                .andExpect(status().isBadRequest())
++                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
++    }
++
++    @Test
++    void premiumUser_listReturnsOwnTunings() throws Exception {
++        CustomTuning t = CustomTuning.builder()
++                .id(5L).name("My Tuning")
++                .strings(List.of("E2", "A2", "D3", "G3", "B3", "E4"))
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findByUserIdOrderByCreatedAtAsc(3L)).thenReturn(List.of(t));
++
++        mockMvc.perform(get("/api/v1/tunings")
++                        .header("Authorization", "Bearer " + token(3L, JwtService.ROLE_PREMIUM)))
++                .andExpect(status().isOk())
++                .andExpect(jsonPath("$.length()").value(1))
++                .andExpect(jsonPath("$[0].name").value("My Tuning"));
++    }
++
++    @Test
++    void freeUser_listGets403() throws Exception {
++        mockMvc.perform(get("/api/v1/tunings")
++                        .header("Authorization", "Bearer " + token(4L, JwtService.ROLE_FREE)))
++                .andExpect(status().isForbidden())
++                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
++    }
++}
+diff --git a/backend/src/test/java/com/guitarapp/service/TuningServiceTest.java b/backend/src/test/java/com/guitarapp/service/TuningServiceTest.java
+new file mode 100644
+index 0000000..8b35063
+--- /dev/null
++++ b/backend/src/test/java/com/guitarapp/service/TuningServiceTest.java
+@@ -0,0 +1,85 @@
++package com.guitarapp.service;
++
++import com.guitarapp.dto.TuningRequestDto;
++import com.guitarapp.dto.TuningResponseDto;
++import com.guitarapp.model.CustomTuning;
++import com.guitarapp.model.User;
++import com.guitarapp.repository.CustomTuningRepository;
++import com.guitarapp.repository.UserRepository;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++
++import java.time.OffsetDateTime;
++import java.time.ZoneOffset;
++import java.util.List;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.when;
++
++/**
++ * Pure unit test (no Spring context) — mocks the repository interfaces (Java 25 mock-safe).
++ */
++class TuningServiceTest {
++
++    private CustomTuningRepository customTuningRepository;
++    private UserRepository userRepository;
++    private TuningService service;
++
++    private static final List<String> STANDARD = List.of("E2", "A2", "D3", "G3", "B3", "E4");
++
++    @BeforeEach
++    void setUp() {
++        customTuningRepository = mock(CustomTuningRepository.class);
++        userRepository = mock(UserRepository.class);
++        service = new TuningService(customTuningRepository, userRepository);
++    }
++
++    @Test
++    void create_associatesUserAndMapsDto() {
++        User user = User.builder().id(1L).build();
++        when(userRepository.getReferenceById(1L)).thenReturn(user);
++        when(customTuningRepository.save(any(CustomTuning.class))).thenAnswer(inv -> {
++            CustomTuning t = inv.getArgument(0);
++            return CustomTuning.builder()
++                    .id(10L)
++                    .user(t.getUser())
++                    .name(t.getName())
++                    .strings(t.getStrings())
++                    .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                    .build();
++        });
++
++        TuningResponseDto dto = service.create(1L, new TuningRequestDto("Drop C", List.of("C2", "G2", "C3", "F3", "A3", "D4")));
++
++        assertThat(dto.id()).isEqualTo(10L);
++        assertThat(dto.name()).isEqualTo("Drop C");
++        assertThat(dto.strings()).containsExactly("C2", "G2", "C3", "F3", "A3", "D4");
++        assertThat(dto.createdAt()).isNotNull();
++    }
++
++    @Test
++    void listForUser_returnsOnlyMappedDtos() {
++        CustomTuning t = CustomTuning.builder()
++                .id(5L)
++                .name("My Tuning")
++                .strings(STANDARD)
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findByUserIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(t));
++
++        List<TuningResponseDto> dtos = service.listForUser(1L);
++
++        assertThat(dtos).hasSize(1);
++        assertThat(dtos.get(0).id()).isEqualTo(5L);
++        assertThat(dtos.get(0).name()).isEqualTo("My Tuning");
++        assertThat(dtos.get(0).strings()).containsExactlyElementsOf(STANDARD);
++    }
++
++    @Test
++    void listForUser_emptyWhenNoTunings() {
++        when(customTuningRepository.findByUserIdOrderByCreatedAtAsc(2L)).thenReturn(List.of());
++        assertThat(service.listForUser(2L)).isEmpty();
++    }
++}
+diff --git a/backend/src/test/java/com/guitarapp/support/WebMockTestBase.java b/backend/src/test/java/com/guitarapp/support/WebMockTestBase.java
+index 67ee698..ba7ae01 100644
+--- a/backend/src/test/java/com/guitarapp/support/WebMockTestBase.java
++++ b/backend/src/test/java/com/guitarapp/support/WebMockTestBase.java
+@@ -1,5 +1,6 @@
+ package com.guitarapp.support;
+ 
++import com.guitarapp.repository.CustomTuningRepository;
+ import com.guitarapp.repository.ProcessedStripeEventRepository;
+ import com.guitarapp.repository.SubscriptionRepository;
+ import com.guitarapp.repository.UserRepository;
+@@ -49,6 +50,9 @@ public abstract class WebMockTestBase {
+     @MockitoBean
+     protected ProcessedStripeEventRepository processedStripeEventRepository;
+ 
++    @MockitoBean
++    protected CustomTuningRepository customTuningRepository;
++
+     @MockitoBean
+     protected StripeGateway stripeGateway;
+ }
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index 069fabf..32dbf1a 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -6,6 +6,7 @@ import AppShell from './components/shared/AppShell';
+ import { useFretboardStore } from '@/stores/fretboardStore';
+ import { useUrlState } from '@/hooks/useUrlState';
+ import { useSubscription, subscriptionQueryKey } from '@/hooks/useSubscription';
++import { useCustomTunings, resolveCustomTuningStrings } from '@/hooks/useCustomTunings';
+ import { bootstrapAuth } from '@/lib/apiClient';
+ import { queryClient } from '@/lib/queryClient';
+ import './App.css';
+@@ -14,6 +15,10 @@ export default function App() {
+   const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark, chordName } = useFretboardStore();
+   useUrlState();
+   useSubscription();
++  const { data: customTunings } = useCustomTunings();
++  // undefined for predefined tunings (FretboardCanvas falls back to its own by-name lookup),
++  // pitch-class strings for a selected custom tuning.
++  const resolvedStrings = resolveCustomTuningStrings(tuning, customTunings);
+   // Silent session restore: the access token is memory-only, so on load attempt a refresh
+   // to reauthenticate from the httpOnly cookie without a visible signed-out flash.
+   useEffect(() => {
+@@ -47,6 +52,7 @@ export default function App() {
+             freeformModeActive={freeformModeActive}
+             noteNamesVisible={noteNamesVisible}
+             chordName={chordName}
++            strings={resolvedStrings}
+             onFretClick={(mark) => toggleFreeformMark(mark)}
+           />
+         </div>
+diff --git a/frontend/src/components/ControlBar.auth.test.tsx b/frontend/src/components/ControlBar.auth.test.tsx
+index 70fbd9d..1de34c5 100644
+--- a/frontend/src/components/ControlBar.auth.test.tsx
++++ b/frontend/src/components/ControlBar.auth.test.tsx
+@@ -1,6 +1,7 @@
+ import { describe, it, expect, beforeEach, vi } from 'vitest';
+ import { render, screen, waitFor } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
++import { QueryClientProvider } from '@tanstack/react-query';
+ import ControlBar from './ControlBar';
+ import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
+ import { useLayoutStore } from '@/stores/layoutStore';
+@@ -37,16 +38,24 @@ beforeEach(() => {
+   vi.clearAllMocks();
+ });
+ 
++// ControlBar now reads custom tunings via TanStack Query — provide the app's client.
++const renderBar = () =>
++  render(
++    <QueryClientProvider client={queryClient}>
++      <ControlBar />
++    </QueryClientProvider>,
++  );
++
+ describe('ControlBar — account/auth', () => {
+   it('shows the "Sign in" affordance when unauthenticated', () => {
+-    render(<ControlBar />);
++    renderBar();
+     expect(screen.getByLabelText('Sign in')).toBeInTheDocument();
+     expect(screen.queryByLabelText('Account')).not.toBeInTheDocument();
+   });
+ 
+   it('shows the "Account" affordance when authenticated', () => {
+     useAuthStore.setState({ accessToken: 't', user: { id: 1, email: 'a@b.c', name: null } });
+-    render(<ControlBar />);
++    renderBar();
+     expect(screen.getByLabelText('Account')).toBeInTheDocument();
+   });
+ 
+@@ -55,7 +64,7 @@ describe('ControlBar — account/auth', () => {
+     useSubscriptionStore.setState({ isPremium: true });
+     const removeSpy = vi.spyOn(queryClient, 'removeQueries');
+     const user = userEvent.setup();
+-    render(<ControlBar />);
++    renderBar();
+ 
+     await user.click(screen.getByLabelText('Account'));
+     await user.click(await screen.findByRole('button', { name: 'Log out' }));
+diff --git a/frontend/src/components/ControlBar.test.tsx b/frontend/src/components/ControlBar.test.tsx
+index f185d7e..37b7ec1 100644
+--- a/frontend/src/components/ControlBar.test.tsx
++++ b/frontend/src/components/ControlBar.test.tsx
+@@ -1,12 +1,23 @@
+ import { render, screen } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
++import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
++import { vi } from 'vitest';
+ import ControlBar from './ControlBar';
+ import { FREE_TUNINGS } from '@/data/freeTunings';
+ import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
+ import { useLayoutStore } from '@/stores/layoutStore';
++import { useSubscriptionStore } from '@/stores/subscriptionStore';
+ import { CHROMATIC_NOTES } from '@/data/notes.js';
+ import { SCALE_NAMES } from '@/data/scales.js';
+ import { TUNINGS } from '@/data/tunings.js';
++import type { CustomTuning } from '@/types/api';
++
++// Controllable custom-tuning data (name must start with "mock" for the vi.mock factory).
++const mockState: { tunings: CustomTuning[] | undefined } = { tunings: undefined };
++vi.mock('@/hooks/useCustomTunings', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('@/hooks/useCustomTunings')>();
++  return { ...actual, useCustomTunings: () => ({ data: mockState.tunings }) };
++});
+ 
+ // base-ui uses ResizeObserver internally — polyfill for jsdom
+ (globalThis as Record<string, unknown>).ResizeObserver = class {
+@@ -30,9 +41,18 @@ beforeEach(() => {
+     freeformModeActive: false,
+   });
+   useLayoutStore.setState({ activeLayout: DEFAULT_LAYOUT });
++  useSubscriptionStore.setState({ isPremium: false });
++  mockState.tunings = undefined;
+ });
+ 
+-const renderBar = () => render(<ControlBar />);
++const renderBar = () => {
++  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
++  return render(
++    <QueryClientProvider client={qc}>
++      <ControlBar />
++    </QueryClientProvider>,
++  );
++};
+ 
+ describe('ControlBar', () => {
+   it('renders without crashing', () => {
+@@ -94,10 +114,55 @@ describe('ControlBar', () => {
+   });
+ });
+ 
++describe('ControlBar — custom tunings (premium)', () => {
++  const CUSTOM: CustomTuning = {
++    id: 1, name: 'My Drop C', strings: ['C2', 'G2', 'C3', 'F3', 'A3', 'D4'], createdAt: null,
++  };
++
++  it('non-premium: no "Create Custom Tuning" item in the tuning select', async () => {
++    const user = userEvent.setup();
++    renderBar();
++    await user.click(screen.getByLabelText('Tuning'));
++    await screen.findByRole('option', { name: 'Standard E' });
++    expect(screen.queryByRole('option', { name: /Create Custom Tuning/ })).not.toBeInTheDocument();
++  });
++
++  it('premium: shows saved custom tunings and the Create item', async () => {
++    const user = userEvent.setup();
++    useSubscriptionStore.setState({ isPremium: true });
++    mockState.tunings = [CUSTOM];
++    renderBar();
++    await user.click(screen.getByLabelText('Tuning'));
++    expect(await screen.findByRole('option', { name: 'My Drop C' })).toBeInTheDocument();
++    expect(screen.getByRole('option', { name: /Create Custom Tuning/ })).toBeInTheDocument();
++  });
++
++  it('premium: selecting a custom tuning sets it as the active tuning', async () => {
++    const user = userEvent.setup();
++    useSubscriptionStore.setState({ isPremium: true });
++    mockState.tunings = [CUSTOM];
++    renderBar();
++    await user.click(screen.getByLabelText('Tuning'));
++    await user.click(await screen.findByRole('option', { name: 'My Drop C' }));
++    expect(useFretboardStore.getState().tuning).toBe('My Drop C');
++  });
++
++  it('premium: selecting "Create Custom Tuning" opens the creator sheet', async () => {
++    const user = userEvent.setup();
++    useSubscriptionStore.setState({ isPremium: true });
++    renderBar();
++    await user.click(screen.getByLabelText('Tuning'));
++    await user.click(await screen.findByRole('option', { name: /Create Custom Tuning/ }));
++    expect(await screen.findByText('Create Custom Tuning')).toBeInTheDocument();
++    // The active tuning must NOT change to the sentinel value.
++    expect(useFretboardStore.getState().tuning).toBe('Standard E');
++  });
++});
++
+ describe('ControlBar — Library button', () => {
+   it('clicking Library button sets sidePanel to true', async () => {
+     const user = userEvent.setup();
+-    render(<ControlBar />);
++    renderBar();
+     await user.click(screen.getByRole('button', { name: 'Library' }));
+     expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(true);
+   });
+@@ -105,7 +170,7 @@ describe('ControlBar — Library button', () => {
+   it('clicking Library button again sets sidePanel back to false', async () => {
+     const user = userEvent.setup();
+     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } });
+-    render(<ControlBar />);
++    renderBar();
+     await user.click(screen.getByRole('button', { name: 'Library' }));
+     expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(false);
+   });
+diff --git a/frontend/src/components/ControlBar.tsx b/frontend/src/components/ControlBar.tsx
+index 014f67a..a4514b2 100644
+--- a/frontend/src/components/ControlBar.tsx
++++ b/frontend/src/components/ControlBar.tsx
+@@ -10,7 +10,9 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
+ import { apiClient } from '@/lib/apiClient';
+ import { queryClient } from '@/lib/queryClient';
+ import { LoginModal } from '@/features/auth/LoginModal';
++import CustomTuningCreator from '@/features/settings/CustomTuningCreator';
+ import { subscriptionQueryKey } from '@/hooks/useSubscription';
++import { useCustomTunings } from '@/hooks/useCustomTunings';
+ import {
+   Select,
+   SelectContent,
+@@ -30,6 +32,9 @@ import {
+ import { Button } from '@/components/ui/button';
+ import { Slider } from '@/components/ui/slider';
+ 
++// Sentinel Select value that opens the creator instead of selecting a tuning.
++const CREATE_TUNING_VALUE = '__create_custom_tuning__';
++
+ export default function ControlBar() {
+   const {
+     tuning, setTuning,
+@@ -46,8 +51,17 @@ export default function ControlBar() {
+   const closeLoginModal = useLayoutStore((s) => s.closeLoginModal);
+ 
+   const isAuthenticated = useAuthStore(selectIsAuthenticated);
++  const isPremium = useSubscriptionStore((s) => s.isPremium);
+   const user = useAuthStore((s) => s.user);
+   const [accountOpen, setAccountOpen] = useState(false);
++  const [creatorOpen, setCreatorOpen] = useState(false);
++  const { data: customTunings } = useCustomTunings();
++
++  const onTuningChange = (v: string | null) => {
++    if (!v) return;
++    if (v === CREATE_TUNING_VALUE) { setCreatorOpen(true); return; }
++    setTuning(v);
++  };
+ 
+   const handleLogout = async () => {
+     try {
+@@ -72,7 +86,7 @@ export default function ControlBar() {
+       </span>
+ 
+       {/* Tuning */}
+-      <Select value={tuning} onValueChange={(v) => v && setTuning(v)}>
++      <Select value={tuning} onValueChange={onTuningChange}>
+         <SelectTrigger className="w-40" aria-label="Tuning">
+           {(FREE_TUNINGS as readonly string[]).includes(tuning)
+             ? <SelectValue />
+@@ -83,6 +97,17 @@ export default function ControlBar() {
+           {FREE_TUNINGS.map(name => (
+             <SelectItem key={name} value={name}>{name}</SelectItem>
+           ))}
++          {isPremium && customTunings && customTunings.length > 0 && (
++            <SelectGroup>
++              <SelectLabel>My Tunings</SelectLabel>
++              {customTunings.map(t => (
++                <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
++              ))}
++            </SelectGroup>
++          )}
++          {isPremium && (
++            <SelectItem value={CREATE_TUNING_VALUE}>＋ Create Custom Tuning</SelectItem>
++          )}
+         </SelectContent>
+       </Select>
+ 
+@@ -191,6 +216,9 @@ export default function ControlBar() {
+         </button>
+       </div>
+ 
++      {/* Custom tuning creator (premium) */}
++      <CustomTuningCreator open={creatorOpen} onOpenChange={setCreatorOpen} />
++
+       {/* Auth overlay (unauthenticated) */}
+       <LoginModal open={loginOpen} onOpenChange={(open) => (open ? openLoginModal() : closeLoginModal())} />
+ 
+diff --git a/frontend/src/components/FretboardCanvas.tsx b/frontend/src/components/FretboardCanvas.tsx
+index 1392d23..0a25881 100644
+--- a/frontend/src/components/FretboardCanvas.tsx
++++ b/frontend/src/components/FretboardCanvas.tsx
+@@ -35,6 +35,9 @@ interface FretboardCanvasProps {
+   freeformModeActive?: boolean;
+   noteNamesVisible?: boolean;
+   chordName?: string | null;
++  /** Explicit pitch-class open strings (low→high), overriding the by-name TUNINGS lookup.
++   *  Supplied for custom tunings (which aren't in TUNINGS) and the creator's live preview. */
++  strings?: string[];
+   onFretClick?: (mark: { fret: number; string: number }) => void;
+ }
+ 
+@@ -48,9 +51,10 @@ export default function FretboardCanvas({
+   freeformModeActive = false,
+   noteNamesVisible = false,
+   chordName,
++  strings,
+   onFretClick,
+ }: FretboardCanvasProps) {
+-  const strings = (TUNINGS as Record<string, string[]>)[tuning] ?? TUNINGS['Standard E'];
++  const openStrings = strings ?? (TUNINGS as Record<string, string[]>)[tuning] ?? TUNINGS['Standard E'];
+ 
+   const ariaLabel = useMemo(
+     () => generateAriaLabel(tuning, rootNote, scaleName, modeIndex, capoPosition),
+@@ -60,10 +64,10 @@ export default function FretboardCanvas({
+   const dots = useMemo(() => {
+     if (chordName) {
+       const chord = (CHORDS as Record<string, { intervals: number[] }>)[chordName]
+-      if (chord) return calculateChordDots(chord.intervals, rootNote, tuning, capoPosition)
++      if (chord) return calculateChordDots(chord.intervals, rootNote, tuning, capoPosition, strings)
+     }
+-    return calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex)
+-  }, [tuning, rootNote, scaleName, capoPosition, modeIndex, chordName]);
++    return calculateFretboardDots(tuning, rootNote, scaleName, capoPosition, modeIndex, strings)
++  }, [tuning, rootNote, scaleName, capoPosition, modeIndex, chordName, strings]);
+ 
+   const freeformDots = useMemo(
+     () => calculateFreeformDots(freeformMarks, tuning, capoPosition),
+@@ -249,8 +253,8 @@ export default function FretboardCanvas({
+             fill="var(--color-text-primary, #e2e8f0)"
+           >
+             {capoPosition > 0
+-              ? getNoteAtFret(strings[STRING_COUNT - 1 - i], capoPosition)
+-              : strings[STRING_COUNT - 1 - i]}
++              ? getNoteAtFret(openStrings[STRING_COUNT - 1 - i], capoPosition)
++              : openStrings[STRING_COUNT - 1 - i]}
+           </text>
+         ))}
+ 
+diff --git a/frontend/src/features/settings/CustomTuningCreator.test.tsx b/frontend/src/features/settings/CustomTuningCreator.test.tsx
+new file mode 100644
+index 0000000..d1fea28
+--- /dev/null
++++ b/frontend/src/features/settings/CustomTuningCreator.test.tsx
+@@ -0,0 +1,80 @@
++import { render, screen, waitFor } from '@testing-library/react'
++import userEvent from '@testing-library/user-event'
++import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
++import { vi } from 'vitest'
++import CustomTuningCreator from './CustomTuningCreator'
++import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
++import { apiClient } from '@/lib/apiClient'
++
++vi.mock('@/lib/apiClient', () => ({
++  apiClient: { post: vi.fn(), get: vi.fn(), del: vi.fn() },
++}))
++
++// base-ui (Sheet) uses ResizeObserver internally — polyfill for jsdom
++;(globalThis as Record<string, unknown>).ResizeObserver = class {
++  observe() {}
++  unobserve() {}
++  disconnect() {}
++}
++
++function renderCreator(onOpenChange = vi.fn()) {
++  const qc = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
++  render(
++    <QueryClientProvider client={qc}>
++      <CustomTuningCreator open onOpenChange={onOpenChange} />
++    </QueryClientProvider>,
++  )
++  return onOpenChange
++}
++
++beforeEach(() => {
++  useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE })
++  vi.mocked(apiClient.post).mockReset()
++})
++
++describe('CustomTuningCreator', () => {
++  it('renders 6 string rows, a name input, and the preview', () => {
++    renderCreator()
++    for (let i = 1; i <= 6; i++) {
++      expect(screen.getByLabelText(`String ${i} note`)).toBeInTheDocument()
++      expect(screen.getByLabelText(`String ${i} octave`)).toBeInTheDocument()
++    }
++    expect(screen.getByLabelText('Tuning name')).toBeInTheDocument()
++    expect(screen.getByTestId('tuning-preview')).toBeInTheDocument()
++  })
++
++  it('seeds standard tuning and updates the preview when a string changes', async () => {
++    const user = userEvent.setup()
++    renderCreator()
++    // String 1 = low E = strings[0] = visual bottom = nut-label-5
++    expect(screen.getByTestId('nut-label-5')).toHaveTextContent('E')
++    await user.selectOptions(screen.getByLabelText('String 1 note'), 'C')
++    expect(screen.getByTestId('nut-label-5')).toHaveTextContent('C')
++  })
++
++  it('Save posts the note+octave payload and closes on success', async () => {
++    const user = userEvent.setup()
++    vi.mocked(apiClient.post).mockResolvedValue({})
++    const onOpenChange = renderCreator()
++    await user.type(screen.getByLabelText('Tuning name'), 'My Drop')
++    await user.click(screen.getByRole('button', { name: 'Save' }))
++    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/tunings', {
++      name: 'My Drop',
++      strings: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'],
++    }))
++    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
++  })
++
++  it('Save is disabled while the name is blank', () => {
++    renderCreator()
++    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
++  })
++
++  it('Discard closes without posting', async () => {
++    const user = userEvent.setup()
++    const onOpenChange = renderCreator()
++    await user.click(screen.getByRole('button', { name: 'Discard' }))
++    expect(onOpenChange).toHaveBeenCalledWith(false)
++    expect(apiClient.post).not.toHaveBeenCalled()
++  })
++})
+diff --git a/frontend/src/features/settings/CustomTuningCreator.tsx b/frontend/src/features/settings/CustomTuningCreator.tsx
+new file mode 100644
+index 0000000..19e3177
+--- /dev/null
++++ b/frontend/src/features/settings/CustomTuningCreator.tsx
+@@ -0,0 +1,156 @@
++import { useState } from 'react';
++import { useMutation } from '@tanstack/react-query';
++import { CHROMATIC_NOTES } from '@/data/notes.js';
++import { apiClient } from '@/lib/apiClient';
++import { queryClient } from '@/lib/queryClient';
++import { useFretboardStore } from '@/stores/fretboardStore';
++import { customTuningsQueryKey } from '@/hooks/useCustomTunings';
++import FretboardCanvas from '@/components/FretboardCanvas';
++import {
++  Sheet,
++  SheetContent,
++  SheetHeader,
++  SheetTitle,
++  SheetDescription,
++} from '@/components/ui/sheet';
++import { Input } from '@/components/ui/input';
++import { Button } from '@/components/ui/button';
++
++const NOTES = CHROMATIC_NOTES as string[];
++const OCTAVES = [1, 2, 3, 4, 5, 6];
++
++interface StringRow {
++  note: string;
++  octave: number;
++}
++
++// Standard tuning seed, low → high (index 0 = thickest/lowest), matching tunings.js ordering.
++const DEFAULT_ROWS: StringRow[] = [
++  { note: 'E', octave: 2 },
++  { note: 'A', octave: 2 },
++  { note: 'D', octave: 3 },
++  { note: 'G', octave: 3 },
++  { note: 'B', octave: 3 },
++  { note: 'E', octave: 4 },
++];
++
++// Native <select>: accessible + robust to test (see 4.3 rationale); native OS pickers on mobile.
++const selectClass =
++  'h-8 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm text-slate-300 outline-none focus-visible:border-indigo-400';
++
++interface CustomTuningCreatorProps {
++  open: boolean;
++  onOpenChange: (open: boolean) => void;
++}
++
++export default function CustomTuningCreator({ open, onOpenChange }: CustomTuningCreatorProps) {
++  const [rows, setRows] = useState<StringRow[]>(DEFAULT_ROWS);
++  const [name, setName] = useState('');
++  const rootNote = useFretboardStore((s) => s.rootNote);
++  const scaleName = useFretboardStore((s) => s.scaleName);
++
++  const reset = () => {
++    setRows(DEFAULT_ROWS);
++    setName('');
++  };
++
++  const close = () => {
++    reset();
++    onOpenChange(false);
++  };
++
++  const save = useMutation({
++    mutationFn: () =>
++      apiClient.post('/tunings', {
++        name: name.trim(),
++        strings: rows.map((r) => `${r.note}${r.octave}`),
++      }),
++    onSuccess: () => {
++      queryClient.invalidateQueries({ queryKey: customTuningsQueryKey });
++      close();
++    },
++  });
++
++  const setRow = (i: number, patch: Partial<StringRow>) =>
++    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
++
++  // Pitch-class strings for the live preview (octave stripped — the renderer is pitch-class based).
++  const previewStrings = rows.map((r) => r.note);
++
++  return (
++    <Sheet open={open} onOpenChange={(o) => { if (!o) close(); }}>
++      <SheetContent side="right" className="w-full gap-4 overflow-y-auto p-4 sm:max-w-md">
++        <SheetHeader className="p-0">
++          <SheetTitle>Create Custom Tuning</SheetTitle>
++          <SheetDescription>Define each string&apos;s pitch, low to high.</SheetDescription>
++        </SheetHeader>
++
++        {/* Live preview */}
++        <div className="rounded-md border border-[var(--border)] p-2" data-testid="tuning-preview">
++          <FretboardCanvas
++            tuning="(custom)"
++            strings={previewStrings}
++            rootNote={rootNote}
++            scaleName={scaleName}
++          />
++        </div>
++
++        {/* Name */}
++        <label className="flex flex-col gap-1 text-sm text-slate-300">
++          Name
++          <Input
++            value={name}
++            onChange={(e) => setName(e.target.value)}
++            placeholder="My tuning"
++            aria-label="Tuning name"
++          />
++        </label>
++
++        {/* String rows */}
++        <div className="flex flex-col gap-2">
++          {rows.map((r, i) => (
++            <div key={i} className="flex items-center gap-2">
++              <span className="w-16 text-sm text-slate-400">String {i + 1}</span>
++              <select
++                aria-label={`String ${i + 1} note`}
++                value={r.note}
++                onChange={(e) => setRow(i, { note: e.target.value })}
++                className={selectClass}
++              >
++                {NOTES.map((n) => (
++                  <option key={n} value={n}>{n}</option>
++                ))}
++              </select>
++              <select
++                aria-label={`String ${i + 1} octave`}
++                value={r.octave}
++                onChange={(e) => setRow(i, { octave: Number(e.target.value) })}
++                className={selectClass}
++              >
++                {OCTAVES.map((o) => (
++                  <option key={o} value={o}>{o}</option>
++                ))}
++              </select>
++            </div>
++          ))}
++        </div>
++
++        {save.isError && (
++          <p role="alert" className="text-xs text-rose-400">
++            Could not save tuning. Please try again.
++          </p>
++        )}
++
++        {/* Actions */}
++        <div className="flex items-center gap-2">
++          <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
++            {save.isPending ? 'Saving…' : 'Save'}
++          </Button>
++          <Button variant="outline" onClick={close}>
++            Discard
++          </Button>
++        </div>
++      </SheetContent>
++    </Sheet>
++  );
++}
+diff --git a/frontend/src/hooks/useCustomTunings.test.ts b/frontend/src/hooks/useCustomTunings.test.ts
+new file mode 100644
+index 0000000..4d9f453
+--- /dev/null
++++ b/frontend/src/hooks/useCustomTunings.test.ts
+@@ -0,0 +1,29 @@
++import { resolveCustomTuningStrings } from './useCustomTunings'
++import type { CustomTuning } from '@/types/api'
++
++const custom: CustomTuning = {
++  id: 1,
++  name: 'My Drop C',
++  strings: ['C2', 'G2', 'C3', 'F3', 'A3', 'D4'],
++  createdAt: null,
++}
++
++describe('resolveCustomTuningStrings', () => {
++  it('returns undefined for a predefined tuning (FretboardCanvas uses its own lookup)', () => {
++    expect(resolveCustomTuningStrings('Standard E', [custom])).toBeUndefined()
++  })
++
++  it('returns octave-stripped pitch-class strings for a custom tuning', () => {
++    expect(resolveCustomTuningStrings('My Drop C', [custom])).toEqual([
++      'C', 'G', 'C', 'F', 'A', 'D',
++    ])
++  })
++
++  it('returns undefined when the custom list is undefined', () => {
++    expect(resolveCustomTuningStrings('My Drop C', undefined)).toBeUndefined()
++  })
++
++  it('returns undefined for an unknown tuning name', () => {
++    expect(resolveCustomTuningStrings('Nonexistent', [custom])).toBeUndefined()
++  })
++})
+diff --git a/frontend/src/hooks/useCustomTunings.ts b/frontend/src/hooks/useCustomTunings.ts
+new file mode 100644
+index 0000000..42e97e9
+--- /dev/null
++++ b/frontend/src/hooks/useCustomTunings.ts
+@@ -0,0 +1,37 @@
++import { useQuery } from '@tanstack/react-query';
++import { apiClient } from '@/lib/apiClient';
++import { useSubscriptionStore } from '@/stores/subscriptionStore';
++import { TUNINGS } from '@/data/tunings.js';
++import { toPitchClass } from '@/utils/fretboardUtils';
++import type { CustomTuning } from '@/types/api';
++
++/** Exported so the creator can invalidate after a successful save. */
++export const customTuningsQueryKey = ['tunings', 'custom'] as const;
++
++/**
++ * The caller's saved custom tunings (premium only — the endpoint is `ROLE_PREMIUM`).
++ * Gated on `isPremium` so free users never fire the request.
++ */
++export function useCustomTunings() {
++  const isPremium = useSubscriptionStore((s) => s.isPremium);
++  return useQuery({
++    queryKey: customTuningsQueryKey,
++    queryFn: () => apiClient.get<CustomTuning[]>('/tunings'),
++    enabled: isPremium,
++  });
++}
++
++/**
++ * Resolves the pitch-class open strings for the active tuning name — from `TUNINGS` for a
++ * predefined tuning, or from the user's custom tunings (octave-stripped) for a custom one.
++ * Returns `undefined` for a predefined tuning so `FretboardCanvas` uses its own by-name lookup
++ * (byte-identical to prior behavior); returns the string array only for a custom tuning.
++ */
++export function resolveCustomTuningStrings(
++  tuningName: string,
++  customs: CustomTuning[] | undefined,
++): string[] | undefined {
++  if ((TUNINGS as Record<string, string[]>)[tuningName]) return undefined;
++  const match = customs?.find((t) => t.name === tuningName);
++  return match ? match.strings.map(toPitchClass) : undefined;
++}
+diff --git a/frontend/src/types/api.ts b/frontend/src/types/api.ts
+index b57dd41..b7044a7 100644
+--- a/frontend/src/types/api.ts
++++ b/frontend/src/types/api.ts
+@@ -12,3 +12,11 @@ export interface AuthResponseDto {
+ export interface CheckoutSessionResponseDto {
+   url: string;
+ }
++
++/** A user's saved custom tuning. `strings` are note+octave tokens (e.g. "E2"), low → high. */
++export interface CustomTuning {
++  id: number;
++  name: string;
++  strings: string[];
++  createdAt: string | null;
++}
+diff --git a/frontend/src/utils/fretboardUtils.test.ts b/frontend/src/utils/fretboardUtils.test.ts
+index 9e91d3b..0986a6f 100644
+--- a/frontend/src/utils/fretboardUtils.test.ts
++++ b/frontend/src/utils/fretboardUtils.test.ts
+@@ -1,4 +1,9 @@
+-import { calculateFreeformDots, calculateChordDots } from './fretboardUtils';
++import {
++  calculateFreeformDots,
++  calculateChordDots,
++  calculateFretboardDots,
++  toPitchClass,
++} from './fretboardUtils';
+ 
+ describe('calculateFreeformDots', () => {
+   it('returns 1 dot for a valid mark at fret 5, string 1', () => {
+@@ -69,3 +74,39 @@ describe('calculateChordDots', () => {
+     expect(dots.every(d => d.fret >= 3)).toBe(true);
+   });
+ });
++
++describe('toPitchClass', () => {
++  it('strips a trailing octave digit', () => {
++    expect(toPitchClass('E2')).toBe('E');
++    expect(toPitchClass('F#3')).toBe('F#');
++    expect(toPitchClass('Eb2')).toBe('Eb');
++  });
++  it('leaves a bare pitch class unchanged', () => {
++    expect(toPitchClass('E')).toBe('E');
++    expect(toPitchClass('C#')).toBe('C#');
++  });
++});
++
++describe('strings override', () => {
++  const ALL_C = ['C', 'C', 'C', 'C', 'C', 'C'];
++
++  it('calculateFretboardDots uses the override instead of the named tuning', () => {
++    // Every open string is C, root is C → a root dot at fret 0 on all 6 strings.
++    const dots = calculateFretboardDots('Standard E', 'C', 'Major (Ionian)', 0, null, ALL_C);
++    const openRoots = dots.filter(d => d.fret === 0 && d.state === 'root');
++    expect(openRoots).toHaveLength(6);
++  });
++
++  it('calculateFretboardDots is unchanged when no override is passed', () => {
++    // Sanity: omitting the override falls back to the named tuning lookup (no crash, returns dots).
++    const withUndefined = calculateFretboardDots('Standard E', 'A', 'Pentatonic Minor', 0, null, undefined);
++    const original = calculateFretboardDots('Standard E', 'A', 'Pentatonic Minor', 0, null);
++    expect(withUndefined).toEqual(original);
++  });
++
++  it('calculateChordDots uses the override', () => {
++    const dots = calculateChordDots([0, 4, 7], 'C', 'Standard E', 0, ALL_C);
++    const openRoots = dots.filter(d => d.fret === 0 && d.state === 'root');
++    expect(openRoots).toHaveLength(6);
++  });
++});
+diff --git a/frontend/src/utils/fretboardUtils.ts b/frontend/src/utils/fretboardUtils.ts
+index 0af5a89..168a732 100644
+--- a/frontend/src/utils/fretboardUtils.ts
++++ b/frontend/src/utils/fretboardUtils.ts
+@@ -16,6 +16,15 @@ export const MODES = [
+ ] as const;
+ 
+ 
++/**
++ * Strips a trailing octave digit from a tuning token so it can feed the pitch-class-based
++ * note math (`getNoteAtFret`). Custom tunings store note+octave tokens (e.g. "E2"); predefined
++ * tunings are already pitch-class. `"E2" → "E"`, `"F#3" → "F#"`, `"Eb2" → "Eb"`, `"E" → "E"`.
++ */
++export function toPitchClass(token: string): string {
++  return token.replace(/[0-9]/g, '');
++}
++
+ export type DotState = 'root' | 'scale' | 'mode' | 'mode-root' | 'freeform';
+ 
+ export interface FretDotData {
+@@ -106,9 +115,12 @@ export function calculateFretboardDots(
+   rootNote: string,
+   scaleName: string,
+   capoPosition = 0,
+-  modeIndex: number | null = null
++  modeIndex: number | null = null,
++  stringsOverride?: string[]
+ ): FretDotData[] {
+-  const strings = (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E'];
++  // When an explicit pitch-class string set is supplied (custom tunings, not in TUNINGS),
++  // it overrides the by-name lookup. Omitted → identical to the original behavior.
++  const strings = stringsOverride ?? (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E'];
+   const scaleNotes = getScaleNotes(rootNote, scaleName);
+ 
+   // Parallel mode notes — same root, mode's own interval pattern
+@@ -155,9 +167,10 @@ export function calculateChordDots(
+   intervals: number[],
+   rootNote: string,
+   tuningName: string,
+-  capoPosition = 0
++  capoPosition = 0,
++  stringsOverride?: string[]
+ ): FretDotData[] {
+-  const strings = (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E']
++  const strings = stringsOverride ?? (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E']
+   const chordNotes = new Set(intervals.map(i => getNoteAtFret(rootNote, i % 12)))
+   const dots: FretDotData[] = []
+ 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useFretboardStore } from '@/stores/fretboardStore';
 import { diatonicChords, chordDisplayName, type DiatonicChord } from '@/lib/harmony';
+import { playChord } from '@/lib/playChord';
 
 export default function ChordsInKey() {
   const rootNote = useFretboardStore((s) => s.rootNote);
@@ -48,6 +49,13 @@ export default function ChordsInKey() {
     }
     setChordName(c.chordType); // resets chordRoot to null in the same set()
     setChordRoot(c.chordRoot); // then root the highlight at this degree
+    // Audio is gated internally by playChord (checks audioStore.enabled + isPremium).
+    try {
+      playChord(c.chordType, c.chordRoot);
+    } catch (e) {
+      console.error('Audio playback failed:', e);
+      // Continue normally even if audio fails; chord selection shouldn't break
+    }
   };
 
   return (

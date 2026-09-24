@@ -4,6 +4,7 @@ import {
   calculateFretboardDots,
   toPitchClass,
 } from './fretboardUtils';
+import { CHORDS } from '@/data/chords.js';
 
 describe('calculateFreeformDots', () => {
   it('returns 1 dot for a valid mark at fret 5, string 1', () => {
@@ -72,6 +73,46 @@ describe('calculateChordDots', () => {
   it('capoPosition skips frets below capo', () => {
     const dots = calculateChordDots([0, 4, 7], 'A', 'Standard E', 3);
     expect(dots.every(d => d.fret >= 3)).toBe(true);
+  });
+
+  // Story 6.2 AC3: 5- and 6-note extended chords (9/11/13) must highlight without
+  // crashing or overflowing. calculateChordDots folds every interval via % 12 into a
+  // note Set, so extension tones (14/17/21) collapse into pitch classes — verified here.
+  describe('extended chords (9/11/13)', () => {
+    const extended: [string, number[]][] = [
+      ['Dominant 9', CHORDS['Dominant 9'].intervals], // 5 notes
+      ['Major 9', CHORDS['Major 9'].intervals],       // 5 notes
+      ['Dominant 11', CHORDS['Dominant 11'].intervals], // 6 notes
+      ['Minor 11', CHORDS['Minor 11'].intervals],       // 6 notes
+      ['Dominant 13', CHORDS['Dominant 13'].intervals], // 6 notes
+      ['Major 13', CHORDS['Major 13'].intervals],       // 6 notes
+    ];
+
+    it.each(extended)('%s highlights on Standard E with only root/scale dots', (_name, intervals) => {
+      const dots = calculateChordDots(intervals, 'C', 'Standard E');
+      expect(dots.length).toBeGreaterThan(0);
+      expect(dots.every(d => d.state === 'root' || d.state === 'scale')).toBe(true);
+      expect(dots.filter(d => d.state === 'root').every(d => d.note === 'C')).toBe(true);
+      // every dot sits within the rendered board (no overflow/NaN)
+      expect(dots.every(d => d.fret >= 0 && d.fret <= 24 && Number.isFinite(d.cx) && Number.isFinite(d.cy))).toBe(true);
+    });
+
+    it.each(extended)('%s renders across two tunings without crashing', (_name, intervals) => {
+      const e = calculateChordDots(intervals, 'C', 'Standard E');
+      const dropD = calculateChordDots(intervals, 'C', 'Drop D');
+      expect(e.length).toBeGreaterThan(0);
+      expect(dropD.length).toBeGreaterThan(0);
+      expect(e).not.toEqual(dropD);
+    });
+
+    it('a 6-note chord folds the 13th (21) into the same pitch class as its 6th (9)', () => {
+      // 21 % 12 === 9, so Dominant 13's 13th tone shares dots with the 6th degree —
+      // inherent to pitch-class rendering, and proves the fold is correct, not a bug.
+      const dots = calculateChordDots(CHORDS['Dominant 13'].intervals, 'C', 'Standard E');
+      const notes = new Set(dots.map(d => d.note));
+      // C13 tones fold to pitch classes {C, E, G, B♭, D, A}
+      expect(notes).toContain('A'); // the 13th (21 → 9 semitones → A)
+    });
   });
 });
 

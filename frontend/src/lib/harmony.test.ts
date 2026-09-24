@@ -97,3 +97,71 @@ describe('diatonicChords — sevenths', () => {
     expect(chords[4].notes).toEqual(['G', 'B', 'D', 'F']); // G7
   });
 });
+
+// Story 6.2 AC6 — expanding CHORDS must NOT reclassify any standard diatonic chord
+// (harmony.ts matches by first exact array; new entries are append-only) but SHOULD
+// let previously-unbuildable exotic-scale degrees resolve. This closes 6.1's deferred
+// "exotic heptatonic scales not tested for buildable 7ths" finding.
+describe('diatonicChords — expanded library (6.2)', () => {
+  describe('golden-path regression — standard scales classify identically', () => {
+    it('C major triads unchanged after CHORDS grew', () => {
+      const chords = diatonicChords('C', 'Major (Ionian)');
+      expect(chords.map((c) => c.chordType)).toEqual([
+        'Major', 'Minor', 'Minor', 'Major', 'Major', 'Minor', 'Diminished',
+      ]);
+    });
+
+    it('C major 7ths unchanged (no new entry steals a diatonic slot)', () => {
+      const chords = diatonicChords('C', 'Major (Ionian)', { sevenths: true });
+      expect(chords.map((c) => c.chordType)).toEqual([
+        'Major 7', 'Minor 7', 'Minor 7', 'Major 7', 'Dominant 7', 'Minor 7', 'Minor 7♭5',
+      ]);
+    });
+
+    it('A natural-minor 7ths unchanged', () => {
+      const chords = diatonicChords('A', 'Natural Minor (Aeolian)', { sevenths: true });
+      expect(chords.map((c) => c.chordType)).toEqual([
+        'Minor 7', 'Minor 7♭5', 'Major 7', 'Minor 7', 'Minor 7', 'Major 7', 'Dominant 7',
+      ]);
+    });
+  });
+
+  describe('exotic scales gain buildable degrees from the new 4-note types', () => {
+    it('Double Harmonic (Byzantine): the V degree now builds as Dominant 7♭5', () => {
+      const chords = diatonicChords('C', 'Double Harmonic (Byzantine)', { sevenths: true });
+      const v = chords[4]; // degree 5, rooted on G
+      expect(v.buildable).toBe(true);
+      expect(v.chordRoot).toBe('G');
+      expect(v.chordType).toBe('Dominant 7♭5');
+      // suffix map closed in 6.2 → reads 'G7♭5', not a bare 'G'
+      expect(chordDisplayName(v)).toBe('G7♭5');
+    });
+
+    it('Double Harmonic (Byzantine): the iii degree now builds as Minor 6', () => {
+      const chords = diatonicChords('C', 'Double Harmonic (Byzantine)', { sevenths: true });
+      const iii = chords[2]; // rooted on E
+      expect(iii.buildable).toBe(true);
+      expect(iii.chordType).toBe('Minor 6');
+      expect(chordDisplayName(iii)).toBe('Em6');
+    });
+
+    it('Enigmatic: a degree that was unbuildable with the old set now resolves', () => {
+      const before = diatonicChords('C', 'Enigmatic', { sevenths: true });
+      // With the old 13-entry set Enigmatic had zero buildable 7ths; now at least one does.
+      expect(before.some((c) => c.buildable)).toBe(true);
+      const major6 = before.find((c) => c.chordType === 'Major 6');
+      expect(major6).toBeDefined();
+      expect(chordDisplayName(major6!)).toBe(major6!.chordRoot + '6');
+    });
+
+    it('never emits a chordType that is not a real CHORDS key', () => {
+      // Guard the invariant the highlight path depends on: buildable ⇒ chordType is renderable.
+      for (const scale of ['Double Harmonic (Byzantine)', 'Persian', 'Arabic', 'Enigmatic', 'Hungarian Minor']) {
+        for (const c of diatonicChords('C', scale, { sevenths: true })) {
+          if (c.buildable) expect(c.chordType).not.toBe('');
+          else expect(c.chordType).toBe('');
+        }
+      }
+    });
+  });
+});

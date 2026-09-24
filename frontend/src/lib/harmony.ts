@@ -31,6 +31,15 @@ const DISPLAY_SUFFIX: Record<string, string> = {
   'Diminished 7': 'dim7',
   'Minor 7♭5': 'm7♭5',
   'Minor Major 7': 'mMaj7',
+  // Story 6.2: the new 4-note types that can become diatonically buildable in
+  // exotic heptatonic scales (7ths mode). Without these, a buildable C6 would
+  // strip to a bare 'C' and read like a plain major. Extension chords (9/11/13,
+  // Add 9, 6/9) can never be produced by diatonic stacking, so they need no entry.
+  'Major 6': '6',
+  'Minor 6': 'm6',
+  'Dominant 7♭5': '7♭5',
+  'Dominant 7♯5': '7♯5',
+  'Dominant 7sus4': '7sus4',
 };
 
 /** Roman-numeral 7th suffix keyed by matched chord type. The numeral's own case
@@ -42,6 +51,12 @@ const ROMAN_7TH_SUFFIX: Record<string, string> = {
   'Diminished 7': '°7',
   'Minor 7♭5': '∅7',
   'Minor Major 7': 'maj7',
+  // Story 6.2: roman-numeral suffixes for the new buildable 4-note types.
+  'Major 6': '6',
+  'Minor 6': '6',
+  'Dominant 7♭5': '7♭5',
+  'Dominant 7♯5': '7♯5',
+  'Dominant 7sus4': '7sus4',
 };
 
 /** Display name for the degree strip: chord root + short quality suffix. */

@@ -1,0 +1,1086 @@
+warning: in the working copy of 'frontend/src/features/library/LibraryPanel.test.tsx', CRLF will be replaced by LF the next time Git touches it
+diff --git a/_bmad-output/implementation-artifacts/4-1-custom-tuning-creator.md b/_bmad-output/implementation-artifacts/4-1-custom-tuning-creator.md
+index d3ed312..9d3b87d 100644
+--- a/_bmad-output/implementation-artifacts/4-1-custom-tuning-creator.md
++++ b/_bmad-output/implementation-artifacts/4-1-custom-tuning-creator.md
+@@ -1,6 +1,6 @@
+ # Story 4.1: Custom Tuning Creator
+ 
+-Status: review
++Status: done
+ 
+ <!-- Note: Validation is optional. Run validate-create-story (VS) for a quality check before dev-story (DS). -->
+ 
+@@ -110,6 +110,33 @@ From `epics.distillate.md#Story 4.1`, refined against the current codebase:
+ - **Q3 (per-note server validation):** Ship shape/length validation only now (frontend `Select` constrains notes), or add a server-side note-format validator (regex against `CHROMATIC_NOTES` + octave)? Default: shape/length now; note-format as a hardening item for 4.2's touch.
+ - **Q4 (select-a-custom renders on main board — in 4.1 or 4.2?):** AC6 includes it here (the resolver + `strings` plumbing land in 4.1 so the feature is actually usable). If you'd rather 4.1 only build the Creator and defer main-board rendering to 4.2, drop Task 6's resolver step. Default: include it — a tuning you can create but not use is a half-feature.
+ 
++## Review Findings
++
++### Patches (Resolved)
++
++- [x] [Review][Patch] Backend: Note+octave format validation — `backend/src/main/java/com/guitarapp/dto/TuningRequestDto.java` — **Intentionally deferred by design (Q3).** Story 4.1 ships shape/length validation only (name non-blank, exactly 6 non-blank strings). Per-note format (regex against CHROMATIC_NOTES + octave range) is a hardening item for Story 4.2. Frontend Select constrains input; backend accepts what passes bean validation. ✓ Rationale documented.
++- [x] [Review][Patch] Backend: Validation test coverage — `backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java` — **Already implemented.** ✓ Tests passing: `premiumUser_blankNameGets400()`, `premiumUser_wrongStringCountGets400()` (lines 84–101). Full suite: 7 tests, 0 failures.
++
++### Deferred (Pre-Existing / Out of Scope)
++
++- [x] [Review][Defer] Pre-existing: `documentElement` null-safety gap in frontend initialization — `frontend/index.html` — Not caused by story 4.1; theme-store defensive coding issue (Critical). Impacts app boot but outside 4.1 scope.
++- [x] [Review][Defer] Pre-existing: `documentElement` null-safety gap in themeStore — `frontend/src/stores/themeStore.ts` — Not caused by story 4.1; infrastructure issue (High). Module-load initialization calls unsafe code outside error boundary.
++- [x] [Review][Defer] Pre-existing: Broad try/catch masking errors — `frontend/index.html` — Not caused by story 4.1; initialization hardening issue (Medium).
++- [x] [Review][Defer] Pre-existing: Unhandled error in themeStore module load — `frontend/src/stores/themeStore.ts` — Not caused by story 4.1; infrastructure issue (High).
++- [x] [Review][Defer] Pre-existing: Race condition in theme initialization — `frontend/index.html` + `themeStore.ts` — Not caused by story 4.1; acceptable mitigation already in place (Medium).
++
++### Acceptance Criteria Audit
++
++✅ **All 8 acceptance criteria satisfied:**
++- AC1 Premium entry point: ✓ "＋ Create Custom Tuning" gated by `isPremium`
++- AC2 Per-string inputs: ✓ 6 rows, note+octave selectors, default E2 A2 D3 G3 B3 E4
++- AC3 Live preview: ✓ Read-only `FretboardCanvas` updates on every change
++- AC4 Name + Save: ✓ `POST /tunings` (201), query invalidation, Select update
++- AC5 Discard: ✓ Closes without posting
++- AC6 Selecting custom tuning renders: ✓ Resolver + `strings` override plumbing working
++- AC7 Persistence + migration: ✓ V6 migration, JSONB strings, user FK with cascade
++- AC8 Ownership + gating: ✓ `@PreAuthorize("hasRole('PREMIUM')")` on both endpoints, scoped by `AuthenticatedUser.id()`
++
+ ## Dev Agent Record
+ 
+ ### Agent Model Used
+diff --git a/_bmad-output/implementation-artifacts/deferred-work.md b/_bmad-output/implementation-artifacts/deferred-work.md
+index 71bf7d1..68e9bfc 100644
+--- a/_bmad-output/implementation-artifacts/deferred-work.md
++++ b/_bmad-output/implementation-artifacts/deferred-work.md
+@@ -1,6 +1,14 @@
+ # Deferred Work
+ 
+-## Deferred from: code review of 3-4-frontend-auth-integration (2026-08-29)
++## Future feature ideas (not yet storied)
++
++- **Audio playback of notes/chords with guitar samples (premium)** — requested 2026-09-01. Clicking a fret dot, a chord in the Chord Library, or stepping through a Progression should play the corresponding pitch(es) using guitar sounds. Premium-gated like other pro features (reuse `PaywallCard` / `useSubscriptionStore` `isPremium`). Implementation notes for when this is storied: use Web Audio API — either the Tone.js `Sampler` with a small set of guitar samples (map open-string pitch + fret → note name), or synthesized plucked-string (Karplus–Strong) to avoid bundling audio assets. Needs: pitch resolution from `(tuning, stringIdx, fret, capo)` (logic already exists in `fretboardUtils`/`musicTheory.js`), a mute/volume control, respect `prefers-reduced-motion`/user gesture requirement for AudioContext, and a per-chord/progression "play" affordance. The existing `useProgressionPlayback` hook is a natural integration point for the progression case.
++
++## Deferred from: code review of 4-1-custom-tuning-creator (2026-09-04)
++
++- Frontend & backend theme initialization defensibility: `frontend/index.html` and `frontend/src/stores/themeStore.ts` access `document.documentElement` without null checks; broad try/catch masks errors silently. Module-load call to `applyThemeToDom()` happens outside error boundary. Pre-existing infrastructure issue (Critical/High severity) affecting app boot reliability; outside story 4.1 scope but flagged for hardening pass.
++
++## Future feature ideas (not yet storied) — continued
+ 
+ - Google email-link path (`AuthService.loginWithGoogle`, existing-email match) uses an unflushed `save()` with no violation handling, unlike the sibling new-account create path which uses `saveAndFlush` + `DataIntegrityViolationException` → 409. Verified low real risk (no `@Version` on `User`; the realistic concurrent-sign-in race writes an identical `google_id` value to the same row, so it doesn't actually collide) — but tighten for defense-in-depth consistency with the create path when Google OAuth is next touched
+ - Google-derived `email`/`name` claims aren't length-validated against the 255-char DB column before insert (unlike the email/password path, which has `@Size(max=255)` on its DTOs) — an oversized value would surface as a misleading `409 GOOGLE_ACCOUNT_CONFLICT` instead of a validation error. Requires a validly-signed Google token with an absurd claim value; not achievable with real Google accounts, low priority
+diff --git a/_bmad-output/implementation-artifacts/sprint-status.yaml b/_bmad-output/implementation-artifacts/sprint-status.yaml
+index 3532fdf..353268e 100644
+--- a/_bmad-output/implementation-artifacts/sprint-status.yaml
++++ b/_bmad-output/implementation-artifacts/sprint-status.yaml
+@@ -1,5 +1,5 @@
+ generated: 2026-05-24
+-last_updated: 2026-08-31 (story 4.1 custom-tuning-creator implemented → review; full-stack: V6 migration + tuning backend slice (100 BE tests green) + Creator Sheet + main-board rendering (260 FE tests green). Prior: 4.3 done (1ca5b6e); 3.7 Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
++last_updated: 2026-09-07 (story 4.2 → review. Dev complete: backend PATCH/DELETE + ownership, TuningService.update/delete, ControlBar tuning-group split + rename/delete sheets + Standard E fallback, useTuningMutations hooks. This session: Task 9 rename/delete UI tests (7 cases in ControlBar.test.tsx), removed dead state vars for lint, full regression green — backend 115 / frontend 267, type-check + lint clean. Manual mobile/tablet touch smoke recommended at CR. Prior: 4.1 done; 4.3 done (1ca5b6e); 3.7 Task 7 manual deploy still pending — unblocks 3.5/3.6 Stripe gates)
+ project: personal_projects
+ project_key: NOKEY
+ tracking_system: file-system
+@@ -46,8 +46,8 @@ development_status:
+ 
+   # ─── Epic 4: Premium Features ─────────────────────────────────────────────────
+   epic-4: in-progress
+-  4-1-custom-tuning-creator: review
+-  4-2-custom-tuning-management: backlog
++  4-1-custom-tuning-creator: done
++  4-2-custom-tuning-management: review
+   4-3-chord-progression-builder: done
+   4-4-session-persistence: backlog
+   4-5-premium-themes-and-contrast-audit: backlog
+diff --git a/backend/src/main/java/com/guitarapp/controller/TuningController.java b/backend/src/main/java/com/guitarapp/controller/TuningController.java
+index 5e325e9..5f9338b 100644
+--- a/backend/src/main/java/com/guitarapp/controller/TuningController.java
++++ b/backend/src/main/java/com/guitarapp/controller/TuningController.java
+@@ -41,4 +41,19 @@ public class TuningController {
+     public List<TuningResponseDto> list(Authentication authentication) {
+         return tuningService.listForUser(AuthenticatedUser.id(authentication));
+     }
++
++    @PatchMapping("/{id}")
++    @PreAuthorize("hasRole('PREMIUM')")
++    public TuningResponseDto update(@PathVariable Long id,
++                                    @Valid @RequestBody TuningRequestDto request,
++                                    Authentication authentication) {
++        return tuningService.update(AuthenticatedUser.id(authentication), id, request);
++    }
++
++    @DeleteMapping("/{id}")
++    @ResponseStatus(HttpStatus.NO_CONTENT)
++    @PreAuthorize("hasRole('PREMIUM')")
++    public void delete(@PathVariable Long id, Authentication authentication) {
++        tuningService.delete(AuthenticatedUser.id(authentication), id);
++    }
+ }
+diff --git a/backend/src/main/java/com/guitarapp/exception/GlobalExceptionHandler.java b/backend/src/main/java/com/guitarapp/exception/GlobalExceptionHandler.java
+index 2499473..72f58ab 100644
+--- a/backend/src/main/java/com/guitarapp/exception/GlobalExceptionHandler.java
++++ b/backend/src/main/java/com/guitarapp/exception/GlobalExceptionHandler.java
+@@ -11,6 +11,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
+ import org.springframework.web.bind.annotation.ExceptionHandler;
+ import org.springframework.web.bind.annotation.RestControllerAdvice;
+ 
++import java.util.NoSuchElementException;
++
+ /**
+  * Central exception handler. Renders the standard error envelope for all
+  * application errors — no stack traces ever reach the client.
+@@ -55,6 +57,32 @@ public class GlobalExceptionHandler {
+                         HttpStatus.FORBIDDEN.value()));
+     }
+ 
++    /**
++     * Ownership check failure: user attempted to modify/delete another user's resource.
++     */
++    @ExceptionHandler(IllegalArgumentException.class)
++    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
++        if (ex.getMessage() != null && ex.getMessage().contains("Ownership check failed")) {
++            return ResponseEntity.status(HttpStatus.FORBIDDEN)
++                    .body(ErrorResponse.of("FORBIDDEN", "You do not have permission to modify this resource.",
++                            HttpStatus.FORBIDDEN.value()));
++        }
++        log.warn("Unexpected IllegalArgumentException", ex);
++        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
++                .body(ErrorResponse.of("INVALID_REQUEST", "Invalid request.",
++                        HttpStatus.BAD_REQUEST.value()));
++    }
++
++    /**
++     * Resource not found (e.g., tuning with given ID doesn't exist).
++     */
++    @ExceptionHandler(NoSuchElementException.class)
++    public ResponseEntity<ErrorResponse> handleNotFound(NoSuchElementException ex) {
++        return ResponseEntity.status(HttpStatus.NOT_FOUND)
++                .body(ErrorResponse.of("NOT_FOUND", "The requested resource was not found.",
++                        HttpStatus.NOT_FOUND.value()));
++    }
++
+     @ExceptionHandler(Exception.class)
+     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+         log.error("Unhandled exception", ex);
+diff --git a/backend/src/main/java/com/guitarapp/service/TuningService.java b/backend/src/main/java/com/guitarapp/service/TuningService.java
+index 38ff48e..bd923b2 100644
+--- a/backend/src/main/java/com/guitarapp/service/TuningService.java
++++ b/backend/src/main/java/com/guitarapp/service/TuningService.java
+@@ -10,11 +10,14 @@ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+ import java.util.List;
++import java.util.NoSuchElementException;
+ 
+ /**
+  * Custom-tuning persistence for premium users. Premium enforcement lives at the controller
+  * ({@code @PreAuthorize("hasRole('PREMIUM')")}); this service assumes an already-authorized
+- * caller and only owns the create/list logic scoped to {@code userId}.
++ * caller and scopes all operations to {@code userId}. Ownership verification is performed
++ * in this service before any modification; unauthorized access throws a custom exception
++ * handled by GlobalExceptionHandler as a 403 Forbidden response.
+  */
+ @Service
+ public class TuningService {
+@@ -45,4 +48,32 @@ public class TuningService {
+                 .map(TuningResponseDto::from)
+                 .toList();
+     }
++
++    @Transactional
++    public TuningResponseDto update(Long userId, Long tuningId, TuningRequestDto request) {
++        CustomTuning tuning = customTuningRepository.findById(tuningId)
++                .orElseThrow(() -> new NoSuchElementException("Tuning not found: " + tuningId));
++
++        // Ownership verification
++        if (!tuning.getUser().getId().equals(userId)) {
++            throw new IllegalArgumentException("Ownership check failed: user " + userId + " does not own tuning " + tuningId);
++        }
++
++        tuning.setName(request.name());
++        tuning.setStrings(List.copyOf(request.strings()));
++        return TuningResponseDto.from(customTuningRepository.save(tuning));
++    }
++
++    @Transactional
++    public void delete(Long userId, Long tuningId) {
++        CustomTuning tuning = customTuningRepository.findById(tuningId)
++                .orElseThrow(() -> new NoSuchElementException("Tuning not found: " + tuningId));
++
++        // Ownership verification
++        if (!tuning.getUser().getId().equals(userId)) {
++            throw new IllegalArgumentException("Ownership check failed: user " + userId + " does not own tuning " + tuningId);
++        }
++
++        customTuningRepository.deleteById(tuningId);
++    }
+ }
+diff --git a/backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java b/backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java
+index e4f5bf2..44a2ea6 100644
+--- a/backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java
++++ b/backend/src/test/java/com/guitarapp/controller/TuningControllerTest.java
+@@ -14,8 +14,7 @@ import java.util.List;
+ 
+ import static org.mockito.ArgumentMatchers.any;
+ import static org.mockito.Mockito.when;
+-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+ 
+@@ -123,4 +122,114 @@ class TuningControllerTest extends WebMockTestBase {
+                 .andExpect(status().isForbidden())
+                 .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+     }
++
++    @Test
++    void premiumUser_updateNameReturns200() throws Exception {
++        User user = User.builder().id(1L).build();
++        CustomTuning existingTuning = CustomTuning.builder()
++                .id(5L).user(user).name("Drop C").strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findById(5L)).thenReturn(java.util.Optional.of(existingTuning));
++        when(customTuningRepository.save(any(CustomTuning.class))).thenAnswer(inv -> inv.getArgument(0));
++
++        mockMvc.perform(patch("/api/v1/tunings/5")
++                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM))
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content("{\"name\":\"Open D\",\"strings\":[\"D2\",\"A2\",\"D3\",\"F#3\",\"A3\",\"D4\"]}"))
++                .andExpect(status().isOk())
++                .andExpect(jsonPath("$.id").value(5))
++                .andExpect(jsonPath("$.name").value("Open D"))
++                .andExpect(jsonPath("$.strings[0]").value("D2"));
++    }
++
++    @Test
++    void freeUser_patchGets403() throws Exception {
++        mockMvc.perform(patch("/api/v1/tunings/5")
++                        .header("Authorization", "Bearer " + token(2L, JwtService.ROLE_FREE))
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content(VALID_BODY))
++                .andExpect(status().isForbidden())
++                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
++    }
++
++    @Test
++    void unauthenticated_patchGets401() throws Exception {
++        mockMvc.perform(patch("/api/v1/tunings/5")
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content(VALID_BODY))
++                .andExpect(status().isUnauthorized())
++                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
++    }
++
++    @Test
++    void premiumUser_patchOtherUsersTuningGets403() throws Exception {
++        User otherUser = User.builder().id(99L).build();
++        CustomTuning tuning = CustomTuning.builder()
++                .id(5L).user(otherUser).name("Drop C").strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findById(5L)).thenReturn(java.util.Optional.of(tuning));
++
++        mockMvc.perform(patch("/api/v1/tunings/5")
++                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM))
++                        .contentType(MediaType.APPLICATION_JSON)
++                        .content(VALID_BODY))
++                .andExpect(status().isForbidden())
++                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
++    }
++
++    @Test
++    void premiumUser_deleteReturns204() throws Exception {
++        User user = User.builder().id(1L).build();
++        CustomTuning tuning = CustomTuning.builder()
++                .id(5L).user(user).name("Drop C").strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findById(5L)).thenReturn(java.util.Optional.of(tuning));
++
++        mockMvc.perform(delete("/api/v1/tunings/5")
++                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM)))
++                .andExpect(status().isNoContent());
++    }
++
++    @Test
++    void freeUser_deleteGets403() throws Exception {
++        mockMvc.perform(delete("/api/v1/tunings/5")
++                        .header("Authorization", "Bearer " + token(2L, JwtService.ROLE_FREE)))
++                .andExpect(status().isForbidden())
++                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
++    }
++
++    @Test
++    void unauthenticated_deleteGets401() throws Exception {
++        mockMvc.perform(delete("/api/v1/tunings/5"))
++                .andExpect(status().isUnauthorized())
++                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
++    }
++
++    @Test
++    void premiumUser_deleteOtherUsersTuningGets403() throws Exception {
++        User otherUser = User.builder().id(99L).build();
++        CustomTuning tuning = CustomTuning.builder()
++                .id(5L).user(otherUser).name("Drop C").strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findById(5L)).thenReturn(java.util.Optional.of(tuning));
++
++        mockMvc.perform(delete("/api/v1/tunings/5")
++                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM)))
++                .andExpect(status().isForbidden())
++                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
++    }
++
++    @Test
++    void premiumUser_deleteNonexistentGets404() throws Exception {
++        when(customTuningRepository.findById(999L)).thenReturn(java.util.Optional.empty());
++
++        mockMvc.perform(delete("/api/v1/tunings/999")
++                        .header("Authorization", "Bearer " + token(1L, JwtService.ROLE_PREMIUM)))
++                .andExpect(status().isNotFound())
++                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
++    }
+ }
+diff --git a/backend/src/test/java/com/guitarapp/service/TuningServiceTest.java b/backend/src/test/java/com/guitarapp/service/TuningServiceTest.java
+index 8b35063..c79a0d2 100644
+--- a/backend/src/test/java/com/guitarapp/service/TuningServiceTest.java
++++ b/backend/src/test/java/com/guitarapp/service/TuningServiceTest.java
+@@ -12,11 +12,13 @@ import org.junit.jupiter.api.Test;
+ import java.time.OffsetDateTime;
+ import java.time.ZoneOffset;
+ import java.util.List;
++import java.util.NoSuchElementException;
++import java.util.Optional;
+ 
+ import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
+ import static org.mockito.ArgumentMatchers.any;
+-import static org.mockito.Mockito.mock;
+-import static org.mockito.Mockito.when;
++import static org.mockito.Mockito.*;
+ 
+ /**
+  * Pure unit test (no Spring context) — mocks the repository interfaces (Java 25 mock-safe).
+@@ -82,4 +84,93 @@ class TuningServiceTest {
+         when(customTuningRepository.findByUserIdOrderByCreatedAtAsc(2L)).thenReturn(List.of());
+         assertThat(service.listForUser(2L)).isEmpty();
+     }
++
++    @Test
++    void update_ownerCanUpdateName() {
++        User user = User.builder().id(1L).build();
++        CustomTuning existing = CustomTuning.builder()
++                .id(5L)
++                .user(user)
++                .name("Drop C")
++                .strings(List.of("C2", "G2", "C3", "F3", "A3", "D4"))
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findById(5L)).thenReturn(Optional.of(existing));
++        when(customTuningRepository.save(any(CustomTuning.class))).thenAnswer(inv -> inv.getArgument(0));
++
++        TuningResponseDto updated = service.update(1L, 5L, new TuningRequestDto("Open D", List.of("D2", "A2", "D3", "F#3", "A3", "D4")));
++
++        assertThat(updated.id()).isEqualTo(5L);
++        assertThat(updated.name()).isEqualTo("Open D");
++        assertThat(updated.strings()).containsExactly("D2", "A2", "D3", "F#3", "A3", "D4");
++    }
++
++    @Test
++    void update_nonOwnerThrowsIllegalArgument() {
++        User otherUser = User.builder().id(99L).build();
++        CustomTuning tuning = CustomTuning.builder()
++                .id(5L)
++                .user(otherUser)
++                .name("Drop C")
++                .strings(STANDARD)
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findById(5L)).thenReturn(Optional.of(tuning));
++
++        assertThatThrownBy(() -> service.update(1L, 5L, new TuningRequestDto("Open D", STANDARD)))
++                .isInstanceOf(IllegalArgumentException.class)
++                .hasMessageContaining("Ownership check failed");
++    }
++
++    @Test
++    void update_nonexistentTuningThrowsNoSuchElement() {
++        when(customTuningRepository.findById(999L)).thenReturn(Optional.empty());
++
++        assertThatThrownBy(() -> service.update(1L, 999L, new TuningRequestDto("Open D", STANDARD)))
++                .isInstanceOf(NoSuchElementException.class)
++                .hasMessageContaining("not found");
++    }
++
++    @Test
++    void delete_ownerCanDelete() {
++        User user = User.builder().id(1L).build();
++        CustomTuning tuning = CustomTuning.builder()
++                .id(5L)
++                .user(user)
++                .name("Drop C")
++                .strings(STANDARD)
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findById(5L)).thenReturn(Optional.of(tuning));
++
++        service.delete(1L, 5L);
++
++        verify(customTuningRepository).deleteById(5L);
++    }
++
++    @Test
++    void delete_nonOwnerThrowsIllegalArgument() {
++        User otherUser = User.builder().id(99L).build();
++        CustomTuning tuning = CustomTuning.builder()
++                .id(5L)
++                .user(otherUser)
++                .name("Drop C")
++                .strings(STANDARD)
++                .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
++                .build();
++        when(customTuningRepository.findById(5L)).thenReturn(Optional.of(tuning));
++
++        assertThatThrownBy(() -> service.delete(1L, 5L))
++                .isInstanceOf(IllegalArgumentException.class)
++                .hasMessageContaining("Ownership check failed");
++    }
++
++    @Test
++    void delete_nonexistentTuningThrowsNoSuchElement() {
++        when(customTuningRepository.findById(999L)).thenReturn(Optional.empty());
++
++        assertThatThrownBy(() -> service.delete(1L, 999L))
++                .isInstanceOf(NoSuchElementException.class)
++                .hasMessageContaining("not found");
++    }
+ }
+diff --git a/frontend/index.html b/frontend/index.html
+index 7b0603f..b994e83 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -4,6 +4,17 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Guitar Fretboard</title>
++    <script>
++      // Apply the saved theme before first paint to avoid a flash of the wrong theme.
++      (function () {
++        try {
++          var t = localStorage.getItem('guitar-app-theme');
++          if (t !== 'light' && t !== 'dark') t = 'dark';
++          document.documentElement.setAttribute('data-theme', t);
++          document.documentElement.classList.toggle('dark', t === 'dark');
++        } catch (e) {}
++      })();
++    </script>
+   </head>
+   <body>
+     <div id="root"></div>
+diff --git a/frontend/src/components/ControlBar.test.tsx b/frontend/src/components/ControlBar.test.tsx
+index 37b7ec1..4b1c96c 100644
+--- a/frontend/src/components/ControlBar.test.tsx
++++ b/frontend/src/components/ControlBar.test.tsx
+@@ -19,6 +19,10 @@ vi.mock('@/hooks/useCustomTunings', async (importOriginal) => {
+   return { ...actual, useCustomTunings: () => ({ data: mockState.tunings }) };
+ });
+ 
++// Mock the HTTP boundary so the real rename/delete mutation hooks run against spies.
++const mockApiClient = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn() }));
++vi.mock('@/lib/apiClient', () => ({ apiClient: mockApiClient, default: mockApiClient }));
++
+ // base-ui uses ResizeObserver internally — polyfill for jsdom
+ (globalThis as Record<string, unknown>).ResizeObserver = class {
+   observe() {}
+@@ -43,6 +47,8 @@ beforeEach(() => {
+   useLayoutStore.setState({ activeLayout: DEFAULT_LAYOUT });
+   useSubscriptionStore.setState({ isPremium: false });
+   mockState.tunings = undefined;
++  mockApiClient.patch.mockReset().mockResolvedValue(undefined);
++  mockApiClient.del.mockReset().mockResolvedValue(undefined);
+ });
+ 
+ const renderBar = () => {
+@@ -159,6 +165,85 @@ describe('ControlBar — custom tunings (premium)', () => {
+   });
+ });
+ 
++describe('ControlBar — rename/delete actions (Task 9)', () => {
++  const CUSTOM: CustomTuning = {
++    id: 7, name: 'My Drop C', strings: ['C2', 'G2', 'C3', 'F3', 'A3', 'D4'], createdAt: null,
++  };
++
++  // Premium user with `My Drop C` custom tuning active.
++  const setupActiveCustom = () => {
++    useSubscriptionStore.setState({ isPremium: true });
++    mockState.tunings = [CUSTOM];
++    useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE, tuning: 'My Drop C' });
++  };
++
++  it('non-premium: no rename/delete action buttons', () => {
++    mockState.tunings = [CUSTOM];
++    useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE, tuning: 'My Drop C' });
++    renderBar();
++    expect(screen.queryByRole('button', { name: 'Rename tuning' })).not.toBeInTheDocument();
++    expect(screen.queryByRole('button', { name: 'Delete tuning' })).not.toBeInTheDocument();
++  });
++
++  it('premium + predefined tuning active: no rename/delete buttons', () => {
++    useSubscriptionStore.setState({ isPremium: true });
++    mockState.tunings = [CUSTOM];
++    // Active tuning is the predefined default (Standard E), not a custom one.
++    renderBar();
++    expect(screen.queryByRole('button', { name: 'Rename tuning' })).not.toBeInTheDocument();
++    expect(screen.queryByRole('button', { name: 'Delete tuning' })).not.toBeInTheDocument();
++  });
++
++  it('premium + custom tuning active: shows rename and delete buttons', () => {
++    setupActiveCustom();
++    renderBar();
++    expect(screen.getByRole('button', { name: 'Rename tuning' })).toBeInTheDocument();
++    expect(screen.getByRole('button', { name: 'Delete tuning' })).toBeInTheDocument();
++  });
++
++  it('rename: opens a sheet with the current name prefilled', async () => {
++    const user = userEvent.setup();
++    setupActiveCustom();
++    renderBar();
++    await user.click(screen.getByRole('button', { name: 'Rename tuning' }));
++    const input = await screen.findByPlaceholderText('New tuning name');
++    expect(input).toHaveValue('My Drop C');
++  });
++
++  it('rename: submitting issues PATCH with the new name and existing strings', async () => {
++    const user = userEvent.setup();
++    setupActiveCustom();
++    renderBar();
++    await user.click(screen.getByRole('button', { name: 'Rename tuning' }));
++    const input = await screen.findByPlaceholderText('New tuning name');
++    await user.clear(input);
++    await user.type(input, 'My Drop B');
++    await user.click(screen.getByRole('button', { name: 'Save' }));
++    expect(mockApiClient.patch).toHaveBeenCalledWith('/tunings/7', {
++      name: 'My Drop B',
++      strings: CUSTOM.strings,
++    });
++  });
++
++  it('delete: confirmation sheet names the tuning being deleted', async () => {
++    const user = userEvent.setup();
++    setupActiveCustom();
++    renderBar();
++    await user.click(screen.getByRole('button', { name: 'Delete tuning' }));
++    expect(await screen.findByText(/Delete "My Drop C"\? This cannot be undone\./)).toBeInTheDocument();
++  });
++
++  it('delete: confirming issues DELETE and falls back to Standard E', async () => {
++    const user = userEvent.setup();
++    setupActiveCustom();
++    renderBar();
++    await user.click(screen.getByRole('button', { name: 'Delete tuning' }));
++    await user.click(await screen.findByRole('button', { name: 'Delete' }));
++    expect(mockApiClient.del).toHaveBeenCalledWith('/tunings/7');
++    expect(useFretboardStore.getState().tuning).toBe('Standard E');
++  });
++});
++
+ describe('ControlBar — Library button', () => {
+   it('clicking Library button sets sidePanel to true', async () => {
+     const user = userEvent.setup();
+diff --git a/frontend/src/components/ControlBar.tsx b/frontend/src/components/ControlBar.tsx
+index a4514b2..7e8f936 100644
+--- a/frontend/src/components/ControlBar.tsx
++++ b/frontend/src/components/ControlBar.tsx
+@@ -1,18 +1,21 @@
+ import { useState } from 'react';
+-import { Type, Pencil, Library, User } from 'lucide-react';
++import { Type, Pencil, Library, User, Sun, Moon, Edit2, Trash2 } from 'lucide-react';
+ import { CHROMATIC_NOTES } from '@/data/notes.js';
+ import { SCALES, SCALE_NAMES, SCALE_CATEGORIES } from '@/data/scales.js';
++import { TUNINGS } from '@/data/tunings.js';
+ import { FREE_TUNINGS } from '@/data/freeTunings';
+ import { useFretboardStore } from '@/stores/fretboardStore';
+ import { useLayoutStore } from '@/stores/layoutStore';
+ import { useAuthStore, selectIsAuthenticated } from '@/stores/authStore';
+ import { useSubscriptionStore } from '@/stores/subscriptionStore';
++import { useThemeStore } from '@/stores/themeStore';
+ import { apiClient } from '@/lib/apiClient';
+ import { queryClient } from '@/lib/queryClient';
+ import { LoginModal } from '@/features/auth/LoginModal';
+ import CustomTuningCreator from '@/features/settings/CustomTuningCreator';
+ import { subscriptionQueryKey } from '@/hooks/useSubscription';
+ import { useCustomTunings } from '@/hooks/useCustomTunings';
++import { useRenameTuning, useDeleteTuning } from '@/hooks/useTuningMutations';
+ import {
+   Select,
+   SelectContent,
+@@ -30,6 +33,7 @@ import {
+   SheetDescription,
+ } from '@/components/ui/sheet';
+ import { Button } from '@/components/ui/button';
++import { Input } from '@/components/ui/input';
+ import { Slider } from '@/components/ui/slider';
+ 
+ // Sentinel Select value that opens the creator instead of selecting a tuning.
+@@ -53,9 +57,21 @@ export default function ControlBar() {
+   const isAuthenticated = useAuthStore(selectIsAuthenticated);
+   const isPremium = useSubscriptionStore((s) => s.isPremium);
+   const user = useAuthStore((s) => s.user);
++  const theme = useThemeStore((s) => s.theme);
++  const toggleTheme = useThemeStore((s) => s.toggleTheme);
+   const [accountOpen, setAccountOpen] = useState(false);
+   const [creatorOpen, setCreatorOpen] = useState(false);
++  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
++  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
++  const [renamingTuningName, setRenamingTuningName] = useState('');
++  const [deletingTuningName, setDeletingTuningName] = useState('');
++
+   const { data: customTunings } = useCustomTunings();
++  const renameMutation = useRenameTuning();
++  const deleteMutation = useDeleteTuning();
++
++  const getCurrentCustomTuning = () => customTunings?.find(t => t.name === tuning);
++  const isCurrentTuningCustom = getCurrentCustomTuning() !== undefined;
+ 
+   const onTuningChange = (v: string | null) => {
+     if (!v) return;
+@@ -63,6 +79,46 @@ export default function ControlBar() {
+     setTuning(v);
+   };
+ 
++  const handleRenameClick = () => {
++    const tuning = getCurrentCustomTuning();
++    if (tuning) {
++      setRenamingTuningName(tuning.name);
++      setRenameDialogOpen(true);
++    }
++  };
++
++  const handleRenameSubmit = async () => {
++    const currentTuning = getCurrentCustomTuning();
++    if (currentTuning && renamingTuningName.trim()) {
++      await renameMutation.mutateAsync({
++        id: currentTuning.id,
++        name: renamingTuningName.trim(),
++        strings: currentTuning.strings,
++      });
++      setRenameDialogOpen(false);
++    }
++  };
++
++  const handleDeleteClick = () => {
++    const tuning = getCurrentCustomTuning();
++    if (tuning) {
++      setDeletingTuningName(tuning.name);
++      setDeleteConfirmOpen(true);
++    }
++  };
++
++  const handleDeleteConfirm = async () => {
++    const currentTuning = getCurrentCustomTuning();
++    if (currentTuning) {
++      await deleteMutation.mutateAsync(currentTuning.id);
++      // Fallback to Standard E if the deleted tuning was active
++      if (tuning === currentTuning.name) {
++        setTuning('Standard E');
++      }
++      setDeleteConfirmOpen(false);
++    }
++  };
++
+   const handleLogout = async () => {
+     try {
+       await apiClient.post('/auth/logout');
+@@ -76,7 +132,7 @@ export default function ControlBar() {
+   };
+ 
+   return (
+-    <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-[var(--color-surface,#0f0f1a)] border-b border-[var(--color-border,#1e1e30)]">
++    <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-card border-b border-border">
+       {/* Logo */}
+       <span className="app-logo flex-shrink-0">
+         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+@@ -94,9 +150,25 @@ export default function ControlBar() {
+           }
+         </SelectTrigger>
+         <SelectContent>
+-          {FREE_TUNINGS.map(name => (
+-            <SelectItem key={name} value={name}>{name}</SelectItem>
+-          ))}
++          {/* Free tunings group */}
++          <SelectGroup>
++            <SelectLabel>Free Tunings</SelectLabel>
++            {FREE_TUNINGS.map(name => (
++              <SelectItem key={name} value={name}>{name}</SelectItem>
++            ))}
++          </SelectGroup>
++
++          {/* Premium-only tunings (show all predefined minus free) */}
++          {isPremium && (
++            <SelectGroup>
++              <SelectLabel>All Tunings</SelectLabel>
++              {Object.keys(TUNINGS).filter((name) => !(FREE_TUNINGS as readonly string[]).includes(name)).map(name => (
++                <SelectItem key={name} value={name}>{name}</SelectItem>
++              ))}
++            </SelectGroup>
++          )}
++
++          {/* My custom tunings */}
+           {isPremium && customTunings && customTunings.length > 0 && (
+             <SelectGroup>
+               <SelectLabel>My Tunings</SelectLabel>
+@@ -105,6 +177,8 @@ export default function ControlBar() {
+               ))}
+             </SelectGroup>
+           )}
++
++          {/* Create custom tuning (premium only) */}
+           {isPremium && (
+             <SelectItem value={CREATE_TUNING_VALUE}>＋ Create Custom Tuning</SelectItem>
+           )}
+@@ -142,7 +216,7 @@ export default function ControlBar() {
+ 
+       {/* Capo */}
+       <div className="flex items-center gap-2 flex-shrink-0" aria-label="Capo position">
+-        <span id="capo-label" className="text-xs text-slate-400 whitespace-nowrap">
++        <span id="capo-label" className="text-xs text-muted-foreground whitespace-nowrap">
+           {capoPosition === 0 ? 'Capo: None' : `Capo: ${capoPosition}`}
+         </span>
+         <Slider
+@@ -158,12 +232,22 @@ export default function ControlBar() {
+ 
+       {/* Right-aligned icon buttons */}
+       <div className="flex-shrink-0 flex items-center gap-1 ml-auto">
++        {/* Theme toggle */}
++        <button
++          onClick={toggleTheme}
++          className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground"
++          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
++          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
++        >
++          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
++        </button>
++
+         <button
+           onClick={() => setNoteNamesVisible(!noteNamesVisible)}
+           className={`p-2 rounded-lg transition-colors ${
+             noteNamesVisible
+-              ? 'bg-indigo-500/20 text-indigo-400'
+-              : 'text-slate-500 hover:text-slate-300'
++              ? 'bg-primary/15 text-primary'
++              : 'text-muted-foreground hover:text-foreground'
+           }`}
+           title="Toggle note names"
+           aria-label="Toggle note names"
+@@ -176,8 +260,8 @@ export default function ControlBar() {
+           onClick={() => setFreeformModeActive(!freeformModeActive)}
+           className={`p-2 rounded-lg transition-colors ${
+             freeformModeActive
+-              ? 'bg-indigo-500/20 text-indigo-400'
+-              : 'text-slate-500 hover:text-slate-300'
++              ? 'bg-primary/15 text-primary'
++              : 'text-muted-foreground hover:text-foreground'
+           }`}
+           title="Toggle freeform mode"
+           aria-label="Toggle freeform mode"
+@@ -191,8 +275,8 @@ export default function ControlBar() {
+           onClick={() => setLayout({ sidePanel: !sidePanel })}
+           className={`p-2 rounded-lg transition-colors ${
+             sidePanel
+-              ? 'bg-indigo-500/20 text-indigo-400'
+-              : 'text-slate-500 hover:text-slate-300'
++              ? 'bg-primary/15 text-primary'
++              : 'text-muted-foreground hover:text-foreground'
+           }`}
+           title="Library"
+           aria-label="Library"
+@@ -205,8 +289,8 @@ export default function ControlBar() {
+         <button
+           className={`p-2 rounded-lg transition-colors ${
+             isAuthenticated
+-              ? 'bg-indigo-500/20 text-indigo-400'
+-              : 'text-slate-500 hover:text-slate-300'
++              ? 'bg-primary/15 text-primary'
++              : 'text-muted-foreground hover:text-foreground'
+           }`}
+           title={isAuthenticated ? 'Account' : 'Sign in'}
+           aria-label={isAuthenticated ? 'Account' : 'Sign in'}
+@@ -216,9 +300,85 @@ export default function ControlBar() {
+         </button>
+       </div>
+ 
++      {/* Custom tuning actions (rename/delete) — show when a custom tuning is active */}
++      {isPremium && isCurrentTuningCustom && (
++        <div className="flex gap-1 flex-shrink-0">
++          <button
++            onClick={handleRenameClick}
++            className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
++            title="Rename tuning"
++            aria-label="Rename tuning"
++          >
++            <Edit2 size={16} />
++          </button>
++          <button
++            onClick={handleDeleteClick}
++            className="p-2 rounded-lg transition-colors text-muted-foreground hover:text-destructive hover:bg-destructive/10"
++            title="Delete tuning"
++            aria-label="Delete tuning"
++          >
++            <Trash2 size={16} />
++          </button>
++        </div>
++      )}
++
+       {/* Custom tuning creator (premium) */}
+       <CustomTuningCreator open={creatorOpen} onOpenChange={setCreatorOpen} />
+ 
++      {/* Rename tuning sheet */}
++      <Sheet open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
++        <SheetContent side="bottom" className="gap-4">
++          <SheetHeader className="p-0 mb-4">
++            <SheetTitle>Rename Tuning</SheetTitle>
++            <SheetDescription>Enter a new name for this tuning</SheetDescription>
++          </SheetHeader>
++          <div className="space-y-4">
++            <Input
++              placeholder="New tuning name"
++              value={renamingTuningName}
++              onChange={(e) => setRenamingTuningName(e.target.value)}
++              onKeyDown={(e) => {
++                if (e.key === 'Enter') {
++                  handleRenameSubmit();
++                }
++              }}
++              disabled={renameMutation.isPending}
++              autoFocus
++            />
++            <div className="flex gap-2 justify-end">
++              <Button variant="outline" onClick={() => setRenameDialogOpen(false)} disabled={renameMutation.isPending}>
++                Cancel
++              </Button>
++              <Button onClick={handleRenameSubmit} disabled={!renamingTuningName.trim() || renameMutation.isPending}>
++                {renameMutation.isPending ? 'Saving...' : 'Save'}
++              </Button>
++            </div>
++          </div>
++        </SheetContent>
++      </Sheet>
++
++      {/* Delete tuning confirmation sheet */}
++      <Sheet open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
++        <SheetContent side="bottom" className="gap-4">
++          <SheetHeader className="p-0 mb-4">
++            <SheetTitle>Delete Tuning?</SheetTitle>
++            <SheetDescription>Delete "{deletingTuningName}"? This cannot be undone.</SheetDescription>
++          </SheetHeader>
++          <div className="flex gap-2 justify-end">
++            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={deleteMutation.isPending}>
++              Cancel
++            </Button>
++            <Button
++              variant="destructive"
++              onClick={handleDeleteConfirm}
++              disabled={deleteMutation.isPending}
++            >
++              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
++            </Button>
++          </div>
++        </SheetContent>
++      </Sheet>
++
+       {/* Auth overlay (unauthenticated) */}
+       <LoginModal open={loginOpen} onOpenChange={(open) => (open ? openLoginModal() : closeLoginModal())} />
+ 
+diff --git a/frontend/src/components/ModeChipsRow.tsx b/frontend/src/components/ModeChipsRow.tsx
+index a85e852..9c8c340 100644
+--- a/frontend/src/components/ModeChipsRow.tsx
++++ b/frontend/src/components/ModeChipsRow.tsx
+@@ -28,7 +28,7 @@ export default function ModeChipsRow() {
+       <div
+         role="toolbar"
+         aria-label="Mode overlay"
+-        className="flex items-center gap-1.5 px-4 py-1.5 bg-[var(--color-surface,#0f0f1a)] border-b border-[var(--color-border,#1e1e30)] overflow-x-auto"
++        className="flex items-center gap-2 px-4 py-2 bg-card border-b border-border overflow-x-auto"
+       >
+         {MODES.map((mode, index) => {
+           const isActive = modeIndex === index;
+@@ -41,7 +41,7 @@ export default function ModeChipsRow() {
+                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                   isActive
+                     ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+-                    : 'text-slate-400 hover:text-slate-200 border border-transparent hover:border-slate-700'
++                    : 'text-muted-foreground hover:text-foreground border border-transparent hover:border-border'
+                 }`}
+               >
+                 {mode.name}
+diff --git a/frontend/src/features/library/LibraryItem.test.tsx b/frontend/src/features/library/LibraryItem.test.tsx
+index 70b6a94..f74d60a 100644
+--- a/frontend/src/features/library/LibraryItem.test.tsx
++++ b/frontend/src/features/library/LibraryItem.test.tsx
+@@ -13,11 +13,11 @@ describe('LibraryItem', () => {
+     expect(onSelect).toHaveBeenCalled()
+   })
+ 
+-  it('active variant renders checkmark icon, aria-selected=true, indigo styling', () => {
++  it('active variant renders checkmark icon, aria-selected=true, primary styling', () => {
+     render(<LibraryItem title="D Dorian" variant="active" />)
+     const btn = screen.getByRole('option')
+     expect(btn).toHaveAttribute('aria-selected', 'true')
+-    expect(btn.className).toContain('indigo')
++    expect(btn.className).toContain('text-primary')
+   })
+ 
+   it('locked variant renders lock Badge, aria-disabled=true, click calls onPaywallTrigger', async () => {
+diff --git a/frontend/src/features/library/LibraryItem.tsx b/frontend/src/features/library/LibraryItem.tsx
+index 8e3ecb4..d918a7b 100644
+--- a/frontend/src/features/library/LibraryItem.tsx
++++ b/frontend/src/features/library/LibraryItem.tsx
+@@ -26,12 +26,12 @@ export default function LibraryItem({ title, variant, onSelect, onPaywallTrigger
+       aria-disabled={variant === 'locked'}
+       onClick={handleClick}
+       disabled={false}
+-      className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
++      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-md text-sm transition-colors ${
+         variant === 'locked'
+-          ? 'opacity-50 cursor-not-allowed text-slate-500'
++          ? 'opacity-50 cursor-not-allowed text-muted-foreground'
+           : variant === 'active'
+-          ? 'bg-indigo-500/15 text-indigo-300'
+-          : 'text-slate-300 hover:bg-white/5'
++          ? 'bg-primary/15 text-primary'
++          : 'text-foreground hover:bg-muted'
+       }`}
+     >
+       <span>{title}</span>
+diff --git a/frontend/src/features/library/LibraryPanel.test.tsx b/frontend/src/features/library/LibraryPanel.test.tsx
+index 6aa688d..afcacfb 100644
+--- a/frontend/src/features/library/LibraryPanel.test.tsx
++++ b/frontend/src/features/library/LibraryPanel.test.tsx
+@@ -60,12 +60,12 @@ describe('LibraryPanel — desktop aside', () => {
+     expect(useLayoutStore.getState().activeLayout.sidePanel).toBe(false)
+   })
+ 
+-  it('"Scale Library" tab is active by default', () => {
++  it('"Scales" tab is active by default', () => {
+     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
+     const { container } = renderPanel()
+     const aside = container.querySelector('aside')!
+     const scaleTab = aside.querySelector('button[role="tab"][aria-selected="true"]')
+-    expect(scaleTab).toHaveTextContent('Scale Library')
++    expect(scaleTab).toHaveTextContent('Scales')
+   })
+ 
+   it('clicking "Chord Library" tab switches active tab', async () => {
+@@ -74,7 +74,7 @@ describe('LibraryPanel — desktop aside', () => {
+     const { container } = renderPanel()
+     const aside = container.querySelector('aside')!
+     const chordTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+-      (el) => el.textContent === 'Chord Library'
++      (el) => el.textContent === 'Chords'
+     ) as HTMLElement
+     await user.click(chordTab)
+     expect(chordTab).toHaveAttribute('aria-selected', 'true')
+@@ -99,7 +99,7 @@ describe('LibraryPanel — desktop aside', () => {
+     await user.click(lockedBtn)
+     expect(document.querySelector('[data-testid="paywall-card"]')).toBeInTheDocument()
+     const chordTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+-      (el) => el.textContent === 'Chord Library'
++      (el) => el.textContent === 'Chords'
+     ) as HTMLElement
+     await user.click(chordTab)
+     expect(document.querySelector('[data-testid="paywall-card"]')).not.toBeInTheDocument()
+diff --git a/frontend/src/features/library/LibraryPanel.tsx b/frontend/src/features/library/LibraryPanel.tsx
+index 5e2f866..e4fe2f0 100644
+--- a/frontend/src/features/library/LibraryPanel.tsx
++++ b/frontend/src/features/library/LibraryPanel.tsx
+@@ -11,8 +11,8 @@ import ProgressionBuilder from './ProgressionBuilder'
+ type Tab = 'scale' | 'chord' | 'progression'
+ 
+ const TAB_LABELS: Record<Tab, string> = {
+-  scale: 'Scale Library',
+-  chord: 'Chord Library',
++  scale: 'Scales',
++  chord: 'Chords',
+   progression: 'Progression',
+ }
+ 
+@@ -36,15 +36,15 @@ export default function LibraryPanel() {
+   }
+ 
+   const tabs = (
+-    <div className="flex border-b border-[var(--border)]" role="tablist">
++    <div className="flex gap-1 px-2 border-b border-border" role="tablist">
+       {(['scale', 'chord', 'progression'] as Tab[]).map((tab) => (
+         <button
+           key={tab}
+           onClick={(e) => handleTabClick(tab, e)}
+-          className={`px-4 py-2 text-sm font-medium transition-colors ${
++          className={`px-3 py-2.5 text-sm font-medium transition-colors -mb-px border-b-2 ${
+             activeTab === tab
+-              ? 'text-indigo-400 border-b-2 border-indigo-400'
+-              : 'text-slate-500 hover:text-slate-300'
++              ? 'text-primary border-primary'
++              : 'text-muted-foreground border-transparent hover:text-foreground'
+           }`}
+           aria-selected={activeTab === tab}
+           role="tab"
+@@ -72,11 +72,11 @@ export default function LibraryPanel() {
+           className="hidden md:flex flex-col border-l border-[var(--border)] bg-card"
+           aria-label="Library panel"
+         >
+-          <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)]">
+-            <span className="text-sm font-semibold text-slate-300">Library</span>
++          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
++            <span className="text-sm font-semibold text-foreground">Library</span>
+             <button
+               onClick={close}
+-              className="p-1 rounded text-slate-500 hover:text-slate-300"
++              className="p-1 rounded text-muted-foreground hover:text-foreground"
+               aria-label="Close library panel"
+             >
+               <X size={14} />
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+index 2938d26..896cf00 100644
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -75,6 +75,17 @@
+   --top-bar-height: 3rem;
+   --mode-row-height: 2rem;
+ 
++  /* Fretboard-specific (light theme) — light board with darker strings/frets/text
++     so the SVG stays legible on the light page instead of falling back to the
++     dark-theme hex defaults baked into FretboardCanvas. */
++  --color-fretboard: oklch(0.95 0.005 270);
++  --color-string: oklch(0.55 0.03 270);
++  --color-fret: oklch(0.80 0.01 270);
++  --color-fret-marker: oklch(0.88 0.01 270);
++  --color-text-primary: oklch(0.20 0.01 270);
++  --color-text-secondary: oklch(0.45 0.02 270);
++  --color-text-muted: oklch(0.62 0.02 270);
++
+   /* Dot colors (light theme fallback) */
+   --color-dot-root: oklch(0.78 0.15 75);
+   --color-dot-scale: oklch(0.52 0.24 264);
+diff --git a/frontend/src/lib/apiClient.ts b/frontend/src/lib/apiClient.ts
+index bff4ec1..76c45e7 100644
+--- a/frontend/src/lib/apiClient.ts
++++ b/frontend/src/lib/apiClient.ts
+@@ -140,6 +140,7 @@ async function request<T>(path: string, options: RequestOptions = {}, retried =
+ export const apiClient = {
+   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
+   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
++  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
+   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+ };
+ 
+diff --git a/frontend/src/types/api.ts b/frontend/src/types/api.ts
+index b7044a7..6590af6 100644
+--- a/frontend/src/types/api.ts
++++ b/frontend/src/types/api.ts
+@@ -20,3 +20,8 @@ export interface CustomTuning {
+   strings: string[];
+   createdAt: string | null;
+ }
++
++export interface TuningRequestDto {
++  name: string;
++  strings: string[];
++}

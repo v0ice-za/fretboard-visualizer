@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useProgressionStore } from '@/stores/progressionStore';
 import { useFretboardStore } from '@/stores/fretboardStore';
+import { playChord } from '@/lib/playChord';
 
 /**
  * Drives the fretboard from the active progression chord and wires ←/→ stepping.
@@ -34,6 +35,13 @@ export function useProgressionPlayback() {
       }
       fretboard.setRootNote(entry.rootNote);
       fretboard.setChordName(entry.chordName);
+      // Audio is gated internally by playChord (checks audioStore.enabled + isPremium).
+      try {
+        playChord(entry.chordName, entry.rootNote);
+      } catch (e) {
+        console.error('Audio playback failed during progression step:', e);
+        // Continue normally even if audio fails; chord display shouldn't break
+      }
     } else if (savedRef.current !== null) {
       // Was playing, now stopped (cleared / deactivated) → restore the snapshot.
       fretboard.setRootNote(savedRef.current.rootNote);

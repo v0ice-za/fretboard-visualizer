@@ -81,6 +81,15 @@ describe('ChordLibrary', () => {
     expect(onPaywallTrigger).toHaveBeenCalledWith(lockedBtn)
   })
 
+  // Story 6.2: the expanded chords are all appended past index 5, so free users
+  // must see them locked (only the first-5 basics stay free).
+  it('a new expanded chord (Dominant 13) is locked for free users', () => {
+    expect((CHORD_NAMES as string[]).indexOf('Dominant 13')).toBeGreaterThanOrEqual(5)
+    render(<ChordLibrary onPaywallTrigger={() => {}} />)
+    const btn = screen.getByRole('option', { name: byTitle('Dominant 13') })
+    expect(btn).toHaveAttribute('aria-disabled', 'true')
+  })
+
   describe('when premium', () => {
     beforeEach(() => {
       useSubscriptionStore.setState({ isPremium: true })
@@ -102,6 +111,13 @@ describe('ChordLibrary', () => {
       await user.click(screen.getByRole('option', { name: byTitle(formerlyLocked) }))
       expect(useFretboardStore.getState().chordName).toBe(formerlyLocked)
       expect(onPaywallTrigger).not.toHaveBeenCalled()
+    })
+
+    it('a new expanded chord (Dominant 13) is selectable for premium users', async () => {
+      const user = userEvent.setup()
+      render(<ChordLibrary onPaywallTrigger={() => {}} />)
+      await user.click(screen.getByRole('option', { name: byTitle('Dominant 13') }))
+      expect(useFretboardStore.getState().chordName).toBe('Dominant 13')
     })
   })
 })

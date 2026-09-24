@@ -8,17 +8,22 @@ import ScaleLibrary from './ScaleLibrary'
 import ChordLibrary from './ChordLibrary'
 import ChordsInKey from './ChordsInKey'
 import ProgressionBuilder from './ProgressionBuilder'
+import ChordRelationships from './ChordRelationships'
 
-type Tab = 'scale' | 'chord' | 'inKey' | 'progression'
+type Tab = 'scale' | 'chord' | 'inKey' | 'progression' | 'jazzify'
 
 const TAB_LABELS: Record<Tab, string> = {
   scale: 'Scales',
   chord: 'Chords',
   inKey: 'Diatonic',
   progression: 'Progression',
+  jazzify: 'Jazzify',
 }
 
-const TAB_ORDER: Tab[] = ['scale', 'chord', 'inKey', 'progression']
+const TAB_ORDER: Tab[] = ['scale', 'chord', 'inKey', 'progression', 'jazzify']
+
+// Tabs whose click is gated behind a premium subscription (raise the PaywallCard).
+const PREMIUM_TABS: ReadonlySet<Tab> = new Set(['progression', 'jazzify'])
 
 /** Tab row with a sliding active indicator (Story 5.3 AC1) — measures the active
  * tab's own position/width so the highlight animates to it, instead of a static
@@ -45,13 +50,13 @@ function TabsRow({
   }, [activeTab])
 
   return (
-    <div className="relative flex gap-1 px-3 border-b border-[var(--glass-border)]" role="tablist">
+    <div className="relative flex gap-1 overflow-x-auto px-3 border-b border-[var(--glass-border)]" role="tablist">
       {TAB_ORDER.map((tab) => (
         <button
           key={tab}
           ref={(el) => { tabRefs.current[tab] = el }}
           onClick={(e) => onTabClick(tab, e)}
-          className={`select-none rounded-t-md px-4 py-3 text-sm font-medium transition-colors ${
+          className={`shrink-0 select-none rounded-t-md px-4 py-3 text-sm font-medium transition-colors ${
             activeTab === tab
               ? 'text-primary'
               : 'text-muted-foreground hover:bg-[var(--glass-border)] hover:text-foreground'
@@ -81,8 +86,8 @@ export default function LibraryPanel() {
   const close = () => setLayout({ sidePanel: false })
 
   const handleTabClick = (tab: Tab, e: React.MouseEvent<HTMLButtonElement>) => {
-    // The progression builder is premium-only: gate it like a locked library item.
-    if (tab === 'progression' && !isPremium) {
+    // Progression builder and Jazzify are premium-only: gate them like a locked library item.
+    if (PREMIUM_TABS.has(tab) && !isPremium) {
       setPaywallAnchor(e.currentTarget)
       return
     }
@@ -98,6 +103,7 @@ export default function LibraryPanel() {
       {activeTab === 'chord' && <ChordLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
       {activeTab === 'inKey' && <ChordsInKey />}
       {activeTab === 'progression' && isPremium && <ProgressionBuilder />}
+      {activeTab === 'jazzify' && isPremium && <ChordRelationships />}
     </div>
   )
 

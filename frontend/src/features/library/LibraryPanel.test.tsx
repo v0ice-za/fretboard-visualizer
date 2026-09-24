@@ -147,6 +147,34 @@ describe('LibraryPanel — desktop aside', () => {
     expect(progTab).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('Add chords to build a progression')).toBeInTheDocument()
   })
+
+  it('non-premium: clicking the Jazzify tab triggers the paywall and shows no panel', async () => {
+    const user = userEvent.setup()
+    useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
+    const { container } = renderPanel()
+    const aside = container.querySelector('aside')!
+    const jazzTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+      (el) => el.textContent === 'Jazzify'
+    ) as HTMLElement
+    await user.click(jazzTab)
+    expect(document.querySelector('[data-testid="paywall-card"]')).toBeInTheDocument()
+    expect(jazzTab).not.toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByText(/Select a chord to see related chords/i)).not.toBeInTheDocument()
+  })
+
+  it('premium: the Jazzify tab renders ChordRelationships (no active chord → prompt)', async () => {
+    const user = userEvent.setup()
+    useSubscriptionStore.setState({ isPremium: true })
+    useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
+    const { container } = renderPanel()
+    const aside = container.querySelector('aside')!
+    const jazzTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+      (el) => el.textContent === 'Jazzify'
+    ) as HTMLElement
+    await user.click(jazzTab)
+    expect(jazzTab).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText(/Select a chord to see related chords/i)).toBeInTheDocument()
+  })
 })
 
 describe('LibraryPanel — mobile Sheet', () => {

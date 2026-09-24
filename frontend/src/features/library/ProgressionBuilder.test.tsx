@@ -32,6 +32,20 @@ describe('ProgressionBuilder', () => {
     expect(useProgressionStore.getState().chords).toHaveLength(1)
   })
 
+  // Story 6.2: the quality dropdown reads CHORD_NAMES, so the expanded vocabulary
+  // must list and select cleanly (the Progression tab is already premium-gated).
+  it('lists and adds a new expanded quality (Major 13)', async () => {
+    render(<ProgressionBuilder />)
+    expect(
+      within(screen.getByLabelText('Chord quality')).getByRole('option', { name: 'Major 13' }),
+    ).toBeInTheDocument()
+    await addChord('C', 'Major 13')
+    expect(useProgressionStore.getState().chords).toEqual([
+      expect.objectContaining({ rootNote: 'C', chordName: 'Major 13' }),
+    ])
+    expect(within(screen.getByRole('list', { name: 'Chord progression' })).getByText('C Major 13')).toBeInTheDocument()
+  })
+
   it('reorders with up/down controls', async () => {
     const user = userEvent.setup()
     render(<ProgressionBuilder />)
