@@ -105,7 +105,7 @@ describe('LibraryPanel — desktop aside', () => {
     expect(document.querySelector('[data-testid="paywall-card"]')).not.toBeInTheDocument()
   })
 
-  it('non-premium: clicking the Progression tab triggers the paywall and shows no builder', async () => {
+  it('non-premium: the Progression tab is free to open — Popular presets usable, no paywall on tab click', async () => {
     const user = userEvent.setup()
     useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
     const { container } = renderPanel()
@@ -114,9 +114,37 @@ describe('LibraryPanel — desktop aside', () => {
       (el) => el.textContent === 'Progression'
     ) as HTMLElement
     await user.click(progTab)
+    expect(progTab).toHaveAttribute('aria-selected', 'true')
+    expect(document.querySelector('[data-testid="paywall-card"]')).not.toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Popular progressions' })).toBeInTheDocument()
+  })
+
+  it('non-premium: clicking a Jazzy preset within the Progression tab triggers the paywall', async () => {
+    const user = userEvent.setup()
+    useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
+    const { container } = renderPanel()
+    const aside = container.querySelector('aside')!
+    const progTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+      (el) => el.textContent === 'Progression'
+    ) as HTMLElement
+    await user.click(progTab)
+    const jazzyList = screen.getByRole('list', { name: 'Jazzy progressions' })
+    await user.click(jazzyList.querySelector('button')!)
     expect(document.querySelector('[data-testid="paywall-card"]')).toBeInTheDocument()
-    expect(progTab).not.toHaveAttribute('aria-selected', 'true')
-    expect(screen.queryByText('Add chords to build a progression')).not.toBeInTheDocument()
+  })
+
+  it('non-premium: the custom builder within the Progression tab is locked', async () => {
+    const user = userEvent.setup()
+    useLayoutStore.setState({ activeLayout: { ...DEFAULT_LAYOUT, sidePanel: true } })
+    const { container } = renderPanel()
+    const aside = container.querySelector('aside')!
+    const progTab = Array.from(aside.querySelectorAll('button[role="tab"]')).find(
+      (el) => el.textContent === 'Progression'
+    ) as HTMLElement
+    await user.click(progTab)
+    expect(screen.queryByLabelText('Root note')).not.toBeInTheDocument()
+    await user.click(screen.getByText('Build your own progression, chord by chord'))
+    expect(document.querySelector('[data-testid="paywall-card"]')).toBeInTheDocument()
   })
 
   it('non-premium: the Diatonic tab is free — selects with no paywall', async () => {

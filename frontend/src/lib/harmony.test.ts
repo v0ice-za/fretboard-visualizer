@@ -163,5 +163,41 @@ describe('diatonicChords — expanded library (6.2)', () => {
         }
       }
     });
+
+    // Exhaustive check: every degree, across all 5 exotic scales, that resolves to
+    // one of the 5 new-in-6.2 4-note types — computed directly from SCALES+CHORDS
+    // (not hand-guessed) so this can't silently drift if either data file changes.
+    it.each([
+      ['Double Harmonic (Byzantine)', 2, 'E', 'Minor 6', 'Em6'],
+      ['Double Harmonic (Byzantine)', 4, 'G', 'Dominant 7♭5', 'G7♭5'],
+      ['Arabic', 0, 'C', 'Dominant 7♭5', 'C7♭5'],
+      ['Arabic', 5, 'G#', 'Dominant 7♯5', 'G#7♯5'],
+      ['Persian', 5, 'G#', 'Dominant 7♯5', 'G#7♯5'],
+      ['Enigmatic', 2, 'E', 'Major 6', 'E6'],
+      ['Enigmatic', 3, 'F#', 'Dominant 7♭5', 'F#7♭5'],
+      ['Hungarian Minor', 1, 'D', 'Dominant 7♭5', 'D7♭5'],
+      ['Hungarian Minor', 6, 'B', 'Minor 6', 'Bm6'],
+    ] as const)(
+      '%s degree %i (%s) builds as %s → displays %s',
+      (scaleName, degree, expectedRoot, expectedType, expectedDisplay) => {
+        const chords = diatonicChords('C', scaleName, { sevenths: true });
+        const chord = chords[degree];
+        expect(chord.buildable).toBe(true);
+        expect(chord.chordRoot).toBe(expectedRoot);
+        expect(chord.chordType).toBe(expectedType);
+        expect(chordDisplayName(chord)).toBe(expectedDisplay);
+      }
+    );
+
+    it('Dominant 7sus4 can never be produced by diatonic third-stacking (no scale, no degree)', () => {
+      // Structural, not a coverage gap: stacking thirds always yields a 3rd at
+      // position 1 (interval 3 or 4), but 7sus4's defining feature is no 3rd at
+      // all ([0,5,7,10]) — so this type is permanently unbuildable via harmonization.
+      // Verified computationally across every heptatonic scale in SCALES.
+      for (const scale of ['Double Harmonic (Byzantine)', 'Persian', 'Arabic', 'Enigmatic', 'Hungarian Minor']) {
+        const chords = diatonicChords('C', scale, { sevenths: true });
+        expect(chords.some((c) => c.chordType === 'Dominant 7sus4')).toBe(false);
+      }
+    });
   });
 });

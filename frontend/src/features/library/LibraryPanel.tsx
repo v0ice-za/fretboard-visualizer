@@ -23,7 +23,9 @@ const TAB_LABELS: Record<Tab, string> = {
 const TAB_ORDER: Tab[] = ['scale', 'chord', 'inKey', 'progression', 'jazzify']
 
 // Tabs whose click is gated behind a premium subscription (raise the PaywallCard).
-const PREMIUM_TABS: ReadonlySet<Tab> = new Set(['progression', 'jazzify'])
+// Progression is NOT here: its Popular presets are free — the tab opens for everyone,
+// and ProgressionBuilder gates its own Jazzy presets + custom builder internally.
+const PREMIUM_TABS: ReadonlySet<Tab> = new Set(['jazzify'])
 
 /** Tab row with a sliding active indicator (Story 5.3 AC1) — measures the active
  * tab's own position/width so the highlight animates to it, instead of a static
@@ -102,7 +104,9 @@ export default function LibraryPanel() {
       {activeTab === 'scale' && <ScaleLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
       {activeTab === 'chord' && <ChordLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
       {activeTab === 'inKey' && <ChordsInKey />}
-      {activeTab === 'progression' && isPremium && <ProgressionBuilder />}
+      {activeTab === 'progression' && (
+        <ProgressionBuilder onPaywallTrigger={(el) => setPaywallAnchor(el)} />
+      )}
       {activeTab === 'jazzify' && isPremium && <ChordRelationships />}
     </div>
   )

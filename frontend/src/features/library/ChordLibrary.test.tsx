@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ChordLibrary from './ChordLibrary'
+import ChordLibrary, { FREE_TIER_CHORD_COUNT } from './ChordLibrary'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
 import { useSubscriptionStore } from '@/stores/subscriptionStore'
 import { CHORD_NAMES } from '@/data/chords.js'
@@ -21,8 +21,8 @@ describe('ChordLibrary', () => {
 
   it('first 5 chords are preview variant (show "Preview" badge)', () => {
     render(<ChordLibrary onPaywallTrigger={() => {}} />)
-    expect(screen.getAllByText('Preview')).toHaveLength(5)
-    ;(CHORD_NAMES as string[]).slice(0, 5).forEach((name) => {
+    expect(screen.getAllByText('Preview')).toHaveLength(FREE_TIER_CHORD_COUNT)
+    ;(CHORD_NAMES as string[]).slice(0, FREE_TIER_CHORD_COUNT).forEach((name) => {
       const btn = screen.getByRole('option', { name: byTitle(name) })
       expect(btn).not.toHaveAttribute('aria-disabled', 'true')
       expect(btn).not.toHaveAttribute('aria-selected', 'true')
@@ -84,7 +84,7 @@ describe('ChordLibrary', () => {
   // Story 6.2: the expanded chords are all appended past index 5, so free users
   // must see them locked (only the first-5 basics stay free).
   it('a new expanded chord (Dominant 13) is locked for free users', () => {
-    expect((CHORD_NAMES as string[]).indexOf('Dominant 13')).toBeGreaterThanOrEqual(5)
+    expect((CHORD_NAMES as string[]).indexOf('Dominant 13')).toBeGreaterThanOrEqual(FREE_TIER_CHORD_COUNT)
     render(<ChordLibrary onPaywallTrigger={() => {}} />)
     const btn = screen.getByRole('option', { name: byTitle('Dominant 13') })
     expect(btn).toHaveAttribute('aria-disabled', 'true')

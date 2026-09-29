@@ -4,7 +4,10 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore'
 import { playChord } from '@/lib/playChord'
 import LibraryItem from './LibraryItem'
 
-const FREE_CHORD_NAMES = new Set((CHORD_NAMES as string[]).slice(0, 5))
+// Free-preview boundary: the first N chords stay selectable without premium.
+// Exported so tests can assert against it instead of a magic number.
+export const FREE_TIER_CHORD_COUNT = 5
+const FREE_CHORD_NAMES = new Set((CHORD_NAMES as string[]).slice(0, FREE_TIER_CHORD_COUNT))
 
 interface ChordLibraryProps {
   onPaywallTrigger: (el: HTMLElement) => void

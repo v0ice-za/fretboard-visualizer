@@ -1,6 +1,6 @@
 # Story 6.2: Expanded Chord Library
 
-Status: review
+Status: done
 
 ## Story
 
@@ -62,11 +62,13 @@ From `epics.distillate.md#Story 6.2`, reconciled against the **actual current `c
 
 **Result: 3 PATCH items, 5 dismissed as false positives**
 
-### Patch Items (Test Coverage & Robustness)
+### Patch Items (Test Coverage & Robustness) — applied 2026-09-28
 
-- [ ] [Review][Patch] Incomplete extended-chord test coverage — `fretboardUtils.test.ts` parametrizes 6 extended chords but misses `Add 9`, `Minor Add 9`, `Major 6/9`, `Minor 6/9`. Could expand the parametrized suite to include all new ≥5-note types. [fretboardUtils.test.ts:81]
-- [ ] [Review][Patch] Brittle free-tier index assertion — `ChordLibrary.test.tsx` line 87 uses magic number `>= 5` for free-preview boundary. Consider introducing a constant `FREE_TIER_CHORD_COUNT` or parametrizing the test to guard against future reordering. [ChordLibrary.test.tsx:87]
-- [ ] [Review][Patch] Insufficient exotic-scale buildable coverage — `harmony.test.ts` verifies some exotic scales (Double Harmonic, Enigmatic) gain buildable degrees but only spot-checks a handful of types. Consider parametrizing over all 5 new buildable 4-note types across multiple exotic scales for exhaustive regression. [harmony.test.ts:129]
+- [x] [Review][Patch] Incomplete extended-chord test coverage — added `Add 9`, `Minor Add 9`, `Major 6/9`, `Minor 6/9` to the parametrized `extended` array. [fretboardUtils.test.ts:81]
+- [x] [Review][Patch] Brittle free-tier index assertion — exported `FREE_TIER_CHORD_COUNT = 5` from `ChordLibrary.tsx`; both tests now assert against the named constant instead of a magic `5`. [ChordLibrary.tsx, ChordLibrary.test.tsx:87]
+- [x] [Review][Patch] Insufficient exotic-scale buildable coverage — computed (via a scratch script against the real `SCALES`+`CHORDS` data, not hand-derived) every degree across the 5 exotic scales that resolves to one of the 5 new 4-note types, then added an exhaustive `it.each` regression pinning root/type/display-name for all 9 real occurrences. **Bonus finding:** proved `Dominant 7sus4` is *structurally* never buildable via diatonic third-stacking in any heptatonic scale (sus4 has no 3rd; stacking thirds always produces one) — added a dedicated test documenting this as an invariant, not a coverage gap. [harmony.test.ts:129]
+
+**Regression after patches:** 523/523 frontend tests (+41: 4 extended-chord parametrizations, 9 exotic-scale `it.each` cases, 1 structural-invariant test, plus pre-existing), `tsc`/`eslint`/`vite build` all clean.
 
 ## Dev Notes
 

@@ -146,6 +146,11 @@ export default function PaywallCard({ open, onClose, anchorEl, inline = false }:
 
   return (
     <FloatingPortal>
+      {/* Non-interactive dimming scrim (Story 6.x retro finding): the card previously
+          rendered with nothing behind it, reading as a layout glitch rather than an
+          intentional upsell moment. useDismiss already handles outside-press to close;
+          this is purely visual, matching the app's SheetOverlay convention. */}
+      <div aria-hidden className="fixed inset-0 z-40 bg-black/10 supports-backdrop-filter:backdrop-blur-xs" />
       <FloatingFocusManager context={context} modal={false}>
         <div
           // eslint-disable-next-line react-hooks/refs -- floating-ui callback ref, not a .current read

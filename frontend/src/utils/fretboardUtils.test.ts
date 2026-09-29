@@ -86,6 +86,10 @@ describe('calculateChordDots', () => {
       ['Minor 11', CHORDS['Minor 11'].intervals],       // 6 notes
       ['Dominant 13', CHORDS['Dominant 13'].intervals], // 6 notes
       ['Major 13', CHORDS['Major 13'].intervals],       // 6 notes
+      ['Add 9', CHORDS['Add 9'].intervals],             // 4 notes
+      ['Minor Add 9', CHORDS['Minor Add 9'].intervals], // 4 notes
+      ['Major 6/9', CHORDS['Major 6/9'].intervals],     // 5 notes
+      ['Minor 6/9', CHORDS['Minor 6/9'].intervals],     // 5 notes
     ];
 
     it.each(extended)('%s highlights on Standard E with only root/scale dots', (_name, intervals) => {

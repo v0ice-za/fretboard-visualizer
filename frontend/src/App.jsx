@@ -9,6 +9,8 @@ import { useSubscription, subscriptionQueryKey } from '@/hooks/useSubscription';
 import { useSessionSync } from '@/hooks/useSessionSync';
 import { useThemeGuard } from '@/hooks/useThemeGuard';
 import { useCustomTunings, resolveCustomTuningStrings } from '@/hooks/useCustomTunings';
+import { useMetronome } from '@/hooks/useMetronome';
+import { useTuner } from '@/hooks/useTuner';
 import { bootstrapAuth } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
 import './App.css';
@@ -19,6 +21,10 @@ export default function App() {
   useSubscription();
   useSessionSync();
   useThemeGuard();
+  // Runs independently of whether the Metronome sheet is open — starting it and
+  // closing the panel should keep the click going, like a real metronome.
+  useMetronome();
+  useTuner();
   const { data: customTunings } = useCustomTunings();
   // undefined for predefined tunings (FretboardCanvas falls back to its own by-name lookup),
   // pitch-class strings for a selected custom tuning.
@@ -42,10 +48,14 @@ export default function App() {
 
   return (
     <AppShell>
-      <ControlBar />
-      <ModeChipsRow />
-      <main className="app-main">
-        <div id="fretboard" style={{ gridArea: 'fretboard' }}>
+      <div style={{ gridArea: 'top-bar' }}>
+        <ControlBar />
+      </div>
+      <div style={{ gridArea: 'mode-row' }}>
+        <ModeChipsRow />
+      </div>
+      <main className="app-main" style={{ gridArea: 'fretboard' }}>
+        <div id="fretboard">
           <FretboardCanvas
             tuning={tuning}
             rootNote={rootNote}
@@ -62,7 +72,7 @@ export default function App() {
           />
         </div>
       </main>
-      <footer className="app-footer">
+      <footer className="app-footer" style={{ gridArea: 'bottom-bar' }}>
         <span>Guitar Fretboard Explorer</span>
       </footer>
     </AppShell>

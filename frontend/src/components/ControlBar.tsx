@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Type, Pencil, Library, User, Sun, Moon, Edit2, Trash2, Volume2, VolumeX } from 'lucide-react';
+import { Type, Pencil, Library, User, Sun, Moon, Edit2, Trash2, Volume2, VolumeX, Timer, Gauge } from 'lucide-react';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALES, SCALE_NAMES, SCALE_CATEGORIES } from '@/data/scales.js';
 import { TUNINGS } from '@/data/tunings.js';
@@ -15,6 +15,10 @@ import { queryClient } from '@/lib/queryClient';
 import { LoginModal } from '@/features/auth/LoginModal';
 import CustomTuningCreator from '@/features/settings/CustomTuningCreator';
 import ThemePicker from '@/features/settings/ThemePicker';
+import MetronomeControl from '@/features/settings/MetronomeControl';
+import TunerControl from '@/features/settings/TunerControl';
+import { useMetronomeStore } from '@/stores/metronomeStore';
+import { useTunerStore } from '@/stores/tunerStore';
 import PaywallCard from '@/components/shared/PaywallCard';
 import { subscriptionQueryKey } from '@/hooks/useSubscription';
 import { useCustomTunings } from '@/hooks/useCustomTunings';
@@ -79,12 +83,16 @@ export default function ControlBar() {
   const closeLoginModal = useLayoutStore((s) => s.closeLoginModal);
 
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
-  const isPremium = useSubscriptionStore((s) => s.isPremium);
+  const isPremium = useSubscriptionStore((s) => s.isPremium) ?? false;
   const user = useAuthStore((s) => s.user);
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const soundEnabled = useAudioStore((s) => s.enabled);
   const toggleSound = useAudioStore((s) => s.toggleEnabled);
+  const metronomePlaying = useMetronomeStore((s) => s.isPlaying);
+  const [metronomeOpen, setMetronomeOpen] = useState(false);
+  const tunerListening = useTunerStore((s) => s.isListening);
+  const [tunerOpen, setTunerOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [paywallAnchor, setPaywallAnchor] = useState<HTMLElement | null>(null);
   const [creatorOpen, setCreatorOpen] = useState(false);
@@ -155,6 +163,11 @@ export default function ControlBar() {
     useAuthStore.getState().clearAuth();
     useSubscriptionStore.getState().setIsPremium(false);
     queryClient.removeQueries({ queryKey: subscriptionQueryKey });
+    // Reset tuner and metronome state to prevent leaking to the next user.
+    useMetronomeStore.getState().setPlaying(false);
+    useTunerStore.getState().setListening(false);
+    useTunerStore.getState().setDetectedNote(null);
+    useTunerStore.getState().setError(null);
     setAccountOpen(false);
   };
 
@@ -342,6 +355,42 @@ export default function ControlBar() {
             <TooltipContent>{isPremium ? 'Toggle sound' : 'Sound — premium'}</TooltipContent>
           </Tooltip>
 
+          {/* Tuner (free) */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <IconButton
+                  onClick={() => setTunerOpen(true)}
+                  active={tunerListening}
+                  aria-label="Tuner"
+                  aria-pressed={tunerListening}
+                >
+                  <Gauge />
+                  <span className="hidden md:inline">Tuner</span>
+                </IconButton>
+              }
+            />
+            <TooltipContent>Tuner</TooltipContent>
+          </Tooltip>
+
+          {/* Metronome (free) */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <IconButton
+                  onClick={() => setMetronomeOpen(true)}
+                  active={metronomePlaying}
+                  aria-label="Metronome"
+                  aria-pressed={metronomePlaying}
+                >
+                  <Timer />
+                  <span className="hidden md:inline">Metronome</span>
+                </IconButton>
+              }
+            />
+            <TooltipContent>Metronome</TooltipContent>
+          </Tooltip>
+
           {/* Library */}
           <Tooltip>
             <TooltipTrigger
@@ -408,6 +457,12 @@ export default function ControlBar() {
 
       {/* Custom tuning creator (premium) */}
       <CustomTuningCreator open={creatorOpen} onOpenChange={setCreatorOpen} />
+
+      {/* Metronome (free) */}
+      <MetronomeControl open={metronomeOpen} onOpenChange={setMetronomeOpen} />
+
+      {/* Tuner (free) */}
+      <TunerControl open={tunerOpen} onOpenChange={setTunerOpen} />
 
       {/* Rename tuning sheet */}
       <Sheet open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>

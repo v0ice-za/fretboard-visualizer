@@ -1,6 +1,6 @@
 # Story 6.3: Chord Relationships / "Jazzify"
 
-Status: review
+Status: done
 
 ## Story
 
@@ -40,6 +40,17 @@ From `epics.distillate.md#Story 6.3`, reconciled against the **actual current co
 - [x] **Task 6: Component + gating tests** (AC: 1, 4, 5, 8) — `ChordRelationships.test.tsx` (6): prompt, list render, `chordRoot??rootNote` fallback, click order (`setChordName` then `setChordRoot`), same-notes tag, diminished no-subs. `LibraryPanel.test.tsx` (+2): Jazzify tab premium-gated (free→PaywallCard, premium→prompt).
 - [x] **Task 7: Regression** (AC: 8) — `tsc --noEmit`, `eslint`, `vitest run` (482/482, +47), `vite build` all green (pre-existing chunk-size advisory only).
 - [~] **Task 8 (recommended): live spot-check** — **judgment call: deferred to code review** (flag). Consistent with 6.2: this story adds NO new CSS/tokens (reuses existing glass utilities), so the "live-loading catches what vitest can't" risk (which historically was CSS-comment / contrast bugs) doesn't apply. The one visual item — the 5-tab-row width — was addressed with `overflow-x-auto`. A live premium check (pick a chord → click a shares + a jazzify suggestion → board re-highlights, panel recomputes; verify tab row at narrow width) is a sensible CR step.
+
+## Review Findings
+
+**3-layer code review (2026-09-28):** Blind Hunter / Edge Case Hunter / Acceptance Auditor, covering the combined 6.2+6.3 diff (`e284b0c..fbd0893`). 6.2 came back clean; all 4 raised findings were against 6.3 code and were verified against source before triage:
+
+- [x] [Review][Dismiss] Tab indicator allegedly breaks on horizontal scroll (`LibraryPanel.tsx:53`) — **false positive**: the sliding indicator `<span>` is a sibling of the tab buttons inside the same `relative`+`overflow-x-auto` container, so it scrolls with the content by standard CSS containing-block behavior. No fix needed.
+- [x] [Review][Dismiss] Missing test for `chordRoot ?? rootNote` fallback (AC1) — **false positive**: already covered by `ChordRelationships.test.tsx:30-35` ("falls back to rootNote when chordRoot is null").
+- [x] [Review][Dismiss] `playChord` on suggestion-click flagged as undocumented scope creep — **false positive**: identical pattern already exists in `ChordLibrary.tsx` and `ChordsInKey.tsx`; 6.3 is consistent with the established shipped audio-playback behavior, not a deviation.
+- [x] [Review][Dismiss] Redundant `noteIndex(root)` call in `sharedNoteChords` (`chordRelationships.ts:82`) — real but negligible (O(1) lookup called once per invocation, outside the 336-candidate loop); fixing it would require changing `pitchClassSet`'s public signature for zero measurable benefit. Not patched.
+
+**Result: 0 patches, 0 deferred, 4 dismissed as noise after source verification.**
 
 ## Dev Notes
 

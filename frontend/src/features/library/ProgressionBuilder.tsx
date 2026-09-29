@@ -1,9 +1,17 @@
 import { useState } from 'react';
-import { ChevronUp, ChevronDown, X } from 'lucide-react';
-import { CHROMATIC_NOTES } from '@/data/notes.js';
+import { ChevronUp, ChevronDown, Lock, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { CHROMATIC_NOTES, noteAtSemitone } from '@/data/notes.js';
 import { CHORD_NAMES } from '@/data/chords.js';
 import { useProgressionStore, MAX_PROGRESSION_CHORDS } from '@/stores/progressionStore';
 import { useProgressionPlayback } from '@/hooks/useProgressionPlayback';
+import { useFretboardStore } from '@/stores/fretboardStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import {
+  POPULAR_PROGRESSIONS,
+  JAZZY_PROGRESSIONS,
+  type ProgressionPreset,
+} from '@/data/progressionPresets';
 
 const ROOT_NOTES = CHROMATIC_NOTES as string[];
 const QUALITIES = CHORD_NAMES as string[];
@@ -14,9 +22,49 @@ const chordLabel = (rootNote: string, chordName: string) => `${rootNote} ${chord
 const selectClass =
   'h-8 rounded-md border border-[var(--border)] bg-transparent px-2 text-sm text-slate-300 outline-none focus-visible:border-indigo-400';
 
-export default function ProgressionBuilder() {
+/** A single preset row: name + short description, transposes to the active root on click.
+ *  Popular progressions are free; Jazzy ones pass `locked` for non-premium users — dimmed,
+ *  lock badge, and the click raises the shared PaywallCard instead of loading the preset. */
+function PresetButton({
+  preset,
+  locked,
+  onClick,
+}: {
+  preset: ProgressionPreset;
+  locked?: boolean;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-disabled={locked}
+      className={`flex w-full select-none items-start justify-between gap-2 rounded-md border border-[var(--glass-border)] px-3 py-2 text-left transition-colors ${
+        locked ? 'cursor-not-allowed opacity-50' : 'hover:bg-white/5'
+      }`}
+    >
+      <span className="flex flex-col items-start gap-0.5">
+        <span className="text-sm font-medium text-slate-300">{preset.name}</span>
+        <span className="text-xs text-slate-500">{preset.description}</span>
+      </span>
+      {locked && (
+        <Badge variant="outline" className="shrink-0 gap-1 py-0 px-1 text-xs">
+          <Lock size={10} />
+        </Badge>
+      )}
+    </button>
+  );
+}
+
+interface ProgressionBuilderProps {
+  onPaywallTrigger?: (anchorEl: HTMLElement) => void;
+}
+
+export default function ProgressionBuilder({ onPaywallTrigger }: ProgressionBuilderProps) {
   const { chords, activeIndex, addChord, removeChord, moveChord, setActiveIndex, next, prev, clear } =
     useProgressionStore();
+  const rootNote = useFretboardStore((s) => s.rootNote);
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
   const [root, setRoot] = useState(ROOT_NOTES[0]);
   const [quality, setQuality] = useState(QUALITIES[0]);
 
@@ -25,8 +73,73 @@ export default function ProgressionBuilder() {
   const isEmpty = chords.length === 0;
   const atCap = chords.length >= MAX_PROGRESSION_CHORDS;
 
+  // Presets transpose to the currently-selected key (ControlBar's root note),
+  // not a fixed key — loading "I-V-vi-IV" in D gives you D-A-Bm-G. Replaces
+  // whatever progression is currently loaded, same as clicking Clear first.
+  const loadPreset = (preset: ProgressionPreset) => {
+    clear();
+    for (const step of preset.steps) {
+      const transposedNote = noteAtSemitone(rootNote, step.semitones);
+      // Validate noteAtSemitone returned a valid note (guard against undefined).
+      if (!transposedNote) {
+        console.warn(`Failed to transpose note for preset step at semitone ${step.semitones}`);
+        continue;
+      }
+      addChord(transposedNote, step.quality);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-3">
+      <section className="flex flex-col gap-2">
+        <h3 className="select-none text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Popular progressions
+        </h3>
+        <ul role="list" aria-label="Popular progressions" className="flex flex-col gap-1.5">
+          {POPULAR_PROGRESSIONS.map((preset) => (
+            <li key={preset.name}>
+              <PresetButton preset={preset} onClick={() => loadPreset(preset)} />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h3 className="select-none text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Jazzy progressions
+        </h3>
+        <ul role="list" aria-label="Jazzy progressions" className="flex flex-col gap-1.5">
+          {JAZZY_PROGRESSIONS.map((preset) => (
+            <li key={preset.name}>
+              <PresetButton
+                preset={preset}
+                locked={!isPremium}
+                onClick={(e) => (isPremium ? loadPreset(preset) : onPaywallTrigger?.(e.currentTarget))}
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <div className="border-t border-[var(--glass-border)] pt-3">
+        <h3 className="mb-2 select-none text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Custom
+        </h3>
+      </div>
+
+      {!isPremium ? (
+        <button
+          type="button"
+          onClick={(e) => onPaywallTrigger?.(e.currentTarget)}
+          className="flex w-full select-none items-center justify-between gap-2 rounded-md border border-[var(--glass-border)] px-3 py-3 text-left opacity-80 transition-colors hover:bg-white/5 hover:opacity-100"
+        >
+          <span className="text-sm text-slate-400">Build your own progression, chord by chord</span>
+          <Badge variant="outline" className="shrink-0 gap-1 py-0 px-1 text-xs">
+            <Lock size={10} />
+          </Badge>
+        </button>
+      ) : (
+        <>
       {/* Add row */}
       <div className="flex items-center gap-2">
         <select
@@ -157,6 +270,8 @@ export default function ProgressionBuilder() {
             );
           })}
         </ul>
+      )}
+        </>
       )}
     </div>
   );

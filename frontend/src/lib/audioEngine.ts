@@ -45,6 +45,20 @@ export function setVolume(v: number): void {
   if (master) master.gain.value = masterVolume;
 }
 
+/**
+ * The single shared AudioContext, for features (e.g. the metronome) that need
+ * their own audio graph rather than routing through the chord-preview `master`
+ * gain node — keeps volume controls independent while still avoiding the
+ * per-browser AudioContext-instance limits of creating more than one. Resumes
+ * a suspended context (the common post-user-gesture state) before returning.
+ * Returns null wherever Web Audio is unavailable.
+ */
+export function getSharedAudioContext(): AudioContext | null {
+  const context = getContext();
+  if (context && context.state === 'suspended') void context.resume().catch(() => {});
+  return context;
+}
+
 /** Build a Karplus–Strong plucked-string waveform for one frequency. */
 function makePluckBuffer(context: BaseAudioContext, frequency: number): AudioBuffer {
   const sr = context.sampleRate;

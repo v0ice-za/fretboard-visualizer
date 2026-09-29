@@ -3,10 +3,15 @@ import userEvent from '@testing-library/user-event'
 import ProgressionBuilder from './ProgressionBuilder'
 import { useProgressionStore, MAX_PROGRESSION_CHORDS } from '@/stores/progressionStore'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
+import { useSubscriptionStore } from '@/stores/subscriptionStore'
 
+// Popular presets are free; Jazzy presets + the custom builder are premium. Most of
+// this suite exercises the custom builder / Jazzy presets, so default to premium here
+// and test the free-tier locking explicitly in its own describe block below.
 beforeEach(() => {
   useProgressionStore.setState({ chords: [], activeIndex: null })
   useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE })
+  useSubscriptionStore.setState({ isPremium: true })
 })
 
 const addChord = async (root: string, quality: string) => {
@@ -125,5 +130,88 @@ describe('ProgressionBuilder', () => {
     await user.click(screen.getByRole('button', { name: 'Clear' }))
     expect(useProgressionStore.getState().chords).toHaveLength(0)
     expect(useFretboardStore.getState().chordName).toBeNull()
+  })
+
+  describe('presets', () => {
+    it('loads a popular preset transposed to the active root note', async () => {
+      const user = userEvent.setup()
+      useFretboardStore.setState({ rootNote: 'D' })
+      render(<ProgressionBuilder />)
+      const list = screen.getByRole('list', { name: 'Popular progressions' })
+      await user.click(within(list).getByText('I – V – vi – IV'))
+      const labels = useProgressionStore.getState().chords.map((c) => `${c.rootNote} ${c.chordName}`)
+      // D major key: I=D, V=A, vi=Bm, IV=G
+      expect(labels).toEqual(['D Major', 'A Major', 'B Minor', 'G Major'])
+    })
+
+    it('loads a jazzy preset with 7th-chord qualities', async () => {
+      const user = userEvent.setup()
+      useFretboardStore.setState({ rootNote: 'C' })
+      render(<ProgressionBuilder />)
+      const list = screen.getByRole('list', { name: 'Jazzy progressions' })
+      await user.click(within(list).getByText('ii7 – V7 – Imaj7'))
+      const labels = useProgressionStore.getState().chords.map((c) => `${c.rootNote} ${c.chordName}`)
+      expect(labels).toEqual(['D Minor 7', 'G Dominant 7', 'C Major 7'])
+    })
+
+    it('loads the 12-bar blues preset as 12 dominant-7 chords', async () => {
+      const user = userEvent.setup()
+      useFretboardStore.setState({ rootNote: 'C' })
+      render(<ProgressionBuilder />)
+      const list = screen.getByRole('list', { name: 'Popular progressions' })
+      await user.click(within(list).getByText('12-Bar Blues'))
+      const chords = useProgressionStore.getState().chords
+      expect(chords).toHaveLength(12)
+      expect(chords.every((c) => c.chordName === 'Dominant 7')).toBe(true)
+    })
+
+    it('loading a preset replaces an existing progression instead of appending', async () => {
+      const user = userEvent.setup()
+      useFretboardStore.setState({ rootNote: 'C' })
+      render(<ProgressionBuilder />)
+      await addChord('E', 'Diminished')
+      const list = screen.getByRole('list', { name: 'Popular progressions' })
+      await user.click(within(list).getByText('I – IV – V'))
+      const labels = useProgressionStore.getState().chords.map((c) => `${c.rootNote} ${c.chordName}`)
+      expect(labels).toEqual(['C Major', 'F Major', 'G Major'])
+    })
+  })
+
+  describe('free tier gating', () => {
+    beforeEach(() => {
+      useSubscriptionStore.setState({ isPremium: false })
+    })
+
+    it('Popular presets are usable for free', async () => {
+      const user = userEvent.setup()
+      useFretboardStore.setState({ rootNote: 'C' })
+      render(<ProgressionBuilder />)
+      const list = screen.getByRole('list', { name: 'Popular progressions' })
+      await user.click(within(list).getByText('I – IV – V'))
+      const labels = useProgressionStore.getState().chords.map((c) => `${c.rootNote} ${c.chordName}`)
+      expect(labels).toEqual(['C Major', 'F Major', 'G Major'])
+    })
+
+    it('Jazzy presets are locked and raise the paywall instead of loading', async () => {
+      const user = userEvent.setup()
+      const onPaywallTrigger = vi.fn()
+      render(<ProgressionBuilder onPaywallTrigger={onPaywallTrigger} />)
+      const list = screen.getByRole('list', { name: 'Jazzy progressions' })
+      const lockedBtn = within(list).getByText('ii7 – V7 – Imaj7').closest('button')!
+      expect(lockedBtn).toHaveAttribute('aria-disabled', 'true')
+      await user.click(lockedBtn)
+      expect(onPaywallTrigger).toHaveBeenCalledWith(lockedBtn)
+      expect(useProgressionStore.getState().chords).toHaveLength(0)
+    })
+
+    it('the custom builder is locked and raises the paywall instead of rendering the Add row', async () => {
+      const user = userEvent.setup()
+      const onPaywallTrigger = vi.fn()
+      render(<ProgressionBuilder onPaywallTrigger={onPaywallTrigger} />)
+      expect(screen.queryByLabelText('Root note')).not.toBeInTheDocument()
+      const lockPrompt = screen.getByText('Build your own progression, chord by chord')
+      await user.click(lockPrompt)
+      expect(onPaywallTrigger).toHaveBeenCalled()
+    })
   })
 })
