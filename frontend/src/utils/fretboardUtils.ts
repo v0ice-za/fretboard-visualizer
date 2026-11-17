@@ -25,7 +25,12 @@ export function toPitchClass(token: string): string {
   return token.replace(/[0-9]/g, '');
 }
 
-export type DotState = 'root' | 'scale' | 'mode' | 'mode-root' | 'freeform';
+export type DotState = 'root' | 'scale' | 'mode' | 'mode-root' | 'freeform' | 'key-root';
+
+export interface LegendEntry {
+  state: DotState;
+  label: string;
+}
 
 export interface FretDotData {
   fret: number;    // 0 (open string) to 24
@@ -80,11 +85,15 @@ export function generateAriaLabel(
   rootNote: string,
   scaleName: string,
   modeIndex?: number | null,
-  capoPosition?: number
+  capoPosition?: number,
+  chord?: { root: string; type: string } | null
 ): string {
-  const base = `${rootNote} ${scaleName} scale on ${tuning} tuning`;
-  let label = base;
-  if (modeIndex != null && modeIndex >= 0 && modeIndex < MODES.length) {
+  // Chord view: the mode overlay isn't rendered, so it isn't announced. Chords are
+  // labelled verbatim (`${root} ${type}`) like every other chord UI (see harmony.ts).
+  let label = chord
+    ? `${chord.root} ${chord.type} chord in the key of ${rootNote} on ${tuning} tuning`
+    : `${rootNote} ${scaleName} scale on ${tuning} tuning`;
+  if (!chord && modeIndex != null && modeIndex >= 0 && modeIndex < MODES.length) {
     label = `${label}, ${MODES[modeIndex].name} mode overlay active`;
   }
   if (capoPosition && capoPosition > 0) {
@@ -205,4 +214,62 @@ export function calculateFreeformDots(
       cx: getDotCx(m.fret),
       cy: getDotCy(m.string),
     }));
+}
+
+/**
+ * Key-root markers for the chord view: every position of the selected key's root,
+ * so the key centre stays visible while a chord rooted elsewhere is shown (e.g. the
+ * ii chord, D minor, in C major). Empty when the chord is rooted on the key — its
+ * own root dots already mark those positions.
+ */
+export function calculateKeyRootMarkers(
+  keyRoot: string,
+  chordRoot: string,
+  tuningName: string,
+  capoPosition = 0,
+  stringsOverride?: string[]
+): FretDotData[] {
+  if (isRoot(chordRoot, keyRoot)) return [];
+  const strings = stringsOverride ?? (TUNINGS as Record<string, string[]>)[tuningName] ?? TUNINGS['Standard E'];
+  const markers: FretDotData[] = [];
+
+  for (let stringIdx = 0; stringIdx < STRING_COUNT; stringIdx++) {
+    const openNote = strings[stringIdx];
+    for (let fret = 0; fret <= FRET_COUNT; fret++) {
+      if (fret < capoPosition) continue;
+      const note = getNoteAtFret(openNote, fret);
+      if (isRoot(note, keyRoot)) {
+        markers.push({ fret, string: stringIdx, state: 'key-root', note, cx: getDotCx(fret), cy: getDotCy(stringIdx) });
+      }
+    }
+  }
+  return markers;
+}
+
+// calculateChordDots reuses 'root'/'scale' for the chord root and chord tones, so the
+// same state reads differently depending on whether a chord is shown.
+const CHORD_LEGEND: LegendEntry[] = [
+  { state: 'root', label: 'Chord root' },
+  { state: 'scale', label: 'Chord tone' },
+  { state: 'key-root', label: 'Key root' },
+  { state: 'freeform', label: 'Freeform mark' },
+];
+
+const SCALE_LEGEND: LegendEntry[] = [
+  { state: 'root', label: 'Root' },
+  { state: 'scale', label: 'Scale note' },
+  { state: 'mode', label: 'Mode note' },
+  { state: 'mode-root', label: 'Mode root' },
+  { state: 'freeform', label: 'Freeform mark' },
+];
+
+/** Legend rows for the dot states actually on the board, in a fixed display order. */
+export function getLegendEntries({
+  chordActive,
+  states,
+}: {
+  chordActive: boolean;
+  states: ReadonlySet<DotState>;
+}): LegendEntry[] {
+  return (chordActive ? CHORD_LEGEND : SCALE_LEGEND).filter(entry => states.has(entry.state));
 }

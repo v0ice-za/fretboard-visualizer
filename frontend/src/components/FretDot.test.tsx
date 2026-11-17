@@ -112,6 +112,32 @@ describe('FretDot', () => {
     });
   });
 
+  describe('key-root state', () => {
+    it('renders a single hollow ring: no fill, theme-driven stroke, no glow, click-through', () => {
+      const container = renderDot({ ...BASE, state: 'key-root' });
+      const circles = container.querySelectorAll('circle');
+      expect(circles).toHaveLength(1);
+      const ring = circles[0];
+      expect(ring).toHaveClass('fret-dot');
+      expect(ring).toHaveAttribute('fill', 'none');
+      expect(ring).toHaveAttribute('stroke', 'var(--color-dot-key-root, #f1f5f9)');
+      expect(ring).toHaveAttribute('pointer-events', 'none');
+      expect(ring).not.toHaveAttribute('filter');
+    });
+
+    it('is larger than the root dot so it encircles, never covers, a dot underneath', () => {
+      expect(DOT_CONFIG['key-root'].radius).toBeGreaterThan(DOT_CONFIG.root.radius);
+      const container = renderDot({ ...BASE, state: 'key-root', sizeScale: 0.5 });
+      expect(container.querySelector('circle')).toHaveAttribute('r', String(DOT_CONFIG['key-root'].radius * 0.5));
+    });
+
+    it('renders the note name only when asked', () => {
+      expect(renderDot({ ...BASE, state: 'key-root' }).querySelector('text')).not.toBeInTheDocument();
+      const text = renderDot({ ...BASE, state: 'key-root', showNoteName: true }).querySelector('text');
+      expect(text).toHaveAttribute('fill', 'var(--color-text-primary, #e2e8f0)');
+    });
+  });
+
   it('attaches data-state attribute to group for querying', () => {
     const container = renderDot({ ...BASE, state: 'root' });
     expect(container.querySelector('[data-state="root"]')).toBeInTheDocument();
@@ -187,7 +213,9 @@ describe('FretDot', () => {
         .join('');
     };
 
-    type DotState = keyof typeof DOT_CONFIG;
+    // A key-root ring has no fill to composite text against — it's covered by the
+    // non-text ring suite below instead.
+    type DotState = Exclude<keyof typeof DOT_CONFIG, 'key-root'>;
     type ThemeName = 'dark' | 'light' | 'neon' | 'mono' | 'vibrant' | 'minimal';
 
     // --color-fretboard per theme, mirrored from index.css.
@@ -220,7 +248,9 @@ describe('FretDot', () => {
       minimal: { root: '#ffffff', scale: '#ffffff', mode: '#ffffff', 'mode-root': '#ffffff', freeform: '#ffffff' },
     };
 
-    const states = Object.keys(DOT_CONFIG) as DotState[];
+    const states = (Object.keys(DOT_CONFIG) as (keyof typeof DOT_CONFIG)[]).filter(
+      (s): s is DotState => s !== 'key-root'
+    );
     (Object.keys(BOARD) as ThemeName[]).forEach(theme => {
       it.each(states)(`%s dot text clears 4.5:1 against its composited fill — ${theme} theme`, state => {
         const container = renderDot({ ...BASE, state, showNoteName: true });
@@ -232,6 +262,41 @@ describe('FretDot', () => {
         const compositedFill = composite(fill, opacity, BOARD[theme]);
         expect(contrast(compositedFill, textFill)).toBeGreaterThanOrEqual(4.5);
       });
+    });
+
+    // --color-dot-key-root per theme, mirrored from index.css. The ring is a
+    // graphical object, so WCAG 2.1 non-text contrast (3:1) against the board applies.
+    const RING: Record<ThemeName, string> = {
+      dark: '#f1f5f9',
+      light: '#0f172a',
+      neon: '#ffffff',
+      mono: '#fbbf24',
+      vibrant: '#f1f5f9',
+      minimal: '#0f172a',
+    };
+
+    // --color-text-primary per theme, mirrored from index.css (light/dark are
+    // oklch() there — these are their sRGB conversions). Used for a lone ring's
+    // note name, which sits directly on the board.
+    const BOARD_TEXT: Record<ThemeName, string> = {
+      dark: '#d8dfe4',
+      light: '#14161b',
+      neon: '#e4e4e7',
+      mono: '#f4f4f5',
+      vibrant: '#e2e8f0',
+      minimal: '#1c1917',
+    };
+
+    it.each(Object.keys(BOARD) as ThemeName[])('key-root ring clears 3:1 against the board — %s theme', theme => {
+      expect(contrast(RING[theme], BOARD[theme])).toBeGreaterThanOrEqual(3);
+    });
+
+    it.each(Object.keys(BOARD) as ThemeName[])('key-root ring differs from the root dot colour — %s theme', theme => {
+      expect(RING[theme]).not.toBe(FILL[theme].root);
+    });
+
+    it.each(Object.keys(BOARD) as ThemeName[])('lone key-root note name clears 4.5:1 against the board — %s theme', theme => {
+      expect(contrast(BOARD_TEXT[theme], BOARD[theme])).toBeGreaterThanOrEqual(4.5);
     });
   });
 });

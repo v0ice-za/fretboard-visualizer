@@ -4,6 +4,9 @@ import ProgressionBuilder from './ProgressionBuilder'
 import { useProgressionStore, MAX_PROGRESSION_CHORDS } from '@/stores/progressionStore'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
 import { useSubscriptionStore } from '@/stores/subscriptionStore'
+import { playChord } from '@/lib/playChord'
+
+vi.mock('@/lib/playChord', () => ({ playChord: vi.fn() }))
 
 // Popular presets are free; Jazzy presets + the custom builder are premium. Most of
 // this suite exercises the custom builder / Jazzy presets, so default to premium here
@@ -12,6 +15,7 @@ beforeEach(() => {
   useProgressionStore.setState({ chords: [], activeIndex: null })
   useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE })
   useSubscriptionStore.setState({ isPremium: true })
+  vi.mocked(playChord).mockClear()
 })
 
 const addChord = async (root: string, quality: string) => {
@@ -77,8 +81,10 @@ describe('ProgressionBuilder', () => {
     await addChord('A', 'Minor')
     await user.click(screen.getByRole('button', { name: 'Select A Minor' }))
     expect(useProgressionStore.getState().activeIndex).toBe(1)
-    expect(useFretboardStore.getState().rootNote).toBe('A')
+    expect(useFretboardStore.getState().chordRoot).toBe('A')
     expect(useFretboardStore.getState().chordName).toBe('Minor')
+    // The chord is rooted on its own note; the key stays put (Story 7.1).
+    expect(useFretboardStore.getState().rootNote).toBe(DEFAULT_FRETBOARD_STATE.rootNote)
   })
 
   it('Next / Prev step through and drive the fretboard', async () => {
@@ -87,11 +93,26 @@ describe('ProgressionBuilder', () => {
     await addChord('C', 'Major')
     await addChord('A', 'Minor')
     await user.click(screen.getByRole('button', { name: 'Next chord in progression' }))
-    expect(useFretboardStore.getState().rootNote).toBe('C')
+    expect(useFretboardStore.getState().chordRoot).toBe('C')
     expect(useFretboardStore.getState().chordName).toBe('Major')
     await user.click(screen.getByRole('button', { name: 'Next chord in progression' }))
-    expect(useFretboardStore.getState().rootNote).toBe('A')
+    expect(useFretboardStore.getState().chordRoot).toBe('A')
     expect(useFretboardStore.getState().chordName).toBe('Minor')
+  })
+
+  it('never changes the key while stepping through a progression', async () => {
+    const user = userEvent.setup()
+    useFretboardStore.setState({ rootNote: 'G' })
+    render(<ProgressionBuilder />)
+    await addChord('C', 'Major')
+    await addChord('A', 'Minor')
+    await addChord('D', 'Major')
+    const next = screen.getByRole('button', { name: 'Next chord in progression' })
+    const prev = screen.getByRole('button', { name: 'Previous chord in progression' })
+    for (const button of [next, next, next, prev, prev]) {
+      await user.click(button)
+      expect(useFretboardStore.getState().rootNote).toBe('G')
+    }
   })
 
   it('ArrowRight / ArrowLeft step through the progression', async () => {
@@ -133,6 +154,21 @@ describe('ProgressionBuilder', () => {
   })
 
   describe('presets', () => {
+    it('transposes a preset to the key even after stepping through another progression', async () => {
+      const user = userEvent.setup()
+      useFretboardStore.setState({ rootNote: 'C' })
+      render(<ProgressionBuilder />)
+      const popular = screen.getByRole('list', { name: 'Popular progressions' })
+      await user.click(within(popular).getByText('I – V – vi – IV'))
+      const next = screen.getByRole('button', { name: 'Next chord in progression' })
+      await user.click(next)
+      await user.click(next) // now on V = G
+      expect(useFretboardStore.getState().chordRoot).toBe('G')
+      await user.click(within(popular).getByText('I – V – vi – IV'))
+      const labels = useProgressionStore.getState().chords.map((c) => `${c.rootNote} ${c.chordName}`)
+      expect(labels).toEqual(['C Major', 'G Major', 'A Minor', 'F Major'])
+    })
+
     it('loads a popular preset transposed to the active root note', async () => {
       const user = userEvent.setup()
       useFretboardStore.setState({ rootNote: 'D' })
@@ -212,6 +248,40 @@ describe('ProgressionBuilder', () => {
       const lockPrompt = screen.getByText('Build your own progression, chord by chord')
       await user.click(lockPrompt)
       expect(onPaywallTrigger).toHaveBeenCalled()
+    })
+  })
+
+  // Story 7.2: stepping/selecting must never play audio — only the explicit
+  // "Play current chord" button does.
+  describe('explicit Play controls (Story 7.2)', () => {
+    it('clicking a row, and stepping with Next/Prev/arrow keys, never calls playChord', async () => {
+      const user = userEvent.setup()
+      render(<ProgressionBuilder />)
+      await addChord('C', 'Major')
+      await addChord('A', 'Minor')
+      await user.click(screen.getByRole('button', { name: 'Select A Minor' }))
+      await user.click(screen.getByRole('button', { name: 'Next chord in progression' }))
+      await user.click(screen.getByRole('button', { name: 'Previous chord in progression' }))
+      fireEvent.keyDown(document.body, { key: 'ArrowRight' })
+      fireEvent.keyDown(document.body, { key: 'ArrowLeft' })
+      expect(playChord).not.toHaveBeenCalled()
+    })
+
+    it('"Play current chord" is disabled with no active chord', () => {
+      render(<ProgressionBuilder />)
+      expect(screen.getByRole('button', { name: 'Play current chord' })).toBeDisabled()
+    })
+
+    it('"Play current chord" calls playChord with the active chord and does not change it', async () => {
+      const user = userEvent.setup()
+      render(<ProgressionBuilder />)
+      await addChord('C', 'Major')
+      await addChord('A', 'Minor')
+      await user.click(screen.getByRole('button', { name: 'Next chord in progression' }))
+      await user.click(screen.getByRole('button', { name: 'Play current chord' }))
+      expect(playChord).toHaveBeenCalledWith('Major', 'C')
+      expect(useFretboardStore.getState().chordName).toBe('Major')
+      expect(useFretboardStore.getState().chordRoot).toBe('C')
     })
   })
 })

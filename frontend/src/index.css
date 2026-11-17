@@ -127,6 +127,7 @@
   --color-dot-mode: #22d3ee;      /* cyan, mode overlay */
   --color-dot-mode-root: #d946ef; /* fuchsia, root note while a mode overlay is active */
   --color-dot-freeform: #f0abfc;  /* pink, freeform marks */
+  --color-dot-key-root: #0f172a; /* slate-900 ring, key root while a chord is shown */
 
   /* Note-name text colour per dot state — genuinely consumed via var() in
      FretDot.tsx. Dots with opacity<1 (scale, mode, freeform) alpha-composite
@@ -243,6 +244,7 @@
   --color-dot-mode: #22d3ee;      /* cyan, mode overlay */
   --color-dot-mode-root: #d946ef; /* fuchsia, root note while a mode overlay is active */
   --color-dot-freeform: #f0abfc;  /* pink, freeform marks */
+  --color-dot-key-root: #f1f5f9; /* slate-100 ring, key root while a chord is shown */
 
   --dot-text-root: #1a0e00;
   /* `scale` dot's note-name text — opposite polarity from :root. The dot
@@ -334,6 +336,7 @@
   --color-dot-mode: #f0abfc;
   --color-dot-mode-root: #38bdf8;
   --color-dot-freeform: #facc15;
+  --color-dot-key-root: #ffffff;
   --dot-text-root: #000000;
   --dot-text-scale: #000000;
   --dot-text-mode: #000000;
@@ -398,7 +401,7 @@
   --color-text-secondary: #a1a1aa;
   --color-text-muted: #52525b;
 
-  /* Dot states differentiated by LIGHTNESS, not hue (deliberate — see Dev
+  /* Dot FILLS differentiated by LIGHTNESS, not hue (deliberate — see Dev
      Agent Record: this is the most colour-vision-deficiency-safe scheme
      available for a near-monochrome theme). Verified: root 20.07:1,
      scale 6.39:1, mode 11.79:1, mode-root 8.33:1, freeform 6.19:1
@@ -408,6 +411,16 @@
   --color-dot-mode: #cbd5e1;
   --color-dot-mode-root: #a8a29e;
   --color-dot-freeform: #78716c;
+  /* key-root (Story 7.1, code-review resolution) is a deliberate exception to the
+     lightness-only rule above: it's a stroke-only RING, not a fill, so AC2 makes it
+     distinguishable by SHAPE first — colour is secondary, same as every other theme's
+     ring (root-vs-ring luminance contrast is ~1.5:1 there too; shape carries it).
+     Verified computed (not eyeballed): ring vs board 9.99:1, clears the 3:1 non-text
+     minimum. It never renders next to mode-root (chord view and the mode overlay are
+     mutually exclusive in FretboardCanvas's `dots` memo — see the "never renders
+     key-root markers together with mode dots" test), so the two are not a reachable
+     CVD confusion pair despite both being warm-toned. */
+  --color-dot-key-root: #fbbf24;
   --dot-text-root: #000000;
   --dot-text-scale: #000000;
   --dot-text-mode: #000000;
@@ -479,6 +492,7 @@
   --color-dot-mode: #f87171;
   --color-dot-mode-root: #c084fc;
   --color-dot-freeform: #2dd4bf;
+  --color-dot-key-root: #f1f5f9;
   --dot-text-root: #000000;
   --dot-text-scale: #000000;
   --dot-text-mode: #000000;
@@ -561,6 +575,7 @@
   --color-dot-mode: #166534;
   --color-dot-mode-root: #86198f;
   --color-dot-freeform: #1e3a8a;
+  --color-dot-key-root: #0f172a;
   --dot-text-root: #ffffff;
   --dot-text-scale: #ffffff;
   --dot-text-mode: #ffffff;

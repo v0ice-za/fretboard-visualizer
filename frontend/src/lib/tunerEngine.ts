@@ -72,7 +72,7 @@ export async function startTuner(onUpdate: (note: DetectedNote | null) => void):
 
   try {
     source.connect(analyser);
-  } catch (err) {
+  } catch {
     throw new TunerAccessError('unsupported');
   }
 

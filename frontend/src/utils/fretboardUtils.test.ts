@@ -2,6 +2,9 @@ import {
   calculateFreeformDots,
   calculateChordDots,
   calculateFretboardDots,
+  calculateKeyRootMarkers,
+  getLegendEntries,
+  generateAriaLabel,
   toPitchClass,
 } from './fretboardUtils';
 import { CHORDS } from '@/data/chords.js';
@@ -153,5 +156,95 @@ describe('strings override', () => {
     const dots = calculateChordDots([0, 4, 7], 'C', 'Standard E', 0, ALL_C);
     const openRoots = dots.filter(d => d.fret === 0 && d.state === 'root');
     expect(openRoots).toHaveLength(6);
+  });
+});
+
+describe('calculateKeyRootMarkers', () => {
+  it('marks every C in Standard E (frets 0–24) when a D chord is shown in the key of C', () => {
+    const markers = calculateKeyRootMarkers('C', 'D', 'Standard E');
+    // Two Cs per string across 25 frets on all six strings.
+    expect(markers).toHaveLength(12);
+    expect(markers.every(m => m.state === 'key-root' && m.note === 'C')).toBe(true);
+    expect(markers.map(m => `${m.string}-${m.fret}`).sort()).toEqual(
+      ['0-8', '0-20', '1-3', '1-15', '2-10', '2-22', '3-5', '3-17', '4-1', '4-13', '5-8', '5-20'].sort()
+    );
+  });
+
+  it('skips frets below the capo', () => {
+    const markers = calculateKeyRootMarkers('C', 'D', 'Standard E', 3);
+    expect(markers).toHaveLength(11); // the B-string C at fret 1 is under the capo
+    expect(markers.every(m => m.fret >= 3)).toBe(true);
+  });
+
+  it('honours an explicit strings override (custom tunings)', () => {
+    const markers = calculateKeyRootMarkers('C', 'G', 'Custom', 0, ['C', 'C', 'C', 'C', 'C', 'C']);
+    expect(markers.filter(m => m.fret === 0)).toHaveLength(6);
+  });
+
+  it('returns no markers when the chord is rooted on the key', () => {
+    expect(calculateKeyRootMarkers('C', 'C', 'Standard E')).toEqual([]);
+  });
+
+  it('compares pitch classes, not spellings', () => {
+    expect(calculateKeyRootMarkers('C#', 'Db', 'Standard E')).toEqual([]);
+  });
+});
+
+describe('getLegendEntries', () => {
+  it('returns nothing when no dots are rendered', () => {
+    expect(getLegendEntries({ chordActive: false, states: new Set() })).toEqual([]);
+    expect(getLegendEntries({ chordActive: true, states: new Set() })).toEqual([]);
+  });
+
+  it('labels chord-view states in a fixed order', () => {
+    const entries = getLegendEntries({
+      chordActive: true,
+      states: new Set(['freeform', 'key-root', 'scale', 'root'] as const),
+    });
+    expect(entries).toEqual([
+      { state: 'root', label: 'Chord root' },
+      { state: 'scale', label: 'Chord tone' },
+      { state: 'key-root', label: 'Key root' },
+      { state: 'freeform', label: 'Freeform mark' },
+    ]);
+  });
+
+  it('labels scale-view states in a fixed order', () => {
+    const entries = getLegendEntries({
+      chordActive: false,
+      states: new Set(['mode', 'scale', 'mode-root', 'root', 'freeform'] as const),
+    });
+    expect(entries.map(e => e.label)).toEqual(['Root', 'Scale note', 'Mode note', 'Mode root', 'Freeform mark']);
+  });
+
+  it('only lists states that are present', () => {
+    const entries = getLegendEntries({ chordActive: false, states: new Set(['root', 'scale'] as const) });
+    expect(entries.map(e => e.state)).toEqual(['root', 'scale']);
+  });
+});
+
+describe('generateAriaLabel', () => {
+  it('describes the scale view', () => {
+    expect(generateAriaLabel('Standard E', 'A', 'Pentatonic Minor')).toBe(
+      'A Pentatonic Minor scale on Standard E tuning'
+    );
+  });
+
+  it('keeps the mode and capo suffixes in the scale view', () => {
+    expect(generateAriaLabel('Standard E', 'C', 'Major (Ionian)', 1, 2)).toBe(
+      'C Major (Ionian) scale on Standard E tuning, Dorian mode overlay active, capo at fret 2'
+    );
+  });
+
+  it('names the chord and the key when a chord is shown', () => {
+    expect(generateAriaLabel('Standard E', 'C', 'Major (Ionian)', null, 0, { root: 'D', type: 'Minor' })).toBe(
+      'D Minor chord in the key of C on Standard E tuning'
+    );
+  });
+
+  it('omits the mode overlay but keeps the capo in the chord view', () => {
+    expect(generateAriaLabel('Drop D', 'C', 'Major (Ionian)', 1, 3, { root: 'G', type: 'Major' })).toBe(
+      'G Major chord in the key of C on Drop D tuning, capo at fret 3'
+    );
   });
 });

@@ -1,28 +1,29 @@
 import { useEffect, useRef } from 'react';
 import { useProgressionStore } from '@/stores/progressionStore';
 import { useFretboardStore } from '@/stores/fretboardStore';
-import { playChord } from '@/lib/playChord';
 
 /**
  * Drives the fretboard from the active progression chord and wires ←/→ stepping.
  *
  * The single writer into `fretboardStore` for progression playback: when a chord is
- * active it sets `rootNote` + `chordName` (the fretboard renders the shape from those —
- * see FretboardCanvas). Writing into the store and letting the canvas re-render from
- * synchronous state matches the architecture's "fretboard renders from Zustand state" rule.
+ * active it sets `chordName` + `chordRoot` (the fretboard renders the shape from those —
+ * see FretboardCanvas). It never touches `rootNote`: that's the selected KEY, which must
+ * stay fixed so the key-root rings, Diatonic list, URL `?key=`, and preset transposition
+ * all keep referring to it while the chords change (Story 7.1).
  *
- * On first activation it snapshots the pre-playback `rootNote`/`chordName`; when playback
+ * On first activation it snapshots the pre-playback `chordName`/`chordRoot`; when playback
  * stops (progression cleared / deactivated) or the builder unmounts, it restores that
- * snapshot so the Scale Library view returns intact and never gets stranded on a chord.
+ * snapshot so the previous view returns intact and never gets stranded on a chord.
  * If the user never stepped, it leaves the fretboard untouched.
  */
 export function useProgressionPlayback() {
   const chords = useProgressionStore((s) => s.chords);
   const activeIndex = useProgressionStore((s) => s.activeIndex);
 
-  // Snapshot type mirrors fretboardStore, whose `chordName` is legitimately `string | null`
-  // (null = scale view). This is intentionally wider than ProgressionChord.chordName.
-  const savedRef = useRef<{ rootNote: string; chordName: string | null } | null>(null);
+  // Snapshot type mirrors fretboardStore, whose `chordName`/`chordRoot` are legitimately
+  // `string | null` (null = scale view / rooted on the key). Intentionally wider than
+  // ProgressionChord's fields.
+  const savedRef = useRef<{ chordName: string | null; chordRoot: string | null } | null>(null);
 
   // Sync the active chord onto the fretboard; restore on stop.
   useEffect(() => {
@@ -31,21 +32,17 @@ export function useProgressionPlayback() {
     const fretboard = useFretboardStore.getState();
     if (entry) {
       if (savedRef.current === null) {
-        savedRef.current = { rootNote: fretboard.rootNote, chordName: fretboard.chordName };
+        savedRef.current = { chordName: fretboard.chordName, chordRoot: fretboard.chordRoot };
       }
-      fretboard.setRootNote(entry.rootNote);
+      // setChordName resets chordRoot, so it must come first.
       fretboard.setChordName(entry.chordName);
-      // Audio is gated internally by playChord (checks audioStore.enabled + isPremium).
-      try {
-        playChord(entry.chordName, entry.rootNote);
-      } catch (e) {
-        console.error('Audio playback failed during progression step:', e);
-        // Continue normally even if audio fails; chord display shouldn't break
-      }
+      fretboard.setChordRoot(entry.rootNote);
+      // Stepping only drives the display — it NEVER plays audio (Story 7.2). The
+      // "Play current chord" button in ProgressionBuilder is the only explicit trigger.
     } else if (savedRef.current !== null) {
       // Was playing, now stopped (cleared / deactivated) → restore the snapshot.
-      fretboard.setRootNote(savedRef.current.rootNote);
       fretboard.setChordName(savedRef.current.chordName);
+      fretboard.setChordRoot(savedRef.current.chordRoot);
       savedRef.current = null;
     }
   }, [activeIndex, chords]);
@@ -78,8 +75,8 @@ export function useProgressionPlayback() {
     return () => {
       if (savedRef.current) {
         const fretboard = useFretboardStore.getState();
-        fretboard.setRootNote(savedRef.current.rootNote);
         fretboard.setChordName(savedRef.current.chordName);
+        fretboard.setChordRoot(savedRef.current.chordRoot);
         savedRef.current = null;
       }
     };

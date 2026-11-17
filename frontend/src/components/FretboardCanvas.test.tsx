@@ -281,4 +281,103 @@ describe('FretboardCanvas', () => {
     const texts = container.querySelectorAll('[data-state] text');
     expect(texts).toHaveLength(0);
   });
+
+  // ── Key-root markers + legend (Story 7.1) ───────────────────
+  describe('key-root markers', () => {
+    // Key of C, showing the ii chord (D minor).
+    const C_KEY_DM = { tuning: 'Standard E', rootNote: 'C', scaleName: 'Major (Ionian)', chordName: 'Minor', chordRoot: 'D' };
+
+    it('rings every key-root position while a chord rooted elsewhere is shown', () => {
+      const { container } = render(<FretboardCanvas {...C_KEY_DM} />);
+      expect(container.querySelectorAll('[data-state="key-root"]')).toHaveLength(12);
+    });
+
+    it('renders no rings in the scale view', () => {
+      const { container } = render(<FretboardCanvas tuning="Standard E" rootNote="C" scaleName="Major (Ionian)" />);
+      expect(container.querySelectorAll('[data-state="key-root"]')).toHaveLength(0);
+    });
+
+    it('renders no rings when the chord is rooted on the key (chordRoot null or equal)', () => {
+      const { container, rerender } = render(<FretboardCanvas {...C_KEY_DM} chordRoot={null} />);
+      expect(container.querySelectorAll('[data-state="key-root"]')).toHaveLength(0);
+      rerender(<FretboardCanvas {...C_KEY_DM} chordRoot="C" />);
+      expect(container.querySelectorAll('[data-state="key-root"]')).toHaveLength(0);
+    });
+
+    it('renders no rings for an unknown chord name (scale view fallback)', () => {
+      const { container } = render(<FretboardCanvas {...C_KEY_DM} chordName="Not A Chord" />);
+      expect(container.querySelectorAll('[data-state="key-root"]')).toHaveLength(0);
+    });
+
+    it('draws a ring around a chord tone that is also the key root, after the chord dot', () => {
+      // A minor in the key of C: C is the minor third, so the chord dot and the ring share positions.
+      const { container } = render(<FretboardCanvas {...C_KEY_DM} chordRoot="A" />);
+      const chordDot = container.querySelector('[data-state="scale"][data-fret="8"][data-string="0"]');
+      const ring = container.querySelector('[data-state="key-root"][data-fret="8"][data-string="0"]');
+      expect(chordDot).toBeInTheDocument();
+      expect(ring).toBeInTheDocument();
+      expect(chordDot!.compareDocumentPosition(ring!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('shows the note name on a lone ring but not on a ring around a labelled chord tone', () => {
+      const { container, rerender } = render(<FretboardCanvas {...C_KEY_DM} noteNamesVisible />);
+      // D minor has no C, so every ring is alone and labelled.
+      expect(container.querySelectorAll('[data-state="key-root"] text')).toHaveLength(12);
+      rerender(<FretboardCanvas {...C_KEY_DM} chordRoot="A" noteNamesVisible />);
+      expect(container.querySelectorAll('[data-state="key-root"] text')).toHaveLength(0);
+    });
+
+    it('names the chord and the key in the aria-label', () => {
+      render(<FretboardCanvas {...C_KEY_DM} />);
+      expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'D Minor chord in the key of C on Standard E tuning');
+    });
+
+    it('labels a key-rooted chord against its own key', () => {
+      render(<FretboardCanvas {...C_KEY_DM} chordRoot={null} chordName="Major" />);
+      expect(screen.getByRole('img')).toHaveAttribute('aria-label', 'C Major chord in the key of C on Standard E tuning');
+    });
+
+    // Structural guardrail for the mono-theme key-root ring colour decision (code
+    // review, Story 7.1): the ring's gold token is only safe from CVD confusion with
+    // --color-dot-mode-root because the two states can never render on the same board.
+    // A chord always wins over the scale/mode view in the `dots` memo, so passing
+    // modeIndex alongside an active chord must produce zero mode/mode-root dots.
+    it('never renders key-root markers together with mode/mode-root dots', () => {
+      const { container } = render(<FretboardCanvas {...C_KEY_DM} modeIndex={1} />);
+      expect(container.querySelectorAll('[data-state="key-root"]')).toHaveLength(12);
+      expect(container.querySelectorAll('[data-state="mode"]')).toHaveLength(0);
+      expect(container.querySelectorAll('[data-state="mode-root"]')).toHaveLength(0);
+    });
+  });
+
+  describe('legend', () => {
+    it('is not rendered unless showLegend is set', () => {
+      render(<FretboardCanvas {...STANDARD_E} />);
+      expect(screen.queryByRole('list', { name: 'Fretboard legend' })).not.toBeInTheDocument();
+    });
+
+    it('lists the scale-view states on the board', () => {
+      render(<FretboardCanvas {...STANDARD_E} showLegend />);
+      const items = screen.getAllByRole('listitem').map(i => i.textContent);
+      expect(items).toEqual(['Root', 'Scale note']);
+    });
+
+    it('lists chord-view states including the key root', () => {
+      render(
+        <FretboardCanvas tuning="Standard E" rootNote="C" scaleName="Major (Ionian)" chordName="Minor" chordRoot="D" showLegend />
+      );
+      expect(screen.getAllByRole('listitem').map(i => i.textContent)).toEqual(['Chord root', 'Chord tone', 'Key root']);
+    });
+
+    it('adds the freeform entry when marks are on the board', () => {
+      render(<FretboardCanvas {...STANDARD_E} freeformMarks={[{ fret: 1, string: 0 }]} showLegend />);
+      expect(screen.getAllByRole('listitem').map(i => i.textContent)).toContain('Freeform mark');
+    });
+
+    it('sits outside the horizontally scrolling board', () => {
+      render(<FretboardCanvas {...STANDARD_E} showLegend />);
+      const wrapper = screen.getByTestId('fretboard-scroll-wrapper');
+      expect(wrapper).not.toContainElement(screen.getByRole('list', { name: 'Fretboard legend' }));
+    });
+  });
 });

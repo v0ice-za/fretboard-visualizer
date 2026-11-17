@@ -69,6 +69,7 @@ export default function App() {
             chordRoot={chordRoot}
             strings={resolvedStrings}
             onFretClick={(mark) => toggleFreeformMark(mark)}
+            showLegend
           />
         </div>
       </main>

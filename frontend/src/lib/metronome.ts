@@ -80,7 +80,7 @@ export function startMetronome(
       clickGain.connect(gain);
       osc.start(time);
       osc.stop(time + CLICK_SECONDS);
-    } catch (e) {
+    } catch {
       // Silence errors from oscillator scheduling (context closed, etc.).
     }
   };

@@ -21,6 +21,10 @@ const DOT_CONFIG: Record<DotState, { radius: number; fill: string; opacity: numb
   mode:       { radius: 11, fill: 'var(--color-dot-mode, #22d3ee)',           opacity: 0.9,  textColor: 'var(--dot-text-mode, #04191c)' },
   'mode-root':{ radius: 13, fill: 'var(--color-dot-mode-root, #d946ef)',      opacity: 1,    textColor: 'var(--dot-text-mode-root, #1a0030)' },
   freeform:   { radius: 11, fill: 'var(--color-dot-freeform, #f0abfc)',       opacity: 0.8,  textColor: 'var(--dot-text-freeform, #2a0730)' },
+  // Story 7.1: stroke-only ring marking the key's root while a chord rooted elsewhere
+  // is shown. `fill` is used as the STROKE colour; a lone ring's note name sits on the
+  // board, so it uses the board text token rather than a dot-text token.
+  'key-root': { radius: 16, fill: 'var(--color-dot-key-root, #f1f5f9)',       opacity: 1,    textColor: 'var(--color-text-primary, #e2e8f0)' },
 };
 
 // Exported for the WCAG-AA composited-contrast guardrail suite in FretDot.test.tsx,
@@ -61,15 +65,29 @@ export default function FretDot({ fret, string: stringIdx, state, note, cx, cy, 
 
   return (
     <g data-fret={fret} data-string={stringIdx} data-state={state} aria-hidden="true">
-      <circle
-        className="fret-dot"
-        cx={cx}
-        cy={cy}
-        r={radius}
-        fill={fill}
-        opacity={opacity}
-        filter={state === 'mode' || state === 'mode-root' ? `url(#${GLOW_FILTER_ID})` : undefined}
-      />
+      {state === 'key-root' ? (
+        <circle
+          className="fret-dot"
+          cx={cx}
+          cy={cy}
+          r={radius}
+          fill="none"
+          stroke={fill}
+          strokeWidth={2.5 * sizeScale}
+          opacity={opacity}
+          pointerEvents="none"
+        />
+      ) : (
+        <circle
+          className="fret-dot"
+          cx={cx}
+          cy={cy}
+          r={radius}
+          fill={fill}
+          opacity={opacity}
+          filter={state === 'mode' || state === 'mode-root' ? `url(#${GLOW_FILTER_ID})` : undefined}
+        />
+      )}
       {state === 'freeform' && (
         <circle
           cx={cx}
