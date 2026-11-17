@@ -4,12 +4,16 @@ import ChordLibrary, { FREE_TIER_CHORD_COUNT } from './ChordLibrary'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
 import { useSubscriptionStore } from '@/stores/subscriptionStore'
 import { CHORD_NAMES } from '@/data/chords.js'
+import { playChord } from '@/lib/playChord'
+
+vi.mock('@/lib/playChord', () => ({ playChord: vi.fn() }))
 
 const byTitle = (name: string) => (n: string) => n === name || n === name + 'Preview'
 
 beforeEach(() => {
   useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE })
   useSubscriptionStore.setState({ isPremium: false })
+  vi.mocked(playChord).mockClear()
 })
 
 describe('ChordLibrary', () => {
@@ -118,6 +122,43 @@ describe('ChordLibrary', () => {
       render(<ChordLibrary onPaywallTrigger={() => {}} />)
       await user.click(screen.getByRole('option', { name: byTitle('Dominant 13') }))
       expect(useFretboardStore.getState().chordName).toBe('Dominant 13')
+    })
+  })
+
+  // Story 7.2: browsing/selecting must never play audio — only an explicit Play click does.
+  describe('explicit Play controls (Story 7.2)', () => {
+    it('selecting and deselecting a chord never calls playChord', async () => {
+      const user = userEvent.setup()
+      const previewChord = (CHORD_NAMES as string[])[0]
+      render(<ChordLibrary onPaywallTrigger={() => {}} />)
+      await user.click(screen.getByRole('option', { name: byTitle(previewChord) }))
+      await user.click(screen.getByRole('option', { name: byTitle(previewChord) })) // deselect
+      expect(playChord).not.toHaveBeenCalled()
+    })
+
+    it('renders exactly one Play button per chord', () => {
+      render(<ChordLibrary onPaywallTrigger={() => {}} />)
+      expect(screen.getAllByRole('button', { name: /^Play / })).toHaveLength((CHORD_NAMES as string[]).length)
+    })
+
+    it('free user: clicking Play raises the paywall instead of playing', async () => {
+      const user = userEvent.setup()
+      const onPaywallTrigger = vi.fn()
+      const name = (CHORD_NAMES as string[])[0]
+      render(<ChordLibrary onPaywallTrigger={onPaywallTrigger} />)
+      await user.click(screen.getByRole('button', { name: `Play ${DEFAULT_FRETBOARD_STATE.rootNote} ${name}` }))
+      expect(onPaywallTrigger).toHaveBeenCalled()
+      expect(playChord).not.toHaveBeenCalled()
+    })
+
+    it('premium user: clicking Play calls playChord with the chord type and current root, without changing selection', async () => {
+      const user = userEvent.setup()
+      useSubscriptionStore.setState({ isPremium: true })
+      const name = (CHORD_NAMES as string[])[0]
+      render(<ChordLibrary onPaywallTrigger={() => {}} />)
+      await user.click(screen.getByRole('button', { name: `Play ${DEFAULT_FRETBOARD_STATE.rootNote} ${name}` }))
+      expect(playChord).toHaveBeenCalledWith(name, DEFAULT_FRETBOARD_STATE.rootNote)
+      expect(useFretboardStore.getState().chordName).toBeNull()
     })
   })
 })

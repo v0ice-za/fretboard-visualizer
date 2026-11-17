@@ -2,9 +2,15 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ChordsInKey from './ChordsInKey';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { playChord } from '@/lib/playChord';
+
+vi.mock('@/lib/playChord', () => ({ playChord: vi.fn() }));
 
 beforeEach(() => {
   useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE });
+  useSubscriptionStore.setState({ isPremium: false });
+  vi.mocked(playChord).mockClear();
 });
 
 describe('ChordsInKey', () => {
@@ -92,5 +98,42 @@ describe('ChordsInKey', () => {
       .filter((el) => el.getAttribute('aria-selected') === 'true');
     expect(selected).toHaveLength(1);
     expect(selected[0]).toHaveTextContent('Dm');
+  });
+
+  // Story 7.2: browsing/selecting must never play audio — only an explicit Play click does.
+  describe('explicit Play controls (Story 7.2)', () => {
+    beforeEach(() => {
+      useFretboardStore.setState({ rootNote: 'C', scaleName: 'Major (Ionian)' });
+    });
+
+    it('clicking a degree never calls playChord', async () => {
+      const user = userEvent.setup();
+      render(<ChordsInKey />);
+      await user.click(screen.getByText('Dm'));
+      expect(playChord).not.toHaveBeenCalled();
+    });
+
+    it('renders one Play button per buildable degree', () => {
+      render(<ChordsInKey />);
+      expect(screen.getAllByRole('button', { name: /^Play / })).toHaveLength(7);
+    });
+
+    it('free user: clicking Play raises the paywall instead of playing', async () => {
+      const user = userEvent.setup();
+      const onPaywallTrigger = vi.fn();
+      render(<ChordsInKey onPaywallTrigger={onPaywallTrigger} />);
+      await user.click(screen.getByRole('button', { name: 'Play Dm' }));
+      expect(onPaywallTrigger).toHaveBeenCalled();
+      expect(playChord).not.toHaveBeenCalled();
+    });
+
+    it('premium user: clicking Play calls playChord with the degree root and type, without changing the highlight', async () => {
+      const user = userEvent.setup();
+      useSubscriptionStore.setState({ isPremium: true });
+      render(<ChordsInKey />);
+      await user.click(screen.getByRole('button', { name: 'Play Dm' }));
+      expect(playChord).toHaveBeenCalledWith('Minor', 'D');
+      expect(useFretboardStore.getState().chordName).toBeNull();
+    });
   });
 });

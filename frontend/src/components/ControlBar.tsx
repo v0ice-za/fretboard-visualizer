@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Type, Pencil, Library, User, Sun, Moon, Edit2, Trash2, Volume2, VolumeX, Timer, Gauge } from 'lucide-react';
+import { Type, Pencil, Library, User, Sun, Moon, Edit2, Trash2, Timer, Gauge } from 'lucide-react';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALES, SCALE_NAMES, SCALE_CATEGORIES } from '@/data/scales.js';
 import { TUNINGS } from '@/data/tunings.js';
@@ -9,7 +9,6 @@ import { useLayoutStore } from '@/stores/layoutStore';
 import { useAuthStore, selectIsAuthenticated } from '@/stores/authStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useThemeStore } from '@/stores/themeStore';
-import { useAudioStore } from '@/stores/audioStore';
 import { apiClient } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
 import { LoginModal } from '@/features/auth/LoginModal';
@@ -87,8 +86,6 @@ export default function ControlBar() {
   const user = useAuthStore((s) => s.user);
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
-  const soundEnabled = useAudioStore((s) => s.enabled);
-  const toggleSound = useAudioStore((s) => s.toggleEnabled);
   const metronomePlaying = useMetronomeStore((s) => s.isPlaying);
   const [metronomeOpen, setMetronomeOpen] = useState(false);
   const tunerListening = useTunerStore((s) => s.isListening);
@@ -335,24 +332,6 @@ export default function ControlBar() {
               }
             />
             <TooltipContent>Toggle freeform mode</TooltipContent>
-          </Tooltip>
-
-          {/* Sound (premium) — free users get the paywall */}
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <IconButton
-                  onClick={(e) => (isPremium ? toggleSound() : setPaywallAnchor(e.currentTarget))}
-                  active={isPremium && soundEnabled}
-                  aria-label="Toggle sound"
-                  aria-pressed={isPremium && soundEnabled}
-                >
-                  {isPremium && soundEnabled ? <Volume2 /> : <VolumeX />}
-                  <span className="hidden md:inline">Sound</span>
-                </IconButton>
-              }
-            />
-            <TooltipContent>{isPremium ? 'Toggle sound' : 'Sound — premium'}</TooltipContent>
           </Tooltip>
 
           {/* Tuner (free) */}

@@ -7,6 +7,7 @@ import { useProgressionStore, MAX_PROGRESSION_CHORDS } from '@/stores/progressio
 import { useProgressionPlayback } from '@/hooks/useProgressionPlayback';
 import { useFretboardStore } from '@/stores/fretboardStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { playChord } from '@/lib/playChord';
 import {
   POPULAR_PROGRESSIONS,
   JAZZY_PROGRESSIONS,
@@ -72,6 +73,19 @@ export default function ProgressionBuilder({ onPaywallTrigger }: ProgressionBuil
 
   const isEmpty = chords.length === 0;
   const atCap = chords.length >= MAX_PROGRESSION_CHORDS;
+  const activeChord = activeIndex !== null ? chords[activeIndex] : undefined;
+
+  // Explicit trigger only — stepping/selecting a row never plays audio (Story 7.2).
+  // This block only renders for premium users (see the `isPremium` ternary below),
+  // so there's no separate lock/paywall state to handle here.
+  const handlePlayCurrent = () => {
+    if (!activeChord) return;
+    try {
+      playChord(activeChord.chordName, activeChord.rootNote);
+    } catch (e) {
+      console.error('Audio playback failed:', e);
+    }
+  };
 
   // Presets transpose to the currently-selected key (ControlBar's root note),
   // not a fixed key — loading "I-V-vi-IV" in D gives you D-A-Bm-G. Replaces
@@ -201,6 +215,15 @@ export default function ProgressionBuilder({ onPaywallTrigger }: ProgressionBuil
           className="h-8 flex-1 rounded-md border border-[var(--border)] text-sm text-slate-300 hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent"
         >
           Next
+        </button>
+        <button
+          type="button"
+          onClick={handlePlayCurrent}
+          disabled={!activeChord}
+          aria-label="Play current chord"
+          className="h-8 flex-1 rounded-md border border-[var(--border)] text-sm text-slate-300 hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          Play
         </button>
         <button
           type="button"

@@ -1,40 +1,62 @@
 import { useMemo } from 'react';
 import { useFretboardStore } from '@/stores/fretboardStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import {
   sharedNoteChords,
   jazzifySuggestions,
   type ChordRef,
 } from '@/lib/chordRelationships';
 import { playChord } from '@/lib/playChord';
+import PlayButton from './PlayButton';
 
-/** A single clickable suggestion row: the chord label + a short relationship tag. */
+/** A single clickable suggestion row: the chord label + a short relationship tag,
+ *  plus a sibling Play button (never nested — selecting must never play audio). */
 function SuggestionButton({
   label,
   tag,
   onClick,
+  onPlay,
+  locked,
+  onPaywallTrigger,
 }: {
   label: string;
   tag: string;
   onClick: () => void;
+  onPlay: () => void;
+  locked: boolean;
+  onPaywallTrigger?: (anchorEl: HTMLElement) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full select-none items-center justify-between gap-2 rounded-md border border-[var(--glass-border)] px-3 py-2 text-left text-slate-300 transition-colors hover:bg-white/5"
-    >
-      <span className="text-sm font-medium">{label}</span>
-      <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-500">{tag}</span>
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 select-none items-center justify-between gap-2 rounded-md border border-[var(--glass-border)] px-3 py-2 text-left text-slate-300 transition-colors hover:bg-white/5"
+      >
+        <span className="text-sm font-medium">{label}</span>
+        <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-500">{tag}</span>
+      </button>
+      <PlayButton
+        label={`Play ${label}`}
+        locked={locked}
+        onPlay={onPlay}
+        onPaywallTrigger={onPaywallTrigger}
+      />
+    </div>
   );
 }
 
-export default function ChordRelationships() {
+interface ChordRelationshipsProps {
+  onPaywallTrigger?: (el: HTMLElement) => void;
+}
+
+export default function ChordRelationships({ onPaywallTrigger }: ChordRelationshipsProps = {}) {
   const rootNote = useFretboardStore((s) => s.rootNote);
   const chordName = useFretboardStore((s) => s.chordName);
   const chordRoot = useFretboardStore((s) => s.chordRoot);
   const setChordName = useFretboardStore((s) => s.setChordName);
   const setChordRoot = useFretboardStore((s) => s.setChordRoot);
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
 
   // Active chord = whatever is highlighted, from either the standard Chord tab
   // (chordRoot null → falls back to rootNote) or the Diatonic tab (chordRoot set).
@@ -57,10 +79,19 @@ export default function ChordRelationships() {
   // Selecting a suggestion makes IT the active chord: setChordName resets
   // chordRoot to null in the same set(), then setChordRoot roots the highlight.
   // The panel then recomputes around the new chord (intended explorer flow).
+  // Selecting never plays audio (Story 7.2) — only the row's own Play button does.
   const select = (ref: ChordRef) => {
     setChordName(ref.type);
     setChordRoot(ref.root);
-    playChord(ref.type, ref.root);
+  };
+
+  const handlePlay = (ref: ChordRef) => {
+    try {
+      playChord(ref.type, ref.root);
+    } catch (e) {
+      console.error('Audio playback failed:', e);
+      // Continue normally even if audio fails; chord browsing shouldn't break
+    }
   };
 
   if (!activeType) {
@@ -97,6 +128,9 @@ export default function ChordRelationships() {
                   label={`${s.root} ${s.type}`}
                   tag={s.relation}
                   onClick={() => select(s)}
+                  onPlay={() => handlePlay(s)}
+                  locked={!isPremium}
+                  onPaywallTrigger={onPaywallTrigger}
                 />
               </li>
             ))}
@@ -106,6 +140,9 @@ export default function ChordRelationships() {
                   label={`${u.root} ${u.type}`}
                   tag="Extension"
                   onClick={() => select(u)}
+                  onPlay={() => handlePlay(u)}
+                  locked={!isPremium}
+                  onPaywallTrigger={onPaywallTrigger}
                 />
               </li>
             ))}
@@ -131,6 +168,9 @@ export default function ChordRelationships() {
                   label={`${c.root} ${c.type}`}
                   tag={c.sameNotes ? 'same notes' : `${c.sharedCount} shared`}
                   onClick={() => select(c)}
+                  onPlay={() => handlePlay(c)}
+                  locked={!isPremium}
+                  onPaywallTrigger={onPaywallTrigger}
                 />
               </li>
             ))}

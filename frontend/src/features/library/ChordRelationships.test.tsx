@@ -2,9 +2,17 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ChordRelationships from './ChordRelationships';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { playChord } from '@/lib/playChord';
+
+vi.mock('@/lib/playChord', () => ({ playChord: vi.fn() }));
 
 beforeEach(() => {
   useFretboardStore.setState({ ...DEFAULT_FRETBOARD_STATE });
+  // The Jazzify tab is premium-gated at the LibraryPanel level, so this component
+  // only ever renders for premium users in the real app — default to that here too.
+  useSubscriptionStore.setState({ isPremium: true });
+  vi.mocked(playChord).mockClear();
 });
 
 describe('ChordRelationships', () => {
@@ -57,5 +65,53 @@ describe('ChordRelationships', () => {
     render(<ChordRelationships />);
     expect(screen.getByText(/No substitutions or upgrades/i)).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Chords that share notes' })).toBeInTheDocument();
+  });
+
+  // Story 7.2: browsing/selecting a suggestion must never play audio — only an
+  // explicit Play click does.
+  describe('explicit Play controls (Story 7.2)', () => {
+    beforeEach(() => {
+      useFretboardStore.setState({ chordName: 'Major', chordRoot: 'C' });
+    });
+
+    it('clicking a suggestion never calls playChord', async () => {
+      const user = userEvent.setup();
+      render(<ChordRelationships />);
+      const jazzList = screen.getByRole('list', { name: 'Jazzify suggestions' });
+      await user.click(within(jazzList).getByText('A Minor'));
+      expect(playChord).not.toHaveBeenCalled();
+    });
+
+    it('renders one Play button per suggestion row', () => {
+      render(<ChordRelationships />);
+      const jazzList = screen.getByRole('list', { name: 'Jazzify suggestions' });
+      const sharesList = screen.getByRole('list', { name: 'Chords that share notes' });
+      const jazzRows = within(jazzList).getAllByRole('listitem');
+      const sharesRows = within(sharesList).getAllByRole('listitem');
+      expect(screen.getAllByRole('button', { name: /^Play / })).toHaveLength(
+        jazzRows.length + sharesRows.length,
+      );
+    });
+
+    it('premium: clicking Play calls playChord with that suggestion, without changing the active chord', async () => {
+      render(<ChordRelationships />);
+      const jazzList = screen.getByRole('list', { name: 'Jazzify suggestions' });
+      const user = userEvent.setup();
+      await user.click(within(jazzList).getByRole('button', { name: 'Play A Minor' }));
+      expect(playChord).toHaveBeenCalledWith('Minor', 'A');
+      expect(useFretboardStore.getState().chordName).toBe('Major');
+      expect(useFretboardStore.getState().chordRoot).toBe('C');
+    });
+
+    it('free user: clicking Play raises the paywall instead of playing', async () => {
+      const user = userEvent.setup();
+      useSubscriptionStore.setState({ isPremium: false });
+      const onPaywallTrigger = vi.fn();
+      render(<ChordRelationships onPaywallTrigger={onPaywallTrigger} />);
+      const jazzList = screen.getByRole('list', { name: 'Jazzify suggestions' });
+      await user.click(within(jazzList).getByRole('button', { name: 'Play A Minor' }));
+      expect(onPaywallTrigger).toHaveBeenCalled();
+      expect(playChord).not.toHaveBeenCalled();
+    });
   });
 });

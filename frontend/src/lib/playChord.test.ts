@@ -9,11 +9,11 @@ vi.mock('./audioEngine', () => ({ playFrequencies: vi.fn(), setVolume: vi.fn() }
 beforeEach(() => {
   vi.clearAllMocks();
   useSubscriptionStore.setState({ isPremium: true });
-  useAudioStore.setState({ enabled: true, volume: 0.7 });
+  useAudioStore.setState({ volume: 0.7 });
 });
 
 describe('playChord gating', () => {
-  it('plays chord frequencies when premium AND sound enabled', () => {
+  it('plays chord frequencies when premium', () => {
     playChord('Major', 'C');
     expect(playFrequencies).toHaveBeenCalledTimes(1);
     const freqs = (playFrequencies as ReturnType<typeof vi.fn>).mock.calls[0][0] as number[];
@@ -23,12 +23,6 @@ describe('playChord gating', () => {
 
   it('is silent for non-premium users', () => {
     useSubscriptionStore.setState({ isPremium: false });
-    playChord('Major', 'C');
-    expect(playFrequencies).not.toHaveBeenCalled();
-  });
-
-  it('is silent when sound is disabled', () => {
-    useAudioStore.setState({ enabled: false });
     playChord('Major', 'C');
     expect(playFrequencies).not.toHaveBeenCalled();
   });

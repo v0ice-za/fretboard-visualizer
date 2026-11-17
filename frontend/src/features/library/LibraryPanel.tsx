@@ -103,11 +103,13 @@ export default function LibraryPanel() {
     <div className="flex-1 overflow-y-auto p-4">
       {activeTab === 'scale' && <ScaleLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
       {activeTab === 'chord' && <ChordLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
-      {activeTab === 'inKey' && <ChordsInKey />}
+      {activeTab === 'inKey' && <ChordsInKey onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
       {activeTab === 'progression' && (
         <ProgressionBuilder onPaywallTrigger={(el) => setPaywallAnchor(el)} />
       )}
-      {activeTab === 'jazzify' && isPremium && <ChordRelationships />}
+      {activeTab === 'jazzify' && isPremium && (
+        <ChordRelationships onPaywallTrigger={(el) => setPaywallAnchor(el)} />
+      )}
     </div>
   )
 

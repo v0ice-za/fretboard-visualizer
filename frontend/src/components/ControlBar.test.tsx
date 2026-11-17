@@ -9,7 +9,6 @@ import { useLayoutStore } from '@/stores/layoutStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
-import { useAudioStore } from '@/stores/audioStore';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALE_NAMES } from '@/data/scales.js';
 import { TUNINGS } from '@/data/tunings.js';
@@ -49,7 +48,6 @@ beforeEach(() => {
   });
   useLayoutStore.setState({ activeLayout: DEFAULT_LAYOUT });
   useSubscriptionStore.setState({ isPremium: false });
-  useAudioStore.setState({ enabled: false, volume: 0.7 });
   mockState.tunings = undefined;
   mockApiClient.patch.mockReset().mockResolvedValue(undefined);
   mockApiClient.del.mockReset().mockResolvedValue(undefined);
@@ -322,23 +320,6 @@ describe('ControlBar — overhaul affordance (Story 5.2)', () => {
     expect(screen.getByRole('button', { name: 'Sign in' })).not.toHaveAttribute('title');
     expect(screen.getByRole('button', { name: 'Rename tuning' })).not.toHaveAttribute('title');
     expect(screen.getByRole('button', { name: 'Delete tuning' })).not.toHaveAttribute('title');
-  });
-
-  it('non-premium: clicking Sound triggers the paywall and does not enable audio', async () => {
-    const user = userEvent.setup();
-    renderBar();
-    await user.click(screen.getByLabelText('Toggle sound'));
-    expect(document.querySelector('[data-testid="paywall-card"]')).toBeInTheDocument();
-    expect(useAudioStore.getState().enabled).toBe(false);
-  });
-
-  it('premium: clicking Sound toggles audio on (no paywall)', async () => {
-    const user = userEvent.setup();
-    useSubscriptionStore.setState({ isPremium: true });
-    renderBar();
-    await user.click(screen.getByLabelText('Toggle sound'));
-    expect(useAudioStore.getState().enabled).toBe(true);
-    expect(document.querySelector('[data-testid="paywall-card"]')).not.toBeInTheDocument();
   });
 
   it('note-name toggle still flips store state after the restyle', async () => {

@@ -1,15 +1,22 @@
 import { useState } from 'react';
 import { useFretboardStore } from '@/stores/fretboardStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { diatonicChords, chordDisplayName, type DiatonicChord } from '@/lib/harmony';
 import { playChord } from '@/lib/playChord';
+import PlayButton from './PlayButton';
 
-export default function ChordsInKey() {
+interface ChordsInKeyProps {
+  onPaywallTrigger?: (el: HTMLElement) => void;
+}
+
+export default function ChordsInKey({ onPaywallTrigger }: ChordsInKeyProps) {
   const rootNote = useFretboardStore((s) => s.rootNote);
   const scaleName = useFretboardStore((s) => s.scaleName);
   const chordName = useFretboardStore((s) => s.chordName);
   const chordRoot = useFretboardStore((s) => s.chordRoot);
   const setChordName = useFretboardStore((s) => s.setChordName);
   const setChordRoot = useFretboardStore((s) => s.setChordRoot);
+  const isPremium = useSubscriptionStore((s) => s.isPremium);
 
   const [sevenths, setSevenths] = useState(false);
 
@@ -49,12 +56,16 @@ export default function ChordsInKey() {
     }
     setChordName(c.chordType); // resets chordRoot to null in the same set()
     setChordRoot(c.chordRoot); // then root the highlight at this degree
-    // Audio is gated internally by playChord (checks audioStore.enabled + isPremium).
+    // Selecting a degree only highlights the fretboard — it never plays audio
+    // (Story 7.2). The row's own Play button is the only explicit trigger.
+  };
+
+  const handlePlay = (c: DiatonicChord) => {
     try {
       playChord(c.chordType, c.chordRoot);
     } catch (e) {
       console.error('Audio playback failed:', e);
-      // Continue normally even if audio fails; chord selection shouldn't break
+      // Continue normally even if audio fails; chord browsing shouldn't break
     }
   };
 
@@ -83,13 +94,13 @@ export default function ChordsInKey() {
         {chords.map((c) => {
           const active = isActive(c);
           return (
-            <li key={c.degree} role="option" aria-selected={active}>
+            <li key={c.degree} role="option" aria-selected={active} className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => handleClick(c)}
                 disabled={!c.buildable}
                 title={c.buildable ? c.notes.join(' · ') : 'No shape available'}
-                className={`flex w-full select-none flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left transition-colors ${
+                className={`flex min-w-0 flex-1 select-none flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left transition-colors ${
                   active
                     ? 'border-indigo-400/60 bg-indigo-500/15 text-indigo-200 [box-shadow:var(--glow-primary)]'
                     : c.buildable
@@ -100,6 +111,14 @@ export default function ChordsInKey() {
                 <span className="font-mono text-xs text-slate-500">{c.roman}</span>
                 <span className="text-sm font-medium">{chordDisplayName(c)}</span>
               </button>
+              {c.buildable && (
+                <PlayButton
+                  label={`Play ${chordDisplayName(c)}`}
+                  locked={!isPremium}
+                  onPlay={() => handlePlay(c)}
+                  onPaywallTrigger={onPaywallTrigger}
+                />
+              )}
             </li>
           );
         })}
