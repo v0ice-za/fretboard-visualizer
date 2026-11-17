@@ -68,6 +68,7 @@ backend/src/main/resources/db/migration/   ← V1–V4 Flyway SQL files
 ## Hard Constraints
 
 - `frontend/src/data/*.js` — do NOT convert to TS, do NOT modify (musicTheory.js, tunings.js, scales.js)
+  - Exception (owner decision 2026-10-07): `chords.js` MAY be extended **append-only** (new chord types at the end, unique interval arrays, never reorder/edit existing entries) — still do not convert it to TS
 - Tailwind v4: CSS-only via `@theme` in `index.css` — no `tailwind.config.js`, no postcss
 - `src/components/ui/` — shadcn/ui generated files; do not hand-edit
 - `@/` alias → `src/`; new components go in the correct `features/` subdirectory

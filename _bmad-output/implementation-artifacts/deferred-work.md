@@ -1,5 +1,13 @@
 # Deferred Work
 
+## Deferred from: code review of story-7.1 (2026-09-29)
+
+- Freeform marks always render their note name (`showNoteName={noteNamesVisible}` unconditionally, `FretboardCanvas.tsx:339-366`) without checking overlap with a lone key-root ring's note name — if a freeform mark and a key-root ring coincide with note names on, two `<text>` elements render stacked. Not a new regression: freeform already didn't check for overlap with scale/root dots before this story. A general fix would need a combined "positions with a visible note name already" set checked by every dot layer (chord/scale, key-root, freeform), not just the key-root check added in this story.
+- `useProgressionPlayback`'s `setChordName` → `setChordRoot` (`useProgressionPlayback.ts:39-40`) are two separate zustand `set()` calls, so `chordRoot` is transiently `null` between them. No live defect today — no direct store subscribers or persist middleware exist, and React 18 batches the effect — but combine into one `setState({ chordName, chordRoot })` call if a future subscriber (e.g. a persist middleware or a non-React consumer) is added.
+- `CHORD_LEGEND`/`SCALE_LEGEND` arrays in `fretboardUtils.ts` must be manually kept in sync with the `DotState` union — no compile-time signal if a future dot state is added elsewhere without a matching legend entry. Consider an exhaustiveness check (e.g. a `satisfies`-based assertion) when the next dot state is added.
+- No test exercises changing the key (`rootNote`) while a progression is actively playing, then stopping playback. Behavior is correct by construction (`useProgressionPlayback` never touches `rootNote`), so this is a test-coverage gap, not a known defect.
+- Story 7.1's AC9 375px check used a workaround (constraining `#fretboard` to 343px via inline style) instead of a real mobile viewport, because the dev Chrome window couldn't be resized. A true device or DevTools-viewport-emulation check at 375px across all 6 themes is still owed.
+
 ## Deferred from: code review of story-6.1 (2026-09-15)
 
 - Exotic heptatonic scales (Hungarian Minor, Double Harmonic, Persian, Arabic, Enigmatic, Lydian Dominant, Super Locrian) are not tested for producing only buildable triads in the `Diatonic` tab. The code degrades gracefully when a stacked-thirds interval set has no `CHORDS` match (`buildable: false` → disabled/greyed button, no crash), but there's no test proving which — if any — of these scales surface a non-buildable degree, nor a fuller chord vocabulary to cover them. Belongs with Story 6.2 (expanded chord library), which will both add the missing chord types and is the natural home for a matrix test across all heptatonic scales.

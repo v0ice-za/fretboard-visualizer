@@ -263,11 +263,11 @@ The app reflects the user's Subscription status and enforces access gates.
 
 ## 5. Non-Goals (Explicit)
 
-- **No audio playback in v1** — visual reference only; no chord or scale audio preview.
+- ~~**No audio playback in v1**~~ — *Amended 2026-09-29:* audio shipped post-MVP as opt-in chord preview (premium, explicit Play controls only — Story 7.2) plus free practice tools (metronome, chromatic tuner). Scale audio still out of scope.
 - **No instructional content** — no lessons, tutorials, or guided exercises.
 - **No tab or sheet music editor** — reference and visualization only.
 - **No native mobile app** — mobile-responsive web covers mobile use cases in v1.
-- **No social or sharing features** — no public profiles, shareable fretboard states, or community content in v1.
+- **No social features** — no public profiles or community content. *(Amended 2026-09-29: shareable fretboard state via URL shipped in Epic 1, hardened in Story 7.3.)*
 - **No MIDI input** — no real-time note detection from a connected instrument.
 - **No monthly subscription** — annual plan only at launch.
 
@@ -287,7 +287,7 @@ The app reflects the user's Subscription status and enforces access gates.
 
 ### 6.2 Out of Scope for MVP
 
-- Audio playback — v2
+- Audio playback — delivered post-MVP (see §5 amendment, 2026-09-29)
 - MIDI integration — v2+
 - Social / sharing features — v2+
 - Monthly subscription option — [NOTE FOR PM: revisit if annual-only creates conversion friction]

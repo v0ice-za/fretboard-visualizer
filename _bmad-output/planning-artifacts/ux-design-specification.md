@@ -957,3 +957,33 @@ This direction is sized to break into focused, consistent overhaul stories:
 3. **LibraryPanel + LibraryItem + ModeChips + PaywallCard** — glass panels, elevation, locked-item polish.
 4. **Auth + sheets/dialogs + NavTabs reconciliation** — unified overlay glass language, remove/merge legacy nav.
 5. **Contrast & motion audit** — verify AA over glass in both themes, reduced-transparency/motion, cross-browser `backdrop-filter`.
+
+
+---
+
+## Epic 7 Additions — 2026-09-29
+
+Source: `sprint-change-proposal-2026-09-29.md`. Functional clarity additions only — layout density and visual style remain pending the live UX session (Epic 6 retro item 6).
+
+### Key-root marker (`key-root` dot state)
+- Shown only while a chord is displayed and the chord's root differs from the selected key.
+- Rendered as a **hollow ring** (stroke, no fill) at every key-root position — distinguished by *shape*, not colour alone, so it stays legible under colour-vision deficiency.
+- When the key-root pitch is also a chord tone, the chord-tone dot renders normally with the ring drawn around it; when chord root = key root, no ring.
+- Colour from `--color-dot-key-root`, defined for all 6 themes; ≥3:1 non-text contrast against the composited board, computed per theme.
+- Progression stepping changes the displayed chord's root, never the selected key.
+
+### Fretboard legend
+- Sits below the fretboard; lists only the dot states present in the current render (Key root / Chord root / Chord tone / Scale / Mode / Mode root / Freeform mark).
+- Every entry is swatch + text label (never colour-only); swatches read the same tokens as the dots so they cannot drift. Hidden when the board is empty. Must fit at 375px.
+
+### Explicit Play controls
+- Audio **never** plays as a side effect of selecting, browsing, or stepping. Sound only comes from a dedicated Play button.
+- Chord rows (Chord Library, Diatonic, Jazzify) carry a small Play icon button; playing does not change selection. Progression Builder has "Play current chord" beside Prev/Next.
+- Free users see the Play buttons with a lock badge; clicking raises the shared PaywallCard.
+- The ControlBar "Sound" toggle is removed. Any future audio surface (scale playback, fret-click note) follows the same explicit-button rule.
+
+### Left-handed mode
+- Free toggle in the settings area next to the theme control; stored per device, not shared via URL.
+- Mirrors the fretboard horizontally (nut on the right); string order unchanged.
+- All text (note names, fret numbers) stays upright; click targets, capo indicator, inlays and overlays mirror with the dots.
+- Arrow-key fret navigation follows on-screen direction; on narrow screens the initial scroll brings the nut into view.

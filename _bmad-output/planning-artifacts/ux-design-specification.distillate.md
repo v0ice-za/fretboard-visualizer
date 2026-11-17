@@ -209,3 +209,11 @@ parts: 1
 
 ### Epic 5 story seams
 - 5.1 tokens+`.glass-surface`+density+reduced-transparency (both themes; dots NOT changed) → 5.2 ControlBar+IconButton+selectors+tooltips → 5.3 Library+chips+PaywallCard → 5.4 auth+sheets+NavTabs reconcile → 5.5 dot retune + contrast/colour-blind/motion/cross-browser audit
+
+
+### Epic 7 additions (2026-09-29; src sprint-change-proposal-2026-09-29.md)
+- key-root dot: HOLLOW RING (stroke, no fill), only when chord shown AND chordRoot≠key root; ring around chord-tone dot if key root is a chord tone; `--color-dot-key-root` in all 6 themes, ≥3:1 non-text contrast computed per theme; progression stepping changes chordRoot never key
+- legend below board: present-states-only, swatch+text label, token-driven swatches, hidden when empty, fits 375px
+- audio: NEVER on select/browse/step; explicit Play IconButton per chord row (no selection change) + "Play current chord" in Progression; free → lock badge → PaywallCard; ControlBar Sound toggle removed; future audio surfaces must follow same rule
+- left-handed: free toggle beside theme control, localStorage (not URL); horizontal mirror via coordinate mapping (nut right), text upright, hit-targets/capo/inlays mirror, arrows follow visual direction, mobile initial scroll shows nut
+- density/visual-style changes still pending live UX session (retro #6)

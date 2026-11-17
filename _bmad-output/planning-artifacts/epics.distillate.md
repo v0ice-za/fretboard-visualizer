@@ -24,8 +24,7 @@ FretboardCanvas SVG 24frets×6strings proportional columns; FretDot 4 states (ro
 ### Story 1.4: Core State & URL Sharing — DONE
 Zustand fretboardStore (tuning,key,scale,mode index,capo,freeform marks,note-names-visible) + layoutStore (panel open/closed,layout mode); React Router v7 single route; ?tuning=&key=&scale= URL sync; hydrates before first render; back/forward navigation restores state.
 
-### Story 1.5: ControlBar & Tuning Selection
-Status: in-review
+### Story 1.5: ControlBar & Tuning Selection — DONE
 
 As a free-tier user, I want a control bar with tuning/key/scale selectors so the fretboard updates immediately.
 
@@ -37,8 +36,7 @@ As a free-tier user, I want a control bar with tuning/key/scale selectors so the
 - All controls reachable via Tab in logical order
 - KeySelect and ScaleSelect populated and update fretboard immediately on selection
 
-### Story 1.6: Scale & Mode Explorer
-Status: not-started
+### Story 1.6: Scale & Mode Explorer — DONE
 
 As a guitarist, I want to explore scales and modes on the fretboard.
 
@@ -50,8 +48,7 @@ As a guitarist, I want to explore scales and modes on the fretboard.
 - Only one mode chip active at a time; clicking active chip deactivates overlay
 - Arrow keys navigate between mode chips when focus within chip row
 
-### Story 1.7: Capo Support
-Status: not-started
+### Story 1.7: Capo Support — DONE
 
 As a guitarist who uses a capo, I want to set capo position so I see correct notes relative to the capo.
 
@@ -63,8 +60,7 @@ As a guitarist who uses a capo, I want to set capo position so I see correct not
 - Capo 0/"None" restores standard display
 - Capo stored in fretboardStore; synced to URL as ?capo=N
 
-### Story 1.8: Freeform Marking & Note Names
-Status: not-started
+### Story 1.8: Freeform Marking & Note Names — DONE
 
 As a guitarist, I want to freely mark fret positions and optionally see note names for annotation.
 
@@ -77,8 +73,7 @@ As a guitarist, I want to freely mark fret positions and optionally see note nam
 - Note-name toggle state syncs to URL
 - All fret positions keyboard-reachable (Tab to fret, Space to toggle freeform mark)
 
-### Story 1.9: Frontend CI/CD & Vercel Deploy
-Status: not-started
+### Story 1.9: Frontend CI/CD & Vercel Deploy — DONE
 
 As a developer, I want the frontend to auto-deploy on merge to main.
 
@@ -374,3 +369,68 @@ As a songwriter, I want to find chords that share notes and jazzier substitution
 - Premium-gated
 - Pure frontend; reuses the 6.1/6.2 harmony util; no new API routes
 - UI lives in the Library panel (new tab or contextual sub-panel), consistent with the Epic 5 glass styling
+
+---
+## Epic 7: Usability & Clarity
+Goal: Close the real-use gaps surfaced after Epic 6 — keep key context visible when chords are shown, explain the fretboard's colours, make sound strictly opt-in per action, make shared links lossless, and support left-handed players. Frontend-only; NO backend, NO new API routes. Source: sprint-change-proposal-2026-09-29.md.
+Reqs: FR-1, FR-5b (URL precedence), FR-7, FR-12; NFR Accessibility (WCAG 2.1 AA); PRD §5 amendment (2026-09-29).
+Out of scope: layout density / visual-style changes — pending the live UX session (retro 2026-09-28 item 6); its outcome will be added via a later correct-course.
+Order: 7.1 → 7.2 → 7.3 → 7.4 (7.1 fixes the progression key-overwrite that 7.2's progression Play button builds on).
+
+### Story 7.1: Key-Root Marker & Fretboard Colour Legend
+As a guitarist viewing a chord inside a key, I want to still see where the key centre sits and know what every dot colour means, so I never lose harmonic context.
+
+**Acceptance Criteria:**
+- New DotState `key-root`, rendered only while a chord is displayed (chordName set) AND chordRoot ≠ key rootNote.
+- key-root is a HOLLOW RING marker (stroke, no fill) at every key-root position within the visible frets — shape, not just colour, distinguishes it from chord tones.
+  - If the key-root pitch is also a chord tone (e.g. C in Am), the chord-tone dot renders as normal PLUS the key-root ring around it.
+  - If chordRoot === rootNote, no ring (root dot already marks it).
+- Applies everywhere a chord can be shown: Chord Library, Diatonic (Chords in Key), Jazzify, Progression Builder stepping.
+- **Progression stepping sets `chordRoot` (not `rootNote`) so the key stays fixed; call order `setChordName` → `setChordRoot` (setChordName resets chordRoot — 6.3 GOTCHA). Snapshot/restore logic in `useProgressionPlayback` updated accordingly.**
+- Ring colour via new `--color-dot-key-root` token defined in ALL 6 theme blocks; WCAG 2.1 AA (≥3:1 non-text contrast) verified against the composited board background in every theme — computed, not eyeballed.
+- Fretboard legend below the board lists ONLY the dot states present in the current render (swatch + label: Key root / Chord root / Chord tone / Scale / Mode / Mode root / Freeform mark); swatches read the same CSS tokens as FretDot. Hidden when the board has no dots.
+- Legend is text-labelled (not colour-only), responsive at 375px, exposed as a list; FretboardCanvas aria-label mentions the key when a chord is shown ("…showing D minor chord in key of C").
+- Scale-mode rendering (no chord) unchanged; <100ms re-render NFR holds.
+- Frontend-only.
+
+### Story 7.2: Explicit Play Controls (remove auto-play)
+As a guitarist, I want sound only when I deliberately ask for it, so browsing chords is silent and never surprising.
+
+**Acceptance Criteria:**
+- Selecting/browsing a chord NEVER plays audio. Remove the playChord call on select in ChordLibrary, ChordsInKey, ChordRelationships, and on step in useProgressionPlayback (←/→ and Prev/Next stay silent).
+- Each chord row in Chord Library / Diatonic / Jazzify gets a small Play IconButton (aria-label "Play <chord>"); clicking plays that chord WITHOUT changing selection (stopPropagation).
+- Progression Builder gets a "Play current chord" button beside Prev/Next.
+- Premium gate unchanged and enforced inside playChord; free users see Play buttons with a lock badge → click raises the shared PaywallCard.
+- ControlBar "Sound" toggle REMOVED; `audioStore.enabled` retired (persisted state migrated safely — old key ignored). Volume stays at stored value.
+- Play buttons Tab-reachable, Enter/Space activate, don't hijack ←/→ stepping.
+- Tests: selection/stepping produce ZERO playChord calls; Play button exactly one; free-user click opens PaywallCard.
+- Metronome and tuner unaffected.
+- Real-browser audible check performed (closes the open backlog item).
+
+### Story 7.3: URL-State Hardening
+As a guitarist sharing a link, I want the recipient to see exactly what I see — and nothing they aren't entitled to.
+
+**Acceptance Criteria:**
+- `?mode=<index>` written when a mode is active, omitted otherwise; hydrated only if valid for the hydrated scale.
+- `?chord=<type>&croot=<note>` written while a chord is shown; hydrated only if type ∈ CHORDS and croot matches ROOT_NOTE_RE; call order setChordName → setChordRoot.
+- Entitlement guard: a premium-only tuning or locked chord (beyond FREE_TIER_CHORD_COUNT) in the URL is applied only once subscription status resolves as premium; otherwise falls back to Standard E / no chord. No premium flash; no discarding a valid link for a premium user on slow load (reuse useThemeGuard sequencing).
+- Custom (user-saved) tuning names in `?tuning=` fall back to Standard E (private data).
+- Strict numeric parsing: `capo=3abc` ignored; duplicate freeform marks de-duplicated.
+- Precedence unchanged: URL beats saved session (FR-5b / 4.4).
+- Tests: table-driven valid/invalid per param; free vs premium hydration; full round-trip for every param.
+- useUrlState stays the single URL↔store boundary; no new routes.
+
+### Story 7.4: Left-Handed Mode
+As a left-handed guitarist, I want the fretboard mirrored so it matches how I hold my guitar.
+
+**Acceptance Criteria:**
+- "Left-handed" toggle (free) in the settings area alongside the theme control; persisted in localStorage (not a URL param).
+- On: fretboard mirrors horizontally — nut on the RIGHT, frets ascend leftward; string order unchanged.
+- Implemented as a coordinate mapping in FretboardCanvas (x → width − x), NOT a CSS/SVG scale(-1) — text, fret numbers, inlays, capo indicator, glow filters render upright and correct.
+- Hit-targets mirror with the dots (click on fret N marks fret N — tested in both modes).
+- Keyboard fret navigation follows VISUAL direction in both modes; Tab order logical.
+- Mobile (<768px): initial scroll puts the nut in view.
+- Proportional fret widths preserved.
+- 7.1 rings/legend, chord highlights, capo dimming correct when mirrored; <100ms NFR holds.
+- Toggle has aria-pressed.
+- Live browser check at desktop + 375px in both modes.
