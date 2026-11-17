@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
+import { createElement } from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import { useSessionSync } from './useSessionSync';
+import { useUrlState } from './useUrlState';
 import { useAuthStore, DEFAULT_AUTH } from '@/stores/authStore';
 import { useSubscriptionStore, DEFAULT_SUBSCRIPTION } from '@/stores/subscriptionStore';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
@@ -253,5 +256,27 @@ describe('useSessionSync — auto-save', () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe('useSessionSync + useUrlState — URL precedence (7.3 AC7)', () => {
+  const wrapper = ({ children }: { children: React.ReactNode }) => createElement(BrowserRouter, null, children);
+
+  it('a URL-named premium tuning + capo + marks beat a restored session once entitlement resolves', async () => {
+    setUrl('?tuning=Open+A&capo=2&marks=1-1,1-1');
+    get.mockResolvedValue(SAVED_SESSION);
+
+    renderHook(() => { useUrlState(); useSessionSync(); }, { wrapper });
+    // Hard-load sequence: anonymous first, then auth bootstrap + subscription resolve.
+    expect(useFretboardStore.getState().tuning).toBe('Standard E');
+    act(() => authenticateAsPremium());
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/sessions'));
+    await act(async () => { await Promise.resolve(); });
+
+    const s = useFretboardStore.getState();
+    expect(s.tuning).toBe('Open A');
+    expect(s.capoPosition).toBe(2);
+    expect(s.freeformMarks).toEqual([{ fret: 1, string: 1 }]);
   });
 });
