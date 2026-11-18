@@ -26,13 +26,13 @@ describe('IconButton', () => {
     render(<IconButton aria-label="Example" active>•</IconButton>);
     const button = screen.getByRole('button', { name: 'Example' });
     expect(button).toHaveAttribute('data-active', 'true');
-    expect(button.className).toMatch(/bg-primary\/15/);
+    expect(button.className).toMatch(/bg-surface-2/); // Story 8.2: raised surface-2 plate
   });
 
   it('does not carry the active tint when tone="destructive", even if active is true', () => {
     render(<IconButton aria-label="Example" active tone="destructive">•</IconButton>);
     const button = screen.getByRole('button', { name: 'Example' });
-    expect(button.className).not.toMatch(/bg-primary\/15/);
+    expect(button.className).not.toMatch(/bg-surface-2/);
   });
 
   it('omits data-active when inactive', () => {

@@ -9,7 +9,7 @@ export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
 }
 
 /**
- * Shared control-bar action button for the Aurora glass overhaul (Story 5.2).
+ * Shared control-bar action button (Story 5.2; Obsidian hardware styling Story 8.2).
  *
  * - 44px min touch target (h-11 / min-w-11) — meets the spec's WCAG AA rule.
  * - 20px glyphs, hover-lift + soft shadow, `--glow-primary` focus ring.
@@ -26,14 +26,16 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       type={type ?? 'button'}
       data-active={active || undefined}
       className={cn(
-        'inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-2.5 select-none',
-        'text-sm font-medium text-muted-foreground outline-none',
-        'transition-[transform,box-shadow,color,background-color] duration-150 ease-out',
-        'hover:-translate-y-px hover:text-foreground hover:[background:var(--glass-bar-bg)] hover:[box-shadow:var(--shadow-sm)]',
+        // Story 8.2: hardware-plate styling — 4px radius, flat hover plate (no lift),
+        // active = raised surface-2 plate with an indigo underglow. 44px touch target kept.
+        'inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-sm px-2 select-none',
+        'text-[13px] font-medium text-muted-foreground outline-none',
+        'transition-[box-shadow,color,background-color] duration-150 ease-out',
+        'hover:bg-surface-interactive hover:text-foreground',
         'focus-visible:text-foreground focus-visible:[box-shadow:var(--glow-primary)]',
-        'active:translate-y-0',
-        "[&_svg]:size-5 [&_svg]:shrink-0",
-        active && tone === 'default' && 'bg-primary/15 text-primary [box-shadow:var(--glow-primary)]',
+        "[&_svg]:size-[18px] [&_svg]:shrink-0",
+        active && tone === 'default' &&
+          'bg-surface-2 text-foreground [box-shadow:inset_0_1px_0_var(--glass-highlight),inset_0_-2px_0_rgb(99_102_241),0_8px_16px_-8px_rgb(99_102_241/0.6)] [&_svg]:text-primary',
         tone === 'destructive' && 'hover:bg-destructive/10 hover:text-destructive',
         className,
       )}

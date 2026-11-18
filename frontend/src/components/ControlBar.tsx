@@ -49,14 +49,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { cn } from '@/lib/utils';
 
 // Sentinel Select value that opens the creator instead of selecting a tuning.
 const CREATE_TUNING_VALUE = '__create_custom_tuning__';
 
-/** Small uppercase category label sitting above a selector's value. */
+/** Story 8.2: selectors sit in a recessed hardware slot (4px radius, inset well). */
+const SELECTOR_SLOT =
+  'h-auto! py-1 rounded-sm border-[var(--glass-border)] bg-[var(--input)] [box-shadow:var(--board-well-shadow)] hover:bg-[var(--input)]';
+
+/** Small uppercase category label sitting above a selector's value — mono micro-caps. */
 function SelectCategory({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-none">
+    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground leading-none">
       {children}
     </span>
   );
@@ -172,7 +177,7 @@ export default function ControlBar() {
   };
 
   return (
-    <div className="glass-bar relative z-20 flex flex-wrap items-center gap-3 px-5 py-2">
+    <div className="glass-bar relative z-20 flex min-h-[52px] flex-wrap items-center gap-2 px-4 py-1">
       {/* Logo */}
       <span className="flex-shrink-0 grid size-6 place-items-center rounded-xl [background:var(--signature-grad)] [box-shadow:var(--glow-primary)]">
         <svg width="14" height="14" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -185,7 +190,7 @@ export default function ControlBar() {
 
       {/* Tuning */}
       <Select value={tuning} onValueChange={onTuningChange}>
-        <SelectTrigger className="h-auto! w-44 py-1.5" aria-label="Tuning">
+        <SelectTrigger className={cn(SELECTOR_SLOT, "w-40")} aria-label="Tuning">
           <span className="flex min-w-0 flex-col items-start gap-0.5">
             <SelectCategory>Tuning</SelectCategory>
             {(FREE_TUNINGS as readonly string[]).includes(tuning)
@@ -232,7 +237,7 @@ export default function ControlBar() {
 
       {/* Key (root note) */}
       <Select value={rootNote} onValueChange={(v) => v && setRootNote(v)}>
-        <SelectTrigger className="h-auto! w-24 py-1.5" aria-label="Key">
+        <SelectTrigger className={cn(SELECTOR_SLOT, "w-20")} aria-label="Key">
           <span className="flex min-w-0 flex-col items-start gap-0.5">
             <SelectCategory>Key</SelectCategory>
             <SelectValue className="max-w-full truncate text-sm font-medium text-foreground" />
@@ -247,7 +252,7 @@ export default function ControlBar() {
 
       {/* Scale (grouped by category) */}
       <Select value={scaleName} onValueChange={(v) => v && setScaleName(v)}>
-        <SelectTrigger className="h-auto! w-52 py-1.5" aria-label="Scale">
+        <SelectTrigger className={cn(SELECTOR_SLOT, "w-48")} aria-label="Scale">
           <span className="flex min-w-0 flex-col items-start gap-0.5">
             <SelectCategory>Scale</SelectCategory>
             <SelectValue className="max-w-full truncate text-sm font-medium text-foreground" />
@@ -312,7 +317,7 @@ export default function ControlBar() {
                   aria-pressed={leftHanded}
                 >
                   <FlipHorizontal2 />
-                  <span className="hidden md:inline">Left-handed</span>
+                  <span className="hidden xl:inline">Left-handed</span>
                 </IconButton>
               }
             />
@@ -330,7 +335,7 @@ export default function ControlBar() {
                   aria-pressed={noteNamesVisible}
                 >
                   <Type />
-                  <span className="hidden md:inline">Notes</span>
+                  <span className="hidden xl:inline">Notes</span>
                 </IconButton>
               }
             />
@@ -348,7 +353,7 @@ export default function ControlBar() {
                   aria-pressed={freeformModeActive}
                 >
                   <Pencil />
-                  <span className="hidden md:inline">Draw</span>
+                  <span className="hidden xl:inline">Draw</span>
                 </IconButton>
               }
             />
@@ -366,7 +371,7 @@ export default function ControlBar() {
                   aria-pressed={tunerListening}
                 >
                   <Gauge />
-                  <span className="hidden md:inline">Tuner</span>
+                  <span className="hidden xl:inline">Tuner</span>
                 </IconButton>
               }
             />
@@ -384,7 +389,7 @@ export default function ControlBar() {
                   aria-pressed={metronomePlaying}
                 >
                   <Timer />
-                  <span className="hidden md:inline">Metronome</span>
+                  <span className="hidden xl:inline">Metronome</span>
                 </IconButton>
               }
             />
@@ -402,7 +407,7 @@ export default function ControlBar() {
                   aria-pressed={sidePanel}
                 >
                   <Library />
-                  <span className="hidden md:inline">Library</span>
+                  <span className="hidden xl:inline">Library</span>
                 </IconButton>
               }
             />
@@ -419,7 +424,7 @@ export default function ControlBar() {
                   aria-label={isAuthenticated ? 'Account' : 'Sign in'}
                 >
                   <User />
-                  <span className="hidden md:inline">{isAuthenticated ? 'Account' : 'Sign in'}</span>
+                  <span className="hidden xl:inline">{isAuthenticated ? 'Account' : 'Sign in'}</span>
                 </IconButton>
               }
             />

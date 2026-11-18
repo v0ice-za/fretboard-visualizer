@@ -28,8 +28,11 @@ export default function ModeChipsRow() {
       <div
         role="toolbar"
         aria-label="Mode overlay"
-        className="flex items-center gap-2 overflow-x-auto border-b border-[var(--glass-border)] bg-[var(--glass-bar-bg)] px-4 py-2.5 backdrop-blur-[var(--glass-blur)]"
+        className="flex items-center overflow-x-auto border-b border-[var(--glass-border)] bg-[var(--glass-bar-bg)] px-4 py-1.5"
       >
+        {/* Story 8.2: segmented pill selector — recessed slate track, active
+            segment pops on surface-2 with an indigo underglow. */}
+        <div className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-full border border-[var(--glass-border)] bg-[var(--input)] p-0.5 [box-shadow:var(--board-well-shadow)]">
         {MODES.map((mode, index) => {
           const isActive = modeIndex === index;
           return (
@@ -38,10 +41,10 @@ export default function ModeChipsRow() {
                 aria-pressed={isActive}
                 onClick={() => setModeIndex(isActive ? null : index)}
                 onKeyDown={e => handleKeyDown(e, index)}
-                className={`inline-flex min-h-11 flex-shrink-0 select-none items-center justify-center rounded-full px-3.5 text-xs font-medium transition-[transform,box-shadow,background-color,color,border-color] duration-150 focus-visible:outline-none focus-visible:[box-shadow:var(--glow-primary)] ${
+                className={`inline-flex min-h-11 flex-shrink-0 select-none items-center justify-center rounded-full px-3.5 text-xs font-medium transition-[box-shadow,background-color,color] duration-150 focus-visible:outline-none focus-visible:[box-shadow:var(--glow-primary)] ${
                   isActive
-                    ? 'border border-rose-500/40 bg-rose-500/20 text-rose-300 [box-shadow:0_0_16px_oklch(0.7_0.16_15/0.25)]'
-                    : 'border border-transparent text-muted-foreground hover:-translate-y-px hover:border-[var(--glass-border)] hover:text-foreground'
+                    ? 'bg-surface-2 text-foreground [box-shadow:inset_0_1px_0_var(--glass-highlight),0_6px_14px_-6px_rgb(99_102_241/0.7)]'
+                    : 'text-muted-foreground hover:bg-surface-interactive hover:text-foreground'
                 }`}
               >
                 {mode.name}
@@ -50,6 +53,7 @@ export default function ModeChipsRow() {
             </Tooltip>
           );
         })}
+        </div>
       </div>
     </TooltipProvider>
   );

@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import FretDot, { DOT_CONFIG, FretDotDefs, GLOW_FILTER_ID } from './FretDot';
+import FretDot, { DOT_CONFIG, FretDotDefs, GLOW_FILTER_ID, ROOT_GLOW_FILTER_ID } from './FretDot';
 import type { FretDotProps } from './FretDot';
 
 function renderDot(props: FretDotProps) {
@@ -24,11 +24,11 @@ describe('FretDot', () => {
   });
 
   describe('mode-root state', () => {
-    it('renders theme-driven fuchsia fill (CSS var w/ hex fallback), r=13, full opacity', () => {
+    it('renders theme-driven fuchsia fill (CSS var w/ hex fallback), r=14, full opacity', () => {
       const container = renderDot({ ...BASE, state: 'mode-root' });
       const circle = container.querySelector('circle.fret-dot');
       expect(circle).toHaveAttribute('fill', 'var(--color-dot-mode-root, #d946ef)');
-      expect(circle).toHaveAttribute('r', '13');
+      expect(circle).toHaveAttribute('r', '14');
       expect(circle).toHaveAttribute('opacity', '1');
     });
 
@@ -40,18 +40,18 @@ describe('FretDot', () => {
   });
 
   describe('root state', () => {
-    it('renders theme-driven gold fill (CSS var w/ hex fallback), r=13, full opacity', () => {
+    it('renders theme-driven gold fill (CSS var w/ hex fallback), r=14, full opacity', () => {
       const container = renderDot({ ...BASE, state: 'root' });
       const circle = container.querySelector('circle.fret-dot');
       expect(circle).toHaveAttribute('fill', 'var(--color-dot-root, #fbbf24)');
-      expect(circle).toHaveAttribute('r', '13');
+      expect(circle).toHaveAttribute('r', '14');
       expect(circle).toHaveAttribute('opacity', '1');
     });
 
-    it('does not apply glow filter', () => {
+    it('applies the gold root-glow SVG filter (Story 8.3)', () => {
       const container = renderDot({ ...BASE, state: 'root' });
       const circle = container.querySelector('circle.fret-dot');
-      expect(circle).not.toHaveAttribute('filter');
+      expect(circle).toHaveAttribute('filter', `url(#${ROOT_GLOW_FILTER_ID})`);
     });
 
     it('does not render dashed ring', () => {
@@ -62,11 +62,11 @@ describe('FretDot', () => {
   });
 
   describe('scale state', () => {
-    it('renders theme-driven violet fill (CSS var w/ hex fallback), r=11, 85% opacity', () => {
+    it('renders theme-driven violet fill (CSS var w/ hex fallback), r=12, 85% opacity', () => {
       const container = renderDot({ ...BASE, state: 'scale' });
       const circle = container.querySelector('circle.fret-dot');
       expect(circle).toHaveAttribute('fill', 'var(--color-dot-scale, #8b5cf6)');
-      expect(circle).toHaveAttribute('r', '11');
+      expect(circle).toHaveAttribute('r', '12');
       expect(circle).toHaveAttribute('opacity', '0.85');
     });
 
@@ -77,11 +77,11 @@ describe('FretDot', () => {
   });
 
   describe('mode state', () => {
-    it('renders theme-driven cyan fill (CSS var w/ hex fallback), r=11, 90% opacity', () => {
+    it('renders theme-driven cyan fill (CSS var w/ hex fallback), r=12, 90% opacity', () => {
       const container = renderDot({ ...BASE, state: 'mode' });
       const circle = container.querySelector('circle.fret-dot');
       expect(circle).toHaveAttribute('fill', 'var(--color-dot-mode, #22d3ee)');
-      expect(circle).toHaveAttribute('r', '11');
+      expect(circle).toHaveAttribute('r', '12');
       expect(circle).toHaveAttribute('opacity', '0.9');
     });
 
@@ -93,11 +93,11 @@ describe('FretDot', () => {
   });
 
   describe('freeform state', () => {
-    it('renders theme-driven pink fill (CSS var w/ hex fallback), r=11, 80% opacity', () => {
+    it('renders theme-driven pink fill (CSS var w/ hex fallback), r=12, 80% opacity', () => {
       const container = renderDot({ ...BASE, state: 'freeform' });
       const circle = container.querySelector('circle.fret-dot');
       expect(circle).toHaveAttribute('fill', 'var(--color-dot-freeform, #f0abfc)');
-      expect(circle).toHaveAttribute('r', '11');
+      expect(circle).toHaveAttribute('r', '12');
       expect(circle).toHaveAttribute('opacity', '0.8');
     });
 

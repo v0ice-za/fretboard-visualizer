@@ -1,8 +1,6 @@
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* No universal margin/padding reset here: Tailwind preflight already does it
+   inside @layer base. An unlayered copy beats every utility (px-4, py-3…) and
+   silently zeroed spacing app-wide. */
 
 :root {
   color-scheme: dark;

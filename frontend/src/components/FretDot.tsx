@@ -1,6 +1,8 @@
 import type { DotState } from '@/utils/fretboardUtils';
 
 export const GLOW_FILTER_ID = 'fret-dot-mode-glow';
+/** Story 8.3: gold phosphor halo on root dots (colour from --glow-root-color). */
+export const ROOT_GLOW_FILTER_ID = 'fret-dot-root-glow';
 
 // Aurora dot palette — Option B (Story 5.5), theme-driven since Story 4.5.
 // `fill`/`textColor` read CSS custom properties (`--color-dot-*`/`--dot-text-*`,
@@ -16,11 +18,12 @@ export const GLOW_FILTER_ID = 'fret-dot-mode-glow';
 // computed and verified for all 6 themes — see the story's Dev Agent Record for
 // the full ratio table; the dark/light values below are unchanged from 5.5.
 const DOT_CONFIG: Record<DotState, { radius: number; fill: string; opacity: number; textColor: string }> = {
-  root:       { radius: 13, fill: 'var(--color-dot-root, #fbbf24)',           opacity: 1,    textColor: 'var(--dot-text-root, #1a0e00)' },
-  scale:      { radius: 11, fill: 'var(--color-dot-scale, #8b5cf6)',          opacity: 0.85, textColor: 'var(--dot-text-scale, #0a0518)' },
-  mode:       { radius: 11, fill: 'var(--color-dot-mode, #22d3ee)',           opacity: 0.9,  textColor: 'var(--dot-text-mode, #04191c)' },
-  'mode-root':{ radius: 13, fill: 'var(--color-dot-mode-root, #d946ef)',      opacity: 1,    textColor: 'var(--dot-text-mode-root, #1a0030)' },
-  freeform:   { radius: 11, fill: 'var(--color-dot-freeform, #f0abfc)',       opacity: 0.8,  textColor: 'var(--dot-text-freeform, #2a0730)' },
+  // Story 8.3: Obsidian marker sizes — root-family 28px, other tones 24px (was 26/22).
+  root:       { radius: 14, fill: 'var(--color-dot-root, #fbbf24)',           opacity: 1,    textColor: 'var(--dot-text-root, #1a0e00)' },
+  scale:      { radius: 12, fill: 'var(--color-dot-scale, #8b5cf6)',          opacity: 0.85, textColor: 'var(--dot-text-scale, #0a0518)' },
+  mode:       { radius: 12, fill: 'var(--color-dot-mode, #22d3ee)',           opacity: 0.9,  textColor: 'var(--dot-text-mode, #04191c)' },
+  'mode-root':{ radius: 14, fill: 'var(--color-dot-mode-root, #d946ef)',      opacity: 1,    textColor: 'var(--dot-text-mode-root, #1a0030)' },
+  freeform:   { radius: 12, fill: 'var(--color-dot-freeform, #f0abfc)',       opacity: 0.8,  textColor: 'var(--dot-text-freeform, #2a0730)' },
   // Story 7.1: stroke-only ring marking the key's root while a chord rooted elsewhere
   // is shown. `fill` is used as the STROKE colour; a lone ring's note name sits on the
   // board, so it uses the board text token rather than a dot-text token.
@@ -54,6 +57,12 @@ export function FretDotDefs() {
           <feMergeNode in="SourceGraphic" />
         </feMerge>
       </filter>
+      {/* Halo, not shadow: a wide soft bloom + a tight bright rim. flood-color is
+          set via style because CSS var() doesn't resolve in presentation attributes. */}
+      <filter id={ROOT_GLOW_FILTER_ID} x="-75%" y="-75%" width="250%" height="250%">
+        <feDropShadow dx="0" dy="0" stdDeviation="4" style={{ floodColor: 'var(--glow-root-color, rgba(245,158,11,0.45))' }} />
+        <feDropShadow dx="0" dy="0" stdDeviation="1" style={{ floodColor: 'var(--glow-root-color, rgba(245,158,11,0.45))' }} />
+      </filter>
     </defs>
   );
 }
@@ -85,7 +94,13 @@ export default function FretDot({ fret, string: stringIdx, state, note, cx, cy, 
           r={radius}
           fill={fill}
           opacity={opacity}
-          filter={state === 'mode' || state === 'mode-root' ? `url(#${GLOW_FILTER_ID})` : undefined}
+          filter={
+            state === 'mode' || state === 'mode-root'
+              ? `url(#${GLOW_FILTER_ID})`
+              : state === 'root'
+                ? `url(#${ROOT_GLOW_FILTER_ID})`
+                : undefined
+          }
         />
       )}
       {state === 'freeform' && (

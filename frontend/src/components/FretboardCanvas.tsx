@@ -30,6 +30,16 @@ import type { FreeformMark } from '@/stores/fretboardStore';
 
 const FRETS = Array.from({ length: FRET_COUNT }, (_, i) => i + 1); // [1..24]
 
+// Story 8.3 instrument materials
+const BOARD_DEPTH_ID = 'fretboard-depth';
+/** Pearl inlay: oyster fill with a faint cyan refraction rim. */
+const PEARL = {
+  fill: 'var(--inlay-pearl, #e2e8f0)',
+  fillOpacity: 0.2,
+  stroke: 'var(--inlay-refraction, rgba(34,211,238,0.15))',
+  strokeWidth: 1,
+} as const;
+
 interface FretboardCanvasProps {
   tuning: string;
   rootNote: string;
@@ -149,6 +159,7 @@ export default function FretboardCanvas({
       <div
         ref={scrollRef}
         style={{ overflowX: 'auto', touchAction: 'pan-x' }}
+        className="fretboard-well"
         data-testid="fretboard-scroll-wrapper"
       >
         <svg
@@ -159,6 +170,17 @@ export default function FretboardCanvas({
           data-testid="fretboard-svg"
         >
           <FretDotDefs />
+          <defs>
+            {/* Story 8.3: recessed-board depth — shade only the top/bottom edges
+                (outside the string band) so the dots' contrast basis, the flat
+                --color-fretboard, is untouched where dots actually sit. */}
+            <linearGradient id={BOARD_DEPTH_ID} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" style={{ stopColor: 'var(--board-edge-shade, rgba(0,0,0,0.55))' }} />
+              <stop offset="0.09" style={{ stopColor: 'var(--board-edge-shade, rgba(0,0,0,0.55))', stopOpacity: 0 }} />
+              <stop offset="0.93" style={{ stopColor: 'var(--board-edge-shade, rgba(0,0,0,0.55))', stopOpacity: 0 }} />
+              <stop offset="1" style={{ stopColor: 'var(--board-edge-shade, rgba(0,0,0,0.55))' }} />
+            </linearGradient>
+          </defs>
 
           {/* Fretboard surface */}
           <rect
@@ -168,6 +190,15 @@ export default function FretboardCanvas({
             height={STRING_Y[STRING_COUNT - 1] - STRING_Y[0] + 28}
             fill="var(--color-fretboard, #0b0b16)"
             rx={2}
+          />
+          <rect
+            x={mRectX(NUT_X, FRET_AREA_RIGHT - NUT_X)}
+            y={STRING_Y[0] - 14}
+            width={FRET_AREA_RIGHT - NUT_X}
+            height={STRING_Y[STRING_COUNT - 1] - STRING_Y[0] + 28}
+            fill={`url(#${BOARD_DEPTH_ID})`}
+            rx={2}
+            pointerEvents="none"
           />
 
           {/* Capo dim overlay — covers frets 0 through capoPosition-1 */}
@@ -201,8 +232,13 @@ export default function FretboardCanvas({
                 y1={y}
                 x2={mx(FRET_AREA_RIGHT)}
                 y2={y}
-                stroke="var(--color-string, #b8b8d0)"
+                // Story 8.3: wound bronze on the three low strings (visual bottom,
+                // i >= 3), drawn steel on the trebles.
+                stroke={i >= 3
+                  ? 'var(--string-wound, var(--color-string, #b8b8d0))'
+                  : 'var(--string-plain, var(--color-string, #b8b8d0))'}
                 strokeWidth={1.0 + i * 0.4}
+                opacity={0.85}
               />
               {/* Specular highlight on top */}
               <line
@@ -236,17 +272,17 @@ export default function FretboardCanvas({
                 y1={STRING_Y[0] - 12}
                 x2={mx(getFretLineX(fret) + 1)}
                 y2={STRING_Y[STRING_COUNT - 1] + 12}
-                stroke="rgba(0,0,0,0.5)"
+                stroke="var(--fret-wire-shadow, rgba(0,0,0,0.5))"
                 strokeWidth={1.5}
               />
-              {/* Main fret bar */}
+              {/* Main fret bar — nickel-silver core (Story 8.3) */}
               <line
                 data-testid="fret-line"
                 x1={mx(getFretLineX(fret))}
                 y1={STRING_Y[0] - 12}
                 x2={mx(getFretLineX(fret))}
                 y2={STRING_Y[STRING_COUNT - 1] + 12}
-                stroke="var(--color-fret, #9090c0)"
+                stroke="var(--fret-wire, var(--color-fret, #9090c0))"
                 strokeWidth={3}
               />
               {/* Specular highlight (left edge) */}
@@ -255,8 +291,9 @@ export default function FretboardCanvas({
                 y1={STRING_Y[0] - 12}
                 x2={mx(getFretLineX(fret) - 1)}
                 y2={STRING_Y[STRING_COUNT - 1] + 12}
-                stroke="rgba(255,255,255,0.18)"
+                stroke="var(--fret-wire-highlight, rgba(255,255,255,0.18))"
                 strokeWidth={1}
+                opacity={0.7}
               />
             </g>
           ))}
@@ -281,8 +318,8 @@ export default function FretboardCanvas({
             if (DOUBLE_MARKERS.has(fret)) {
               return (
                 <g key={fret} data-testid={`inlay-${fret}`}>
-                  <circle cx={ix} cy={(STRING_Y[1] + STRING_Y[2]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
-                  <circle cx={ix} cy={(STRING_Y[3] + STRING_Y[4]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
+                  <circle cx={ix} cy={(STRING_Y[1] + STRING_Y[2]) / 2} r={5} {...PEARL} />
+                  <circle cx={ix} cy={(STRING_Y[3] + STRING_Y[4]) / 2} r={5} {...PEARL} />
                 </g>
               );
             }
@@ -294,7 +331,7 @@ export default function FretboardCanvas({
                   cx={ix}
                   cy={midY}
                   r={5}
-                  fill="var(--color-fret-marker, #1e1e35)"
+                  {...PEARL}
                 />
               );
             }

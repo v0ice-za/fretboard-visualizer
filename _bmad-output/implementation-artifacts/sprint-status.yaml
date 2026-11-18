@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-11-18 (CR 7.4 passed clean — 1 LOW patch applied. NEXT = commit 7.4, then ER Epic 7)
+last_updated: 2026-11-18 (8.1-8.3 in review; App.css spacing-reset bug fixed. NEXT = CR 8.1-8.3)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -78,9 +78,19 @@ development_status:
   # ─── Epic 7: Usability & Clarity ─────────────────────────────────────────────
   # Frontend-only, no backend/API. Source: sprint-change-proposal-2026-09-29.md +
   # epics.distillate.md#Epic 7. Density/visual-style work excluded pending live UX session.
-  epic-7: in-progress
+  epic-7: done
   7-1-key-root-marker-and-fretboard-legend: done
   7-2-explicit-play-controls: done
   7-3-url-state-hardening: done
   7-4-left-handed-mode: done
-  epic-7-retrospective: optional
+  epic-7-retrospective: skipped
+
+  # ─── Epic 8: Obsidian Visual Refresh ─────────────────────────────────────────
+  # Visual reskin to Obsidian Audio Lab aesthetic. Frontend-only, no backend/API.
+  # Source: stitch_fretwise_interactive_guitar_fretboard/ + sprint-change-proposal-2026-11-18.md
+  epic-8: in-progress
+  8-1-obsidian-token-foundation-and-typography: review
+  8-2-chrome-reskin-controlbar-selectors-modechips: review
+  8-3-fretboard-visual-upgrade: review
+  8-4-library-panels-overlay-reskin: backlog
+  8-5-contrast-accessibility-audit-theme-harmonization: backlog
