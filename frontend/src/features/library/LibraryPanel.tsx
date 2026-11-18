@@ -100,7 +100,7 @@ export default function LibraryPanel() {
   const tabs = <TabsRow activeTab={activeTab} onTabClick={handleTabClick} />
 
   const tabContent = (
-    <div className="flex-1 overflow-y-auto p-4">
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
       {activeTab === 'scale' && <ScaleLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
       {activeTab === 'chord' && <ChordLibrary onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
       {activeTab === 'inKey' && <ChordsInKey onPaywallTrigger={(el) => setPaywallAnchor(el)} />}
@@ -145,7 +145,7 @@ export default function LibraryPanel() {
       {/* Mobile bottom Sheet */}
       <div className="md:hidden">
         <Sheet open={isMobile && sidePanel} onOpenChange={(open) => { if (!open) close() }}>
-          <SheetContent side="bottom" className="glass-overlay flex h-[60vh] flex-col" showCloseButton={false}>
+          <SheetContent side="bottom" className="glass-overlay flex h-[60vh]! flex-col" showCloseButton={false}>
             <SheetHeader className="select-none border-b border-[var(--glass-border)] px-4 py-3.5">
               <SheetTitle>Library</SheetTitle>
             </SheetHeader>

@@ -232,8 +232,8 @@ describe('FretDot', () => {
     const FILL: Record<ThemeName, Record<DotState, string>> = {
       dark: { root: '#fbbf24', scale: '#8b5cf6', mode: '#22d3ee', 'mode-root': '#d946ef', freeform: '#f0abfc' },
       light: { root: '#fbbf24', scale: '#8b5cf6', mode: '#22d3ee', 'mode-root': '#d946ef', freeform: '#f0abfc' },
-      neon: { root: '#4ade80', scale: '#22d3ee', mode: '#f0abfc', 'mode-root': '#38bdf8', freeform: '#facc15' },
-      mono: { root: '#f8fafc', scale: '#94a3b8', mode: '#cbd5e1', 'mode-root': '#a8a29e', freeform: '#78716c' },
+      neon: { root: '#4ade80', scale: '#22d3ee', mode: '#d946ef', 'mode-root': '#38bdf8', freeform: '#facc15' },
+      mono: { root: '#f8fafc', scale: '#7f8a99', mode: '#cbd5e1', 'mode-root': '#a8a29e', freeform: '#78716c' },
       vibrant: { root: '#fbbf24', scale: '#818cf8', mode: '#f87171', 'mode-root': '#c084fc', freeform: '#2dd4bf' },
       minimal: { root: '#92400e', scale: '#3730a3', mode: '#166534', 'mode-root': '#86198f', freeform: '#1e3a8a' },
     };

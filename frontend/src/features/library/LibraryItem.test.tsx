@@ -17,7 +17,7 @@ describe('LibraryItem', () => {
     render(<LibraryItem title="D Dorian" variant="active" />)
     const btn = screen.getByRole('option')
     expect(btn).toHaveAttribute('aria-selected', 'true')
-    expect(btn.className).toContain('text-primary')
+    expect(btn.className).toContain('bg-surface-2') // Story 8.4/8.5 raised active row
   })
 
   it('locked variant renders lock Badge, aria-disabled=true, click calls onPaywallTrigger', async () => {

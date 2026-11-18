@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-11-18 (8.1-8.4 in review; 8.1-8.3 committed aef0fad. NEXT = CR 8.1-8.4, then 8.5)
+last_updated: 2026-11-18 (Epic 8 all stories in review; 8.1-8.4 committed. NEXT = CR Epic 8, then ER)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -93,4 +93,4 @@ development_status:
   8-2-chrome-reskin-controlbar-selectors-modechips: review
   8-3-fretboard-visual-upgrade: review
   8-4-library-panels-overlay-reskin: review
-  8-5-contrast-accessibility-audit-theme-harmonization: backlog
+  8-5-contrast-accessibility-audit-theme-harmonization: review

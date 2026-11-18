@@ -72,7 +72,7 @@
   --secondary: oklch(0.93 0.02 264);
   --secondary-foreground: oklch(0.1 0.01 270);
   --muted: oklch(0.95 0.01 270);
-  --muted-foreground: oklch(0.5 0.01 270);
+  --muted-foreground: oklch(0.46 0.01 270); /* Story 8.5: was 0.5 — 4.4:1 on --input; now ≥4.5:1 */
   --accent: oklch(0.82 0.18 75);
   --accent-foreground: oklch(0.1 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -214,7 +214,7 @@
   --secondary: #181c2a;
   --secondary-foreground: oklch(0.89 0.02 270);
   --muted: #1c2030;
-  --muted-foreground: oklch(0.58 0.02 270);  /* #64748b */
+  --muted-foreground: oklch(0.64 0.02 270);  /* Story 8.5: was 0.58 — 4.0–4.3:1 on obsidian surfaces; now ≥4.5:1 */
   --accent: oklch(0.82 0.18 75);             /* #fbbf24 — amber */
   --accent-foreground: oklch(0.1 0 0);
   --destructive: oklch(0.704 0.191 22.216);
@@ -390,7 +390,10 @@
      Dev Agent Record for the script + full output). */
   --color-dot-root: #4ade80;
   --color-dot-scale: #22d3ee;
-  --color-dot-mode: #f0abfc;
+  /* Story 8.5: mode #f0abfc → #d946ef. Cyan scale vs pale-pink mode collapsed
+     under deuteranopia (ΔE 7.8); fuchsia stays in the pink family at ΔE ≥24.8,
+     black note text 5.10:1, 4.72:1 vs board (computed in styles/contrast.test.ts). */
+  --color-dot-mode: #d946ef;
   --color-dot-mode-root: #38bdf8;
   --color-dot-freeform: #facc15;
   --color-dot-key-root: #ffffff;
@@ -469,7 +472,9 @@
      scale 6.39:1, mode 11.79:1, mode-root 8.33:1, freeform 6.19:1
      (composited over #1e1e1e). */
   --color-dot-root: #f8fafc;
-  --color-dot-scale: #94a3b8;
+  /* Story 8.5: scale #94a3b8 → #7f8a99 widens the scale/mode lightness step to
+     clear the protanopia ΔE floor (19.6 → 20.2); black note text 4.82:1. */
+  --color-dot-scale: #7f8a99;
   --color-dot-mode: #cbd5e1;
   --color-dot-mode-root: #a8a29e;
   --color-dot-freeform: #78716c;
@@ -699,6 +704,14 @@
     auto
     auto;
   min-height: 100dvh;
+}
+
+/* Grid items default to min-width:auto, so any non-shrinking child (e.g. the
+   segmented mode-chip track) widened the whole column past the viewport and
+   gave the page a horizontal scroll at 375px (Story 8.5). Let every area
+   shrink; scroll containers inside handle their own overflow. */
+.app-shell > * {
+  min-width: 0;
 }
 
 /* LibraryPanel side-panel: two-column grid on desktop when panel is open */

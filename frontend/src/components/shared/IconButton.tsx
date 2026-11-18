@@ -35,7 +35,8 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
         'focus-visible:text-foreground focus-visible:[box-shadow:var(--glow-primary)]',
         "[&_svg]:size-[18px] [&_svg]:shrink-0",
         active && tone === 'default' &&
-          'bg-surface-2 text-foreground [box-shadow:inset_0_1px_0_var(--glass-highlight),inset_0_-2px_0_rgb(99_102_241),0_8px_16px_-8px_rgb(99_102_241/0.6)] [&_svg]:text-primary',
+          'bg-surface-2 text-foreground [box-shadow:inset_0_1px_0_var(--glass-highlight),inset_0_-2px_0_rgb(99_102_241),0_8px_16px_-8px_rgb(99_102_241/0.6)]',
+        // (glyph stays foreground — a violet glyph on surface-2 fell below 3:1 in mono/vibrant, Story 8.5)
         tone === 'destructive' && 'hover:bg-destructive/10 hover:text-destructive',
         className,
       )}
