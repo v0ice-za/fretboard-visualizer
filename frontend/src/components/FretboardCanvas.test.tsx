@@ -1,5 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import FretboardCanvas from './FretboardCanvas';
+import {
+  mirrorX,
+  getDotCx,
+  getFretLineX,
+  VIEWBOX_WIDTH,
+  NUT_X,
+  NUT_LABEL_X,
+} from '@/utils/fretboardUtils';
 
 const STANDARD_E = { tuning: 'Standard E', rootNote: 'A', scaleName: 'Pentatonic Minor' };
 
@@ -378,6 +386,146 @@ describe('FretboardCanvas', () => {
       render(<FretboardCanvas {...STANDARD_E} showLegend />);
       const wrapper = screen.getByTestId('fretboard-scroll-wrapper');
       expect(wrapper).not.toContainElement(screen.getByRole('list', { name: 'Fretboard legend' }));
+    });
+  });
+});
+
+// ── Story 7.4: Left-handed mode ─────────────────────────────────
+describe('FretboardCanvas — left-handed mode', () => {
+  const num = (el: Element | null, attr: string) => Number(el!.getAttribute(attr));
+  const ORIENTATIONS = [[false], [true]] as const;
+
+  it.each(ORIENTATIONS)('nut line sits at the mirrored nut x (leftHanded=%s)', (leftHanded) => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} leftHanded={leftHanded} />);
+    // The nut is the only 5px-wide line.
+    const nut = container.querySelector('line[stroke-width="5"]');
+    expect(num(nut, 'x1')).toBeCloseTo(mirrorX(NUT_X, leftHanded));
+    expect(num(nut, 'x2')).toBeCloseTo(mirrorX(NUT_X, leftHanded));
+  });
+
+  it.each(ORIENTATIONS)('fret numbers sit at mirrored column centres (leftHanded=%s)', (leftHanded) => {
+    render(<FretboardCanvas {...STANDARD_E} leftHanded={leftHanded} />);
+    for (const n of [1, 5, 12, 24]) {
+      expect(num(screen.getByTestId(`fret-number-${n}`), 'x')).toBeCloseTo(mirrorX(getDotCx(n), leftHanded));
+    }
+    const x1 = num(screen.getByTestId('fret-number-1'), 'x');
+    const x12 = num(screen.getByTestId('fret-number-12'), 'x');
+    // Right-handed frets ascend rightward; left-handed they ascend leftward.
+    expect(leftHanded ? x1 > x12 : x1 < x12).toBe(true);
+  });
+
+  it('nut labels move to the right edge but keep string order (top = high e)', () => {
+    render(<FretboardCanvas {...STANDARD_E} tuning="Drop D" leftHanded />);
+    const top = screen.getByTestId('nut-label-0');
+    expect(num(top, 'x')).toBeCloseTo(VIEWBOX_WIDTH - NUT_LABEL_X);
+    expect(top).toHaveTextContent('E');
+    expect(screen.getByTestId('nut-label-5')).toHaveTextContent('D');
+  });
+
+  it.each(ORIENTATIONS)('inlays, capo indicator and capo dim mirror (leftHanded=%s)', (leftHanded) => {
+    render(<FretboardCanvas {...STANDARD_E} capoPosition={3} leftHanded={leftHanded} />);
+    screen.getByTestId('inlay-12').querySelectorAll('circle').forEach((c) => {
+      expect(num(c, 'cx')).toBeCloseTo(mirrorX(getDotCx(12), leftHanded));
+    });
+    expect(num(screen.getByTestId('inlay-5'), 'cx')).toBeCloseTo(mirrorX(getDotCx(5), leftHanded));
+
+    const capoX = getFretLineX(2);
+    expect(num(screen.getByTestId('capo-indicator'), 'x1')).toBeCloseTo(mirrorX(capoX, leftHanded));
+
+    // The dim overlay covers the nut side of the capo: [0, capoX] righty, [900-capoX, 900] lefty.
+    const dim = screen.getByTestId('capo-dim');
+    expect(num(dim, 'width')).toBeCloseTo(capoX);
+    expect(num(dim, 'x')).toBeCloseTo(leftHanded ? VIEWBOX_WIDTH - capoX : 0);
+  });
+
+  it.each(ORIENTATIONS)('scale dots render at the mirrored x (leftHanded=%s)', (leftHanded) => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} leftHanded={leftHanded} />);
+    // A minor pentatonic: A on the low E string, fret 5, is a root.
+    const g = container.querySelector('g[data-state="root"][data-fret="5"][data-string="0"]');
+    expect(num(g!.querySelector('circle'), 'cx')).toBeCloseTo(mirrorX(getDotCx(5), leftHanded));
+  });
+
+  it.each([
+    [false, 0], [false, 5], [false, 24],
+    [true, 0], [true, 5], [true, 24],
+  ])('hit-target for fret N marks fret N and is centred on its dot (leftHanded=%s, fret %i)', (leftHanded, fret) => {
+    const onFretClick = vi.fn();
+    const { container } = render(
+      <FretboardCanvas {...STANDARD_E} freeformModeActive onFretClick={onFretClick} leftHanded={leftHanded} />
+    );
+    const rect = container.querySelector(`rect[aria-label="String 1, fret ${fret}"]`);
+    expect(rect).toBeInTheDocument();
+    expect(num(rect, 'x') + num(rect, 'width') / 2).toBeCloseTo(mirrorX(getDotCx(fret), leftHanded));
+    fireEvent.click(rect!);
+    expect(onFretClick).toHaveBeenCalledWith({ fret, string: 0 });
+  });
+
+  it.each([
+    [false, 0, 24],
+    [true, 24, 0],
+  ])('Tab order runs visually left→right (leftHanded=%s: first fret %i, last fret %i)', (leftHanded, first, last) => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} freeformModeActive leftHanded={leftHanded} />);
+    const string1 = Array.from(container.querySelectorAll('rect[role="button"]')).filter((r) =>
+      r.getAttribute('aria-label')!.startsWith('String 1,')
+    );
+    expect(string1[0]).toHaveAttribute('aria-label', `String 1, fret ${first}`);
+    expect(string1[string1.length - 1]).toHaveAttribute('aria-label', `String 1, fret ${last}`);
+    // DOM order is also visual order: x strictly increasing.
+    const xs = string1.map((r) => num(r, 'x'));
+    expect(xs).toEqual([...xs].sort((a, b) => a - b));
+  });
+
+  it('capo gating is unchanged when mirrored — frets behind the capo are not buttons', () => {
+    const { container } = render(<FretboardCanvas {...STANDARD_E} freeformModeActive capoPosition={5} leftHanded />);
+    for (const fret of [1, 2, 3, 4]) {
+      expect(container.querySelector(`rect[aria-label="String 1, fret ${fret}"]`)).toBeNull();
+    }
+    expect(container.querySelector('rect[aria-label="String 1, fret 0"]')).toBeInTheDocument();
+    expect(container.querySelector('rect[aria-label="String 1, fret 5"]')).toBeInTheDocument();
+  });
+
+  it('mirrors by coordinates, never by a scale transform', () => {
+    const { container } = render(
+      <FretboardCanvas {...STANDARD_E} chordName="Minor" chordRoot="D" capoPosition={2} noteNamesVisible leftHanded />
+    );
+    expect(screen.getByTestId('fretboard-svg').getAttribute('style') ?? '').not.toMatch(/scale|transform/);
+    container.querySelectorAll('[transform]').forEach((el) => {
+      expect(el.getAttribute('transform')).not.toMatch(/scale/);
+    });
+  });
+
+  it('right-handed output is unchanged by default (no leftHanded prop)', () => {
+    const a = render(<FretboardCanvas {...STANDARD_E} capoPosition={3} />).container.innerHTML;
+    const b = render(<FretboardCanvas {...STANDARD_E} capoPosition={3} leftHanded={false} />).container.innerHTML;
+    expect(a).toBe(b);
+  });
+
+  describe('mobile initial scroll (AC7)', () => {
+    let restore: () => void;
+    beforeEach(() => {
+      const sw = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth');
+      const cw = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+      Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get: () => 450 });
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 343 });
+      restore = () => {
+        if (sw) Object.defineProperty(HTMLElement.prototype, 'scrollWidth', sw);
+        if (cw) Object.defineProperty(HTMLElement.prototype, 'clientWidth', cw);
+      };
+    });
+    afterEach(() => restore());
+
+    it('scrolls the nut into view on mount and on toggle — but not on unrelated re-renders', () => {
+      const { rerender } = render(<FretboardCanvas {...STANDARD_E} leftHanded />);
+      const wrapper = screen.getByTestId('fretboard-scroll-wrapper');
+      expect(wrapper.scrollLeft).toBe(450 - 343);
+
+      // User scrolls manually; an unrelated prop change must not yank it back.
+      wrapper.scrollLeft = 20;
+      rerender(<FretboardCanvas {...STANDARD_E} rootNote="C" leftHanded />);
+      expect(wrapper.scrollLeft).toBe(20);
+
+      rerender(<FretboardCanvas {...STANDARD_E} rootNote="C" leftHanded={false} />);
+      expect(wrapper.scrollLeft).toBe(0);
     });
   });
 });

@@ -9,6 +9,7 @@ import { useLayoutStore } from '@/stores/layoutStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALE_NAMES } from '@/data/scales.js';
 import { TUNINGS } from '@/data/tunings.js';
@@ -328,5 +329,44 @@ describe('ControlBar — overhaul affordance (Story 5.2)', () => {
     expect(useFretboardStore.getState().noteNamesVisible).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Toggle note names' }));
     expect(useFretboardStore.getState().noteNamesVisible).toBe(true);
+  });
+});
+
+describe('ControlBar — left-handed toggle (Story 7.4)', () => {
+  beforeEach(() => {
+    usePreferencesStore.setState({ leftHanded: false });
+  });
+
+  it('is available to an anonymous viewer, labelled, and toggles with aria-pressed', async () => {
+    const user = userEvent.setup();
+    renderBar();
+    const btn = screen.getByRole('button', { name: 'Left-handed mode' });
+    expect(btn).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Left-handed')).toBeInTheDocument();
+
+    await user.click(btn);
+    expect(usePreferencesStore.getState().leftHanded).toBe(true);
+    expect(btn).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(btn);
+    expect(usePreferencesStore.getState().leftHanded).toBe(false);
+  });
+
+  it('is never gated for free users (no paywall, no lock)', async () => {
+    const user = userEvent.setup();
+    useSubscriptionStore.setState({ isPremium: false });
+    renderBar();
+    await user.click(screen.getByRole('button', { name: 'Left-handed mode' }));
+    expect(usePreferencesStore.getState().leftHanded).toBe(true);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('sits immediately after the theme toggle', () => {
+    useThemeStore.setState({ theme: 'dark' });
+    renderBar();
+    const theme = screen.getByRole('button', { name: 'Switch to light mode' });
+    const lefty = screen.getByRole('button', { name: 'Left-handed mode' });
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.indexOf(lefty)).toBe(buttons.indexOf(theme) + 1);
   });
 });

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { TUNINGS } from '@/data/tunings.js';
 import { FRET_MARKERS, DOUBLE_MARKERS, getNoteAtFret } from '@/utils/musicTheory.js';
 import { CHORDS } from '@/data/chords.js';
@@ -12,6 +12,7 @@ import {
   getFretLineX,
   getDotCx,
   getDotCy,
+  mirrorX,
   VIEWBOX_WIDTH,
   VIEWBOX_HEIGHT,
   FRET_COUNT,
@@ -48,6 +49,9 @@ interface FretboardCanvasProps {
   onFretClick?: (mark: { fret: number; string: number }) => void;
   /** Render the dot-colour legend under the board (main app only, not the tuning-creator preview). */
   showLegend?: boolean;
+  /** Mirror the board horizontally — nut on the right. Done by coordinate
+   *  mapping (x → VIEWBOX_WIDTH − x), never a scale transform, so text stays upright. */
+  leftHanded?: boolean;
 }
 
 export default function FretboardCanvas({
@@ -64,6 +68,7 @@ export default function FretboardCanvas({
   strings,
   onFretClick,
   showLegend = false,
+  leftHanded = false,
 }: FretboardCanvasProps) {
   const openStrings = strings ?? (TUNINGS as Record<string, string[]>)[tuning] ?? TUNINGS['Standard E'];
 
@@ -116,6 +121,21 @@ export default function FretboardCanvas({
 
   const midY = (STRING_Y[2] + STRING_Y[3]) / 2;
 
+  // Every x below is computed right-handed, then passed through these at render time.
+  const mx = (x: number) => mirrorX(x, leftHanded);
+  const mRectX = (x: number, w: number) => (leftHanded ? VIEWBOX_WIDTH - x - w : x);
+  // Hit-target DOM (= Tab) order follows the visual left→right direction.
+  const hitFrets = Array.from({ length: FRET_COUNT + 1 }, (_, i) => (leftHanded ? FRET_COUNT - i : i));
+
+  // On narrow screens the board scrolls; keep the nut in view on mount and whenever the
+  // orientation flips — but only then, so the user's own scrolling is never fought.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = leftHanded ? el.scrollWidth - el.clientWidth : 0;
+  }, [leftHanded]);
+
   // Dot size scales with fret column width — fret 1 is the reference (full size)
   const fret1Width = getFretLineX(1) - NUT_X;
   const getDotScale = (fret: number) => {
@@ -127,6 +147,7 @@ export default function FretboardCanvas({
   return (
     <>
       <div
+        ref={scrollRef}
         style={{ overflowX: 'auto', touchAction: 'pan-x' }}
         data-testid="fretboard-scroll-wrapper"
       >
@@ -141,7 +162,7 @@ export default function FretboardCanvas({
 
           {/* Fretboard surface */}
           <rect
-            x={NUT_X}
+            x={mRectX(NUT_X, FRET_AREA_RIGHT - NUT_X)}
             y={STRING_Y[0] - 14}
             width={FRET_AREA_RIGHT - NUT_X}
             height={STRING_Y[STRING_COUNT - 1] - STRING_Y[0] + 28}
@@ -153,7 +174,7 @@ export default function FretboardCanvas({
           {capoPosition > 0 && (
             <rect
               data-testid="capo-dim"
-              x={0}
+              x={mRectX(0, getFretLineX(capoPosition - 1) || NUT_X)}
               y={STRING_Y[0] - 14}
               width={getFretLineX(capoPosition - 1) || NUT_X}
               height={STRING_Y[STRING_COUNT - 1] - STRING_Y[0] + 28}
@@ -167,27 +188,27 @@ export default function FretboardCanvas({
               {/* Shadow/depth line underneath */}
               <line
                 data-testid="string-line"
-                x1={NUT_X}
+                x1={mx(NUT_X)}
                 y1={y + 0.8}
-                x2={FRET_AREA_RIGHT}
+                x2={mx(FRET_AREA_RIGHT)}
                 y2={y + 0.8}
                 stroke="rgba(0,0,0,0.6)"
                 strokeWidth={1.0 + i * 0.4}
               />
               {/* Main string */}
               <line
-                x1={NUT_X}
+                x1={mx(NUT_X)}
                 y1={y}
-                x2={FRET_AREA_RIGHT}
+                x2={mx(FRET_AREA_RIGHT)}
                 y2={y}
                 stroke="var(--color-string, #b8b8d0)"
                 strokeWidth={1.0 + i * 0.4}
               />
               {/* Specular highlight on top */}
               <line
-                x1={NUT_X}
+                x1={mx(NUT_X)}
                 y1={y - 0.4}
-                x2={FRET_AREA_RIGHT}
+                x2={mx(FRET_AREA_RIGHT)}
                 y2={y - 0.4}
                 stroke="rgba(255,255,255,0.25)"
                 strokeWidth={0.5 + i * 0.15}
@@ -197,9 +218,9 @@ export default function FretboardCanvas({
 
           {/* Nut line (thick vertical bar at fret 0) */}
           <line
-            x1={NUT_X}
+            x1={mx(NUT_X)}
             y1={STRING_Y[0] - 12}
-            x2={NUT_X}
+            x2={mx(NUT_X)}
             y2={STRING_Y[STRING_COUNT - 1] + 12}
             stroke="#b8a980"
             strokeWidth={5}
@@ -211,9 +232,9 @@ export default function FretboardCanvas({
             <g key={fret}>
               {/* Shadow edge (right side of fret bar) */}
               <line
-                x1={getFretLineX(fret) + 1}
+                x1={mx(getFretLineX(fret) + 1)}
                 y1={STRING_Y[0] - 12}
-                x2={getFretLineX(fret) + 1}
+                x2={mx(getFretLineX(fret) + 1)}
                 y2={STRING_Y[STRING_COUNT - 1] + 12}
                 stroke="rgba(0,0,0,0.5)"
                 strokeWidth={1.5}
@@ -221,18 +242,18 @@ export default function FretboardCanvas({
               {/* Main fret bar */}
               <line
                 data-testid="fret-line"
-                x1={getFretLineX(fret)}
+                x1={mx(getFretLineX(fret))}
                 y1={STRING_Y[0] - 12}
-                x2={getFretLineX(fret)}
+                x2={mx(getFretLineX(fret))}
                 y2={STRING_Y[STRING_COUNT - 1] + 12}
                 stroke="var(--color-fret, #9090c0)"
                 strokeWidth={3}
               />
               {/* Specular highlight (left edge) */}
               <line
-                x1={getFretLineX(fret) - 1}
+                x1={mx(getFretLineX(fret) - 1)}
                 y1={STRING_Y[0] - 12}
-                x2={getFretLineX(fret) - 1}
+                x2={mx(getFretLineX(fret) - 1)}
                 y2={STRING_Y[STRING_COUNT - 1] + 12}
                 stroke="rgba(255,255,255,0.18)"
                 strokeWidth={1}
@@ -244,9 +265,9 @@ export default function FretboardCanvas({
           {capoPosition > 0 && (
             <line
               data-testid="capo-indicator"
-              x1={getFretLineX(capoPosition - 1)}
+              x1={mx(getFretLineX(capoPosition - 1))}
               y1={STRING_Y[0] - 12}
-              x2={getFretLineX(capoPosition - 1)}
+              x2={mx(getFretLineX(capoPosition - 1))}
               y2={STRING_Y[STRING_COUNT - 1] + 12}
               stroke="#f59e0b"
               strokeWidth={6}
@@ -256,12 +277,12 @@ export default function FretboardCanvas({
 
           {/* Fret position inlay markers */}
           {FRETS.map(fret => {
-            const mx = getDotCx(fret);
+            const ix = mx(getDotCx(fret));
             if (DOUBLE_MARKERS.has(fret)) {
               return (
                 <g key={fret} data-testid={`inlay-${fret}`}>
-                  <circle cx={mx} cy={(STRING_Y[1] + STRING_Y[2]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
-                  <circle cx={mx} cy={(STRING_Y[3] + STRING_Y[4]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
+                  <circle cx={ix} cy={(STRING_Y[1] + STRING_Y[2]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
+                  <circle cx={ix} cy={(STRING_Y[3] + STRING_Y[4]) / 2} r={5} fill="var(--color-fret-marker, #1e1e35)" />
                 </g>
               );
             }
@@ -270,7 +291,7 @@ export default function FretboardCanvas({
                 <circle
                   key={fret}
                   data-testid={`inlay-${fret}`}
-                  cx={mx}
+                  cx={ix}
                   cy={midY}
                   r={5}
                   fill="var(--color-fret-marker, #1e1e35)"
@@ -285,7 +306,7 @@ export default function FretboardCanvas({
             <text
               key={i}
               data-testid={`nut-label-${i}`}
-              x={NUT_LABEL_X}
+              x={mx(NUT_LABEL_X)}
               y={y}
               textAnchor="middle"
               dominantBaseline="middle"
@@ -306,7 +327,7 @@ export default function FretboardCanvas({
               <text
                 key={fret}
                 data-testid={`fret-number-${fret}`}
-                x={getDotCx(fret)}
+                x={mx(getDotCx(fret))}
                 y={FRET_NUMBER_Y}
                 textAnchor="middle"
                 dominantBaseline="middle"
@@ -328,7 +349,7 @@ export default function FretboardCanvas({
               string={dot.string}
               state={dot.state}
               note={dot.note}
-              cx={dot.cx}
+              cx={mx(dot.cx)}
               cy={dot.cy}
               sizeScale={getDotScale(dot.fret)}
               showNoteName={noteNamesVisible}
@@ -343,7 +364,7 @@ export default function FretboardCanvas({
               string={marker.string}
               state={marker.state}
               note={marker.note}
-              cx={marker.cx}
+              cx={mx(marker.cx)}
               cy={marker.cy}
               sizeScale={getDotScale(marker.fret)}
               showNoteName={noteNamesVisible && !dotPositions.has(`${marker.fret}-${marker.string}`)}
@@ -358,7 +379,7 @@ export default function FretboardCanvas({
               string={dot.string}
               state={dot.state}
               note={dot.note}
-              cx={dot.cx}
+              cx={mx(dot.cx)}
               cy={dot.cy}
               sizeScale={getDotScale(dot.fret)}
               showNoteName={noteNamesVisible}
@@ -367,8 +388,8 @@ export default function FretboardCanvas({
 
           {/* Fret hit targets — enable click + keyboard freeform marking */}
           {Array.from({ length: STRING_COUNT }, (_, stringIdx) =>
-            Array.from({ length: FRET_COUNT + 1 }, (_, fret) => {
-              const cx = getDotCx(fret);
+            hitFrets.map((fret) => {
+              const cx = mx(getDotCx(fret));
               const cy = getDotCy(stringIdx);
               const w = fret === 0 ? NUT_X : (getFretLineX(fret) - getFretLineX(fret - 1));
               const h = 30;

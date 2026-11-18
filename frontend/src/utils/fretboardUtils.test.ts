@@ -6,8 +6,36 @@ import {
   getLegendEntries,
   generateAriaLabel,
   toPitchClass,
+  mirrorX,
+  VIEWBOX_WIDTH,
+  NUT_X,
+  NUT_LABEL_X,
+  FRET_AREA_RIGHT,
 } from './fretboardUtils';
 import { CHORDS } from '@/data/chords.js';
+
+describe('mirrorX (Story 7.4)', () => {
+  it('is the identity when right-handed', () => {
+    expect(mirrorX(NUT_X, false)).toBe(NUT_X);
+    expect(mirrorX(123.4, false)).toBe(123.4);
+  });
+
+  it('reflects x across the viewBox when left-handed', () => {
+    expect(mirrorX(NUT_X, true)).toBe(VIEWBOX_WIDTH - NUT_X);
+    expect(mirrorX(0, true)).toBe(VIEWBOX_WIDTH);
+  });
+
+  it('is an involution', () => {
+    for (const x of [0, NUT_X, 333.3, VIEWBOX_WIDTH]) {
+      expect(mirrorX(mirrorX(x, true), true)).toBeCloseTo(x);
+    }
+  });
+
+  it('maps the nut-label margin onto the fret-area edge — the mirrored board fits the viewBox', () => {
+    expect(mirrorX(NUT_LABEL_X, true)).toBe(FRET_AREA_RIGHT);
+    expect(mirrorX(FRET_AREA_RIGHT, true)).toBe(NUT_LABEL_X);
+  });
+});
 
 describe('calculateFreeformDots', () => {
   it('returns 1 dot for a valid mark at fret 5, string 1', () => {

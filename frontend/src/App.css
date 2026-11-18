@@ -38,6 +38,9 @@ body::before {
   flex-direction: column;
   gap: 20px;
   min-height: 0;
+  /* Grid items default to min-width:auto; without this the fretboard overflows the
+     page instead of scrolling inside its own wrapper. */
+  min-width: 0;
 }
 
 /* ── Footer ────────────────────────────────────────────────── */

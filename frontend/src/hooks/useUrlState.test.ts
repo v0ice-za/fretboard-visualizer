@@ -5,6 +5,7 @@ import { useUrlState } from './useUrlState';
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore';
 import { useAuthStore, DEFAULT_AUTH } from '@/stores/authStore';
 import { useSubscriptionStore, DEFAULT_SUBSCRIPTION } from '@/stores/subscriptionStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { MODES } from '@/utils/fretboardUtils';
 
 function wrapper(initialEntries: string[] = ['/']) {
@@ -93,6 +94,24 @@ describe('useUrlState — URL push on store change', () => {
     expect(result.current[0].get('tuning')).toBe('Open G');
     expect(result.current[0].get('key')).toBe('D');
     expect(result.current[0].get('scale')).toBe('Major (Ionian)');
+  });
+
+  it('never writes the left-handed device preference to the URL (7.4 AC2)', () => {
+    const { result } = renderHook(
+      () => { useUrlState(); return useSearchParams(); },
+      { wrapper: wrapper(['/']) }
+    );
+    act(() => {
+      useFretboardStore.getState().setRootNote('D');
+    });
+    const before = result.current[0].toString();
+
+    act(() => {
+      usePreferencesStore.getState().setLeftHanded(true);
+    });
+    expect(result.current[0].toString()).toBe(before);
+    expect([...result.current[0].keys()].some((k) => /hand|lefty/i.test(k))).toBe(false);
+    usePreferencesStore.getState().setLeftHanded(false);
   });
 });
 

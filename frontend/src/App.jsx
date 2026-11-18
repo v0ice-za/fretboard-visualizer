@@ -4,6 +4,7 @@ import FretboardCanvas from './components/FretboardCanvas';
 import ModeChipsRow from './components/ModeChipsRow';
 import AppShell from './components/shared/AppShell';
 import { useFretboardStore } from '@/stores/fretboardStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useUrlState } from '@/hooks/useUrlState';
 import { useSubscription, subscriptionQueryKey } from '@/hooks/useSubscription';
 import { useSessionSync } from '@/hooks/useSessionSync';
@@ -17,6 +18,7 @@ import './App.css';
 
 export default function App() {
   const { tuning, rootNote, scaleName, modeIndex, capoPosition, freeformMarks, noteNamesVisible, freeformModeActive, toggleFreeformMark, chordName, chordRoot } = useFretboardStore();
+  const leftHanded = usePreferencesStore((s) => s.leftHanded);
   useUrlState();
   useSubscription();
   useSessionSync();
@@ -70,6 +72,7 @@ export default function App() {
             strings={resolvedStrings}
             onFretClick={(mark) => toggleFreeformMark(mark)}
             showLegend
+            leftHanded={leftHanded}
           />
         </div>
       </main>

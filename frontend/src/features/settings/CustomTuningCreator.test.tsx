@@ -5,6 +5,8 @@ import { vi } from 'vitest'
 import CustomTuningCreator from './CustomTuningCreator'
 import { useFretboardStore, DEFAULT_FRETBOARD_STATE } from '@/stores/fretboardStore'
 import { apiClient } from '@/lib/apiClient'
+import { usePreferencesStore } from '@/stores/preferencesStore'
+import { VIEWBOX_WIDTH, NUT_LABEL_X } from '@/utils/fretboardUtils'
 
 vi.mock('@/lib/apiClient', () => ({
   apiClient: { post: vi.fn(), get: vi.fn(), del: vi.fn() },
@@ -33,6 +35,17 @@ beforeEach(() => {
 })
 
 describe('CustomTuningCreator', () => {
+  it('live preview honours the left-handed preference (7.4 AC10)', () => {
+    usePreferencesStore.setState({ leftHanded: true })
+    try {
+      renderCreator()
+      const label = screen.getByTestId('tuning-preview').querySelector('[data-testid="nut-label-0"]')
+      expect(Number(label!.getAttribute('x'))).toBe(VIEWBOX_WIDTH - NUT_LABEL_X)
+    } finally {
+      usePreferencesStore.setState({ leftHanded: false })
+    }
+  })
+
   it('renders 6 string rows, a name input, and the preview', () => {
     renderCreator()
     for (let i = 1; i <= 6; i++) {

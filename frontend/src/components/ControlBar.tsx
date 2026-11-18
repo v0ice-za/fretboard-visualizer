@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Type, Pencil, Library, User, Sun, Moon, Edit2, Trash2, Timer, Gauge } from 'lucide-react';
+import { Type, Pencil, Library, User, Sun, Moon, Edit2, Trash2, Timer, Gauge, FlipHorizontal2 } from 'lucide-react';
 import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { SCALES, SCALE_NAMES, SCALE_CATEGORIES } from '@/data/scales.js';
 import { TUNINGS } from '@/data/tunings.js';
@@ -14,6 +14,7 @@ import { queryClient } from '@/lib/queryClient';
 import { LoginModal } from '@/features/auth/LoginModal';
 import CustomTuningCreator from '@/features/settings/CustomTuningCreator';
 import ThemePicker from '@/features/settings/ThemePicker';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import MetronomeControl from '@/features/settings/MetronomeControl';
 import TunerControl from '@/features/settings/TunerControl';
 import { useMetronomeStore } from '@/stores/metronomeStore';
@@ -86,6 +87,8 @@ export default function ControlBar() {
   const user = useAuthStore((s) => s.user);
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
+  const leftHanded = usePreferencesStore((s) => s.leftHanded);
+  const toggleLeftHanded = usePreferencesStore((s) => s.toggleLeftHanded);
   const metronomePlaying = useMetronomeStore((s) => s.isPlaying);
   const [metronomeOpen, setMetronomeOpen] = useState(false);
   const tunerListening = useTunerStore((s) => s.isListening);
@@ -282,7 +285,7 @@ export default function ControlBar() {
 
       {/* Right-aligned action cluster — labelled on desktop, tooltip everywhere */}
       <TooltipProvider delay={150}>
-        <div className="ml-auto flex flex-shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 md:flex-shrink-0 md:flex-nowrap">
           {/* Theme toggle */}
           <Tooltip>
             <TooltipTrigger
@@ -296,6 +299,24 @@ export default function ControlBar() {
               }
             />
             <TooltipContent>{theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}</TooltipContent>
+          </Tooltip>
+
+          {/* Left-handed (free) — device preference, beside the theme toggle */}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <IconButton
+                  onClick={toggleLeftHanded}
+                  active={leftHanded}
+                  aria-label="Left-handed mode"
+                  aria-pressed={leftHanded}
+                >
+                  <FlipHorizontal2 />
+                  <span className="hidden md:inline">Left-handed</span>
+                </IconButton>
+              }
+            />
+            <TooltipContent>Left-handed mode</TooltipContent>
           </Tooltip>
 
           {/* Note names */}

@@ -4,6 +4,7 @@ import { CHROMATIC_NOTES } from '@/data/notes.js';
 import { apiClient } from '@/lib/apiClient';
 import { queryClient } from '@/lib/queryClient';
 import { useFretboardStore } from '@/stores/fretboardStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { customTuningsQueryKey } from '@/hooks/useCustomTunings';
 import FretboardCanvas from '@/components/FretboardCanvas';
 import {
@@ -48,6 +49,7 @@ export default function CustomTuningCreator({ open, onOpenChange }: CustomTuning
   const [name, setName] = useState('');
   const rootNote = useFretboardStore((s) => s.rootNote);
   const scaleName = useFretboardStore((s) => s.scaleName);
+  const leftHanded = usePreferencesStore((s) => s.leftHanded);
 
   const reset = () => {
     setRows(DEFAULT_ROWS);
@@ -92,6 +94,7 @@ export default function CustomTuningCreator({ open, onOpenChange }: CustomTuning
             strings={previewStrings}
             rootNote={rootNote}
             scaleName={scaleName}
+            leftHanded={leftHanded}
           />
         </div>
 

@@ -75,6 +75,12 @@ export function getDotCx(fret: number): number {
   return (getFretLineX(fret - 1) + getFretLineX(fret)) / 2;
 }
 
+// Reflect an x coordinate across the viewBox for left-handed mode. All geometry above
+// stays right-handed canonical; FretboardCanvas applies this at render time only.
+export function mirrorX(x: number, leftHanded: boolean): number {
+  return leftHanded ? VIEWBOX_WIDTH - x : x;
+}
+
 // Y center for a string index — string 0 (low E / thick) is at the bottom
 export function getDotCy(stringIdx: number): number {
   return STRING_Y[STRING_COUNT - 1 - stringIdx];
