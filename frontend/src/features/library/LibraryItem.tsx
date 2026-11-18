@@ -26,21 +26,23 @@ export default function LibraryItem({ title, variant, onSelect, onPaywallTrigger
       aria-disabled={variant === 'locked'}
       onClick={handleClick}
       disabled={false}
-      className={`flex w-full select-none items-center justify-between rounded-lg border px-3.5 py-3 text-sm transition-[transform,box-shadow,background-color,color] duration-150 ease-out ${
+      // Story 8.4: rack-row styling — 4px radius, flat hover plate, active = raised
+      // surface-2 row with an indigo edge + underglow; locked rows carry a gold lock badge.
+      className={`flex w-full select-none items-center justify-between rounded-sm border px-3.5 py-3 text-sm transition-[box-shadow,background-color,color] duration-150 ease-out ${
         variant === 'locked'
-          ? 'cursor-not-allowed border-[var(--glass-border)] text-muted-foreground opacity-50'
+          ? 'lock-row cursor-not-allowed border-[var(--glass-border)] text-muted-foreground'
           : variant === 'active'
-          ? 'border-transparent bg-primary/15 text-primary [box-shadow:var(--glow-primary)]'
-          : 'border-transparent text-foreground hover:-translate-y-px hover:bg-[var(--glass-border)] hover:[box-shadow:var(--shadow-sm)]'
+          ? 'border-transparent bg-surface-2 text-primary [box-shadow:inset_2px_0_0_rgb(99_102_241),0_6px_16px_-8px_rgb(99_102_241/0.6)]'
+          : 'border-transparent text-foreground hover:bg-surface-interactive'
       }`}
     >
-      <span>{title}</span>
+      <span className={variant === 'locked' ? 'opacity-60' : undefined}>{title}</span>
       <span className="flex items-center gap-1">
         {variant === 'active' && <Check size={14} />}
         {variant === 'locked' && (
-          <Badge variant="outline" className="gap-1 py-0 px-1 text-xs">
+          <span className="lock-badge" aria-hidden>
             <Lock size={10} />
-          </Badge>
+          </span>
         )}
         {variant === 'preview' && (
           <Badge variant="secondary" className="text-xs py-0">Preview</Badge>

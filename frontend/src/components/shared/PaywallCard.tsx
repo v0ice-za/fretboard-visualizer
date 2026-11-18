@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
+import { Lock, X } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import {
   useFloating,
@@ -54,10 +54,10 @@ function CardBody({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="flex items-start justify-between mb-2">
-        <span className="text-sm font-semibold text-foreground">Unlock Premium</span>
+        <span className="flex items-center gap-2 font-heading text-sm font-semibold text-foreground"><span className="lock-badge" aria-hidden><Lock size={10} /></span>Unlock Premium</span>
         <button
           onClick={onClose}
-          className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-[var(--glass-border)] hover:text-foreground"
+          className="grid size-7 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-surface-interactive hover:text-foreground"
           aria-label="Dismiss paywall"
         >
           <X size={14} />
@@ -71,7 +71,7 @@ function CardBody({ onClose }: { onClose: () => void }) {
           </li>
         ))}
       </ul>
-      <p className="text-sm font-semibold text-foreground mb-3">$12/yr</p>
+      <p className="font-mono text-sm font-semibold text-foreground mb-3">$12/yr</p>
       {checkout.isError && (
         <p role="alert" className="text-xs text-destructive mb-2">
           Something went wrong — please try again.
@@ -79,7 +79,7 @@ function CardBody({ onClose }: { onClose: () => void }) {
       )}
       <Button
         size="sm"
-        className="w-full text-primary-foreground [background-image:var(--signature-grad)] [box-shadow:var(--glow-primary)]"
+        className="btn-studio w-full"
         disabled={checkout.isPending}
         onClick={handleUpgrade}
       >
@@ -136,7 +136,7 @@ export default function PaywallCard({ open, onClose, anchorEl, inline = false }:
     return (
       <div
         ref={inlineRef}
-        className="glass-overlay max-w-[280px] mx-auto mt-4 rounded-xl p-4"
+        className="lock-row glass-overlay max-w-[280px] mx-auto mt-4 rounded-lg p-4"
         data-testid="paywall-card"
       >
         <CardBody onClose={onClose} />
@@ -158,7 +158,7 @@ export default function PaywallCard({ open, onClose, anchorEl, inline = false }:
           role="dialog"
           aria-label="Upgrade to Premium"
           style={floatingStyles}
-          className="glass-overlay z-50 max-w-[280px] rounded-xl p-4"
+          className="lock-row glass-overlay z-50 max-w-[280px] rounded-lg p-4"
           data-testid="paywall-card"
           {...getFloatingProps()}
         >

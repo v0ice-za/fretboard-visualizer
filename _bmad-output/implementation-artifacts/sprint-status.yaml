@@ -1,5 +1,5 @@
 generated: 2026-05-24
-last_updated: 2026-11-18 (8.1-8.3 in review; App.css spacing-reset bug fixed. NEXT = CR 8.1-8.3)
+last_updated: 2026-11-18 (8.1-8.4 in review; 8.1-8.3 committed aef0fad. NEXT = CR 8.1-8.4, then 8.5)
 project: personal_projects
 project_key: NOKEY
 tracking_system: file-system
@@ -92,5 +92,5 @@ development_status:
   8-1-obsidian-token-foundation-and-typography: review
   8-2-chrome-reskin-controlbar-selectors-modechips: review
   8-3-fretboard-visual-upgrade: review
-  8-4-library-panels-overlay-reskin: backlog
+  8-4-library-panels-overlay-reskin: review
   8-5-contrast-accessibility-audit-theme-harmonization: backlog

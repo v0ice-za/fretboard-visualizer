@@ -52,16 +52,16 @@ function TabsRow({
   }, [activeTab])
 
   return (
-    <div className="relative flex gap-1 overflow-x-auto px-3 border-b border-[var(--glass-border)]" role="tablist">
+    <div className="relative flex gap-0.5 overflow-x-auto px-2 border-b border-[var(--glass-border)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
       {TAB_ORDER.map((tab) => (
         <button
           key={tab}
           ref={(el) => { tabRefs.current[tab] = el }}
           onClick={(e) => onTabClick(tab, e)}
-          className={`shrink-0 select-none rounded-t-md px-4 py-3 text-sm font-medium transition-colors ${
+          className={`shrink-0 select-none rounded-t-sm px-2 py-2.5 text-xs font-medium transition-colors ${
             activeTab === tab
               ? 'text-primary'
-              : 'text-muted-foreground hover:bg-[var(--glass-border)] hover:text-foreground'
+              : 'text-muted-foreground hover:bg-surface-interactive hover:text-foreground'
           }`}
           aria-selected={activeTab === tab}
           role="tab"
@@ -123,10 +123,10 @@ export default function LibraryPanel() {
           aria-label="Library panel"
         >
           <div className="flex select-none items-center justify-between border-b border-[var(--glass-border)] px-4 py-3.5">
-            <span className="text-[15px] font-semibold tracking-tight text-foreground">Library</span>
+            <h2 className="font-heading text-[15px] font-semibold tracking-tight text-foreground">Library</h2>
             <button
               onClick={close}
-              className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--glass-border)] hover:text-foreground"
+              className="grid size-8 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-surface-interactive hover:text-foreground"
               aria-label="Close library panel"
             >
               <X size={16} />
