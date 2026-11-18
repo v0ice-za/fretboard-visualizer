@@ -434,3 +434,56 @@ As a left-handed guitarist, I want the fretboard mirrored so it matches how I ho
 - 7.1 rings/legend, chord highlights, capo dimming correct when mirrored; <100ms NFR holds.
 - Toggle has aria-pressed.
 - Live browser check at desktop + 375px in both modes.
+
+---
+## Epic 8: Obsidian Visual Refresh
+Goal: Reskin app chrome and fretboard to "Obsidian Audio Lab" aesthetic — deeper dark palette, Plus Jakarta Sans headings, tighter radii, recessed fretboard with metallic frets, glow-based elevation. Visual-only; no new features, no backend. Obsidian becomes the new default dark theme. Dot colour semantics unchanged (owner decision). Source: stitch_fretwise_interactive_guitar_fretboard/ DESIGN.md + sprint-change-proposal-2026-11-18.md.
+Reqs: UX-DR (visual refresh round 2). Applies to all 6 themes.
+
+### Story 8.1: Obsidian Token Foundation & Typography
+As a developer, I want the new surface palette, typography, radii, and glow tokens installed as one foundation.
+**Acceptance Criteria:**
+- 4-tier obsidian surface tokens (floor #0B0D13, surface-1 #12151F, surface-2 #181C2A, interactive overlay)
+- Plus Jakarta Sans loaded via Google Fonts; applied to headings
+- Corner radii tightened: 4px controls, 8px panels, full-round pills
+- Updated glass tokens for deeper translucency; glow-first shadow tokens; gold root halo token
+- All 6 themes updated; light theme gets white-tinted depth, not obsidian
+- Existing tests pass; no visual regression
+
+### Story 8.2: Chrome Reskin — ControlBar, Selectors & Mode Chips
+As a user, I want controls that feel like precision studio equipment.
+**Acceptance Criteria:**
+- ControlBar uses new surface tokens, compact height (~48-52px)
+- Selectors: recessed slot container, active segment with surface-2 fill + indigo underglow
+- Segmented pill mode chips; hardware-inspired icon buttons
+- Action buttons: subtle indigo gradient, frosted top highlight, 4px radius
+- Mobile wraps cleanly; bottom-sheet pattern for tools
+- All themes styled
+
+### Story 8.3: Fretboard Visual Upgrade
+As a guitarist, I want the fretboard to look like a real instrument.
+**Acceptance Criteria:**
+- Recessed ebony board (inner shadow, dark gradient); nickel-silver fret wire (specular+shadow)
+- Wound bronze/steel string rendering refined; pearl iridescent inlays
+- Root dots: gold phosphor halo (28px); scale/chord/mode dots updated with glow (24px)
+- Dot colour semantics unchanged; rendering logic/states unchanged
+- <100ms re-render NFR; WCAG AA contrast verified in dark theme
+
+### Story 8.4: Library, Panels & Overlay Reskin
+As a user, I want all panels/overlays to share the studio-grade glass language.
+**Acceptance Criteria:**
+- LibraryPanel: deeper glass, sliding tab indicator, hover-elevation with glow
+- PaywallCard: obsidian glass, gold shimmer lock badges
+- Auth/sheets/CustomTuningCreator: unified obsidian glass
+- Directional border highlights; mobile bottom-sheet obsidian surface
+- prefers-reduced-transparency fallback maintained
+
+### Story 8.5: Contrast & Accessibility Audit + Theme Harmonization
+As a user, I want every theme to remain accessible with the new aesthetic.
+**Acceptance Criteria:**
+- All 6 themes WCAG 2.1 AA verified (>=3:1 non-text, >=4.5:1 text) for every dot state — computed
+- Deuteranopia + protanopia separation verified per theme
+- Plus Jakarta Sans fallback chain verified
+- prefers-reduced-motion gates all new transitions; prefers-reduced-transparency fallback
+- Cross-browser backdrop-filter check
+- Full regression: vitest + tsc + lint + build green; live browser check desktop + 375px all themes

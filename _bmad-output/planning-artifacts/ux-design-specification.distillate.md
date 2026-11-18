@@ -217,3 +217,17 @@ parts: 1
 - audio: NEVER on select/browse/step; explicit Play IconButton per chord row (no selection change) + "Play current chord" in Progression; free → lock badge → PaywallCard; ControlBar Sound toggle removed; future audio surfaces must follow same rule
 - left-handed: free toggle beside theme control, localStorage (not URL); horizontal mirror via coordinate mapping (nut right), text upright, hit-targets/capo/inlays mirror, arrows follow visual direction, mobile initial scroll shows nut
 - density/visual-style changes still pending live UX session (retro #6)
+
+### Visual Refresh Direction — 2026-11-18 (Epic 8, Obsidian Audio Lab)
+- Scope: visual styling layer ONLY — deeper palette, Plus Jakarta Sans headings, tighter radii, fretboard material upgrade, glow-based elevation. NO feature changes, NO backend.
+- Source: Stitch "Fretwise / Obsidian Audio Lab" export — look-and-feel inspiration only. Features in mockups NOT adopted.
+- Aesthetic = **Obsidian Studio**: deep layered dark surfaces (#0B0D13→#12151F→#181C2A→#272A34), phosphor glow elevation, metallic fretboard materials, precision typography
+- Typography: add Plus Jakarta Sans for headings; Inter (body) and JetBrains Mono (numeric) roles unchanged
+- Surface depth: 4-tier obsidian surface system (floor→surface-1→surface-2→interactive overlay)
+- Fretboard materials: recessed ebony (inner shadow), nickel-silver fret wire (specular+shadow), pearl inlays, wound bronze/steel strings
+- Dot treatment: keep current colour semantics (violet=scale, rose=mode, gold=root, cyan=freeform); add gold phosphor halo on root, subtle glow on other states, larger root dot (28px vs 24px)
+- Radii: 4px controls, 8px panels, full-round pills — "rack gear" precision
+- Controls: segmented pill selectors, recessed slot containers, hardware-inspired buttons
+- Glass: deeper translucency, directional border highlights (brighter top-left, darker bottom-right)
+- Obsidian becomes the new default dark theme; premium themes + light get structural upgrades (type, radii, materials) with own palettes
+- Decision: dot colour semantics unchanged (owner confirmed 2026-11-18)
